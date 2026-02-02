@@ -27,7 +27,7 @@ export default function OnboardingPage() {
     async function checkUser() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         router.push("/auth/login");
         return;
@@ -51,7 +51,7 @@ export default function OnboardingPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!userId) return;
-    
+
     setError(null);
     setLoading(true);
 
@@ -77,9 +77,9 @@ export default function OnboardingPage() {
 
     // Add user as admin member
     const { error: memberError } = await supabase
-      .from("organization_members")
+      .from("org_members")
       .insert({
-        organization_id: org.id,
+        org_id: org.id,
         user_id: userId,
         role: "admin",
       });

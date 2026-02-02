@@ -72,7 +72,7 @@ export function PatientsList({ patients, organizationId }: PatientsListProps) {
 
     const supabase = createClient();
     const { error } = await supabase.from("patients").insert({
-      organization_id: organizationId,
+      dentist_org_id: organizationId,
       first_name: formData.firstName,
       last_name: formData.lastName,
       email: formData.email || null,

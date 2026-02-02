@@ -10,8 +10,8 @@ export default async function BillingPage() {
   if (!user) redirect("/auth/login");
 
   const { data: membership } = await supabase
-    .from("organization_members")
-    .select("organization:organizations(id, name, type)")
+    .from("org_members")
+    .select("organization:org_id(id, name, type)")
     .eq("user_id", user.id)
     .single();
 
@@ -35,14 +35,14 @@ export default async function BillingPage() {
   const { data: movements } = await supabase
     .from("ledger_movements")
     .select("*")
-    .eq("organization_id", org.id)
+    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
     .order("created_at", { ascending: false })
     .limit(20);
 
   // Calculate totals
-  const totalInvoiced = invoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
-  const totalPaid = invoices?.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
-  const totalPending = invoices?.filter((inv) => inv.status === "pending").reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+  const totalInvoiced = invoices?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
+  const totalPaid = invoices?.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
+  const totalPending = invoices?.filter((inv) => inv.status === "pending").reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
 
   return (
     <div className="flex flex-col">

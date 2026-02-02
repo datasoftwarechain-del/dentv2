@@ -97,7 +97,7 @@ export function AppointmentsList({
 
     const supabase = createClient();
     const { error } = await supabase.from("appointments").insert({
-      organization_id: organizationId,
+      dentist_org_id: organizationId,
       patient_id: formData.patientId,
       scheduled_at: formData.scheduledAt,
       duration_minutes: parseInt(formData.duration),
@@ -145,9 +145,8 @@ export function AppointmentsList({
           </div>
         </div>
         <span
-          className={`rounded-full px-2 py-1 text-xs font-medium ${
-            statusColors[appointment.status] || "bg-muted"
-          }`}
+          className={`rounded-full px-2 py-1 text-xs font-medium ${statusColors[appointment.status] || "bg-muted"
+            }`}
         >
           {statusLabels[appointment.status] || appointment.status}
         </span>

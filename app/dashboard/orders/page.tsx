@@ -10,8 +10,8 @@ export default async function OrdersPage() {
   if (!user) redirect("/auth/login");
 
   const { data: membership } = await supabase
-    .from("organization_members")
-    .select("organization:organizations(id, name, type)")
+    .from("org_members")
+    .select("organization:org_id(id, name, type)")
     .eq("user_id", user.id)
     .single();
 
@@ -40,7 +40,7 @@ export default async function OrdersPage() {
     const { data: patientsData } = await supabase
       .from("patients")
       .select("id, first_name, last_name")
-      .eq("organization_id", org.id)
+      .eq("dentist_org_id", org.id)
       .order("first_name");
     patients = patientsData || [];
 

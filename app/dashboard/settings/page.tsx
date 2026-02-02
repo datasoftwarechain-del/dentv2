@@ -10,8 +10,8 @@ export default async function SettingsPage() {
   if (!user) redirect("/auth/login");
 
   const { data: membership } = await supabase
-    .from("organization_members")
-    .select("organization:organizations(*), role")
+    .from("org_members")
+    .select("organization:org_id(*), role")
     .eq("user_id", user.id)
     .single();
 

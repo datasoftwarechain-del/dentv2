@@ -49,7 +49,7 @@ interface Organization {
 interface Invoice {
   id: string;
   invoice_number: string;
-  total_amount: number;
+  total: number;
   status: string;
   due_date: string | null;
   created_at: string;
@@ -118,7 +118,7 @@ export function BillingDashboard({
 
     const supabase = createClient();
     await supabase.from("ledger_movements").insert({
-      organization_id: organizationId,
+      [isDentist ? "dentist_org_id" : "lab_org_id"]: organizationId,
       type: isDentist ? "expense" : "income",
       amount: parseFloat(formData.amount),
       description: formData.description || null,
@@ -275,7 +275,7 @@ export function BillingDashboard({
                           : invoice.dentist_org?.name}
                       </TableCell>
                       <TableCell>
-                        ${Number(invoice.total_amount).toLocaleString()}
+                        ${Number(invoice.total).toLocaleString()}
                       </TableCell>
                       <TableCell>
                         {invoice.due_date
@@ -336,11 +336,10 @@ export function BillingDashboard({
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                        movement.type === "income"
+                      className={`flex h-9 w-9 items-center justify-center rounded-full ${movement.type === "income"
                           ? "bg-green-100"
                           : "bg-red-100"
-                      }`}
+                        }`}
                     >
                       {movement.type === "income" ? (
                         <TrendingUp className="h-4 w-4 text-green-600" />
@@ -358,9 +357,8 @@ export function BillingDashboard({
                     </div>
                   </div>
                   <span
-                    className={`font-semibold ${
-                      movement.type === "income" ? "text-green-600" : "text-red-600"
-                    }`}
+                    className={`font-semibold ${movement.type === "income" ? "text-green-600" : "text-red-600"
+                      }`}
                   >
                     {movement.type === "income" ? "+" : "-"}$
                     {Number(movement.amount).toLocaleString()}

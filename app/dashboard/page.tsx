@@ -11,8 +11,8 @@ export default async function DashboardPage() {
 
   // Get organization
   const { data: membership } = await supabase
-    .from("organization_members")
-    .select("organization:organizations(id, name, type)")
+    .from("org_members")
+    .select("organization:org_id(id, name, type)")
     .eq("user_id", user.id)
     .single();
 
@@ -39,7 +39,7 @@ export default async function DashboardPage() {
     const { count } = await supabase
       .from("patients")
       .select("*", { count: "exact", head: true })
-      .eq("organization_id", org.id);
+      .eq("dentist_org_id", org.id);
     patientsCount = count || 0;
   }
 
@@ -59,17 +59,17 @@ export default async function DashboardPage() {
 
   const stats = isDentist
     ? [
-        { label: "Total Pacientes", value: patientsCount, icon: Users },
-        { label: "Pedidos Totales", value: ordersCount || 0, icon: FileText },
-        { label: "Pedidos Pendientes", value: pendingOrders || 0, icon: Clock },
-        { label: "Este Mes", value: "$2,450", icon: DollarSign },
-      ]
+      { label: "Total Pacientes", value: patientsCount, icon: Users },
+      { label: "Pedidos Totales", value: ordersCount || 0, icon: FileText },
+      { label: "Pedidos Pendientes", value: pendingOrders || 0, icon: Clock },
+      { label: "Este Mes", value: "$2,450", icon: DollarSign },
+    ]
     : [
-        { label: "Pedidos Totales", value: ordersCount || 0, icon: FileText },
-        { label: "En Produccion", value: pendingOrders || 0, icon: Clock },
-        { label: "Clinicas Activas", value: 12, icon: Users },
-        { label: "Ingresos del Mes", value: "$8,750", icon: TrendingUp },
-      ];
+      { label: "Pedidos Totales", value: ordersCount || 0, icon: FileText },
+      { label: "En Produccion", value: pendingOrders || 0, icon: Clock },
+      { label: "Clinicas Activas", value: 12, icon: Users },
+      { label: "Ingresos del Mes", value: "$8,750", icon: TrendingUp },
+    ];
 
   const statusLabels: Record<string, string> = {
     pending: "Pendiente",
@@ -142,9 +142,8 @@ export default async function DashboardPage() {
                       </div>
                       <div className="text-right">
                         <span
-                          className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${
-                            statusColors[order.status] || "bg-muted"
-                          }`}
+                          className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${statusColors[order.status] || "bg-muted"
+                            }`}
                         >
                           {statusLabels[order.status] || order.status}
                         </span>
