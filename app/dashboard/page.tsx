@@ -16,7 +16,12 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .single();
 
-  const org = membership?.organization as { id: string; name: string; type: string } | null;
+  const orgData = membership?.organization as
+    | { id: string; name: string; type: string }
+    | { id: string; name: string; type: string }[]
+    | null
+    | undefined;
+  const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
   if (!org) return null;
 
   const isDentist = org.type === "dentist";
@@ -128,7 +133,12 @@ export default async function DashboardPage() {
             {recentOrders && recentOrders.length > 0 ? (
               <div className="space-y-4">
                 {recentOrders.map((order) => {
-                  const patient = order.patient as { first_name: string; last_name: string } | null;
+                  const patientData = order.patient as
+                    | { first_name: string; last_name: string }
+                    | { first_name: string; last_name: string }[]
+                    | null
+                    | undefined;
+                  const patient = Array.isArray(patientData) ? patientData[0] : patientData ?? null;
                   return (
                     <div
                       key={order.id}

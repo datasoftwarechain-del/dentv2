@@ -15,7 +15,12 @@ export default async function PatientsPage() {
     .eq("user_id", user.id)
     .single();
 
-  const org = membership?.organization as { id: string; name: string; type: string } | null;
+  const orgData = membership?.organization as
+    | { id: string; name: string; type: string }
+    | { id: string; name: string; type: string }[]
+    | null
+    | undefined;
+  const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
   if (!org || org.type !== "dentist") redirect("/dashboard");
 
   const { data: patients } = await supabase

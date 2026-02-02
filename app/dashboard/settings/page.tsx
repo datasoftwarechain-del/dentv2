@@ -15,13 +15,24 @@ export default async function SettingsPage() {
     .eq("user_id", user.id)
     .single();
 
-  const org = membership?.organization as {
-    id: string;
-    name: string;
-    type: string;
-    phone: string | null;
-    address: string | null;
-  } | null;
+  const orgData = membership?.organization as
+    | {
+        id: string;
+        name: string;
+        type: string;
+        phone: string | null;
+        address: string | null;
+      }
+    | {
+        id: string;
+        name: string;
+        type: string;
+        phone: string | null;
+        address: string | null;
+      }[]
+    | null
+    | undefined;
+  const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
 
   if (!org) redirect("/dashboard");
 

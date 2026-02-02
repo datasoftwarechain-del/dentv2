@@ -15,7 +15,12 @@ export default async function BillingPage() {
     .eq("user_id", user.id)
     .single();
 
-  const org = membership?.organization as { id: string; name: string; type: string } | null;
+  const orgData = membership?.organization as
+    | { id: string; name: string; type: string }
+    | { id: string; name: string; type: string }[]
+    | null
+    | undefined;
+  const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
   if (!org) redirect("/dashboard");
 
   const isDentist = org.type === "dentist";

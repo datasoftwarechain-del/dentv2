@@ -22,7 +22,12 @@ export default async function DashboardLayout({
     .single();
 
   // If no organization, redirect to onboarding
-  const org = membership?.organization as { id: string; name: string; type: string } | null;
+  const orgData = membership?.organization as
+    | { id: string; name: string; type: string }
+    | { id: string; name: string; type: string }[]
+    | null
+    | undefined;
+  const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
 
   if (!org) {
     redirect("/onboarding");

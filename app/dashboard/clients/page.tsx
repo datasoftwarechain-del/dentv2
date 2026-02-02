@@ -17,7 +17,12 @@ export default async function ClientsPage() {
     .eq("user_id", user.id)
     .single();
 
-  const org = membership?.organization as { id: string; name: string; type: string } | null;
+  const orgData = membership?.organization as
+    | { id: string; name: string; type: string }
+    | { id: string; name: string; type: string }[]
+    | null
+    | undefined;
+  const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
   if (!org || org.type !== "lab") redirect("/dashboard");
 
   // Get unique dentist organizations that have sent orders
@@ -39,7 +44,12 @@ export default async function ClientsPage() {
   }>();
 
   orders?.forEach((order) => {
-    const dentist = order.dentist_org as { id: string; name: string; phone: string | null; address: string | null } | null;
+    const dentistData = order.dentist_org as
+      | { id: string; name: string; phone: string | null; address: string | null }
+      | { id: string; name: string; phone: string | null; address: string | null }[]
+      | null
+      | undefined;
+    const dentist = Array.isArray(dentistData) ? dentistData[0] : dentistData ?? null;
     if (dentist) {
       const existing = clientsMap.get(dentist.id);
       if (existing) {
