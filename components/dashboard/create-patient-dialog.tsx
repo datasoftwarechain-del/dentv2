@@ -19,9 +19,10 @@ import { Plus, Loader2, User, Mail, Phone, Calendar } from "lucide-react";
 
 interface CreatePatientDialogProps {
     organizationId: string;
+    children?: React.ReactNode;
 }
 
-export function CreatePatientDialog({ organizationId }: CreatePatientDialogProps) {
+export function CreatePatientDialog({ organizationId, children }: CreatePatientDialogProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -74,10 +75,12 @@ export function CreatePatientDialog({ organizationId }: CreatePatientDialogProps
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nuevo Paciente
-                </Button>
+                {children || (
+                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nuevo Paciente
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
                 <DialogHeader>

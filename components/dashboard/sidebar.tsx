@@ -50,7 +50,7 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
     <>
       {/* Mobile toggle button (Trigger) */}
       <button
-        className="fixed left-4 top-4 z-50 rounded-lg border border-border bg-background p-2 transition-all hover:bg-muted lg:hidden"
+        className="fixed right-16 top-3.5 z-50 rounded-lg border border-border bg-background p-2 transition-all hover:bg-muted lg:hidden"
         onClick={() => setCollapsed(!collapsed)}
         aria-label="Toggle sidebar"
       >

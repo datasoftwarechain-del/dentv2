@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,7 @@ interface CreateOrderDialogProps {
     organizationId: string;
     patients: Patient[];
     labs: Organization[];
+    children?: React.ReactNode;
 }
 
 const workTypes = [
@@ -57,7 +58,7 @@ const workTypes = [
     { value: "otro", label: "Otro" },
 ];
 
-export function CreateOrderDialog({ organizationId, patients, labs }: CreateOrderDialogProps) {
+export function CreateOrderDialog({ organizationId, patients, labs, children }: CreateOrderDialogProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -70,6 +71,11 @@ export function CreateOrderDialog({ organizationId, patients, labs }: CreateOrde
         notes: "",
         dueDate: "",
     });
+
+    // Debug: Log labs when component mounts or labs change
+    React.useEffect(() => {
+        console.log("CreateOrderDialog - Labs received:", labs);
+    }, [labs]);
 
     async function handleCreateOrder(e: React.FormEvent) {
         e.preventDefault();
@@ -147,10 +153,12 @@ export function CreateOrderDialog({ organizationId, patients, labs }: CreateOrde
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nuevo Pedido
-                </Button>
+                {children || (
+                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nuevo Pedido
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[700px] border-border bg-background/95 backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
@@ -204,11 +212,17 @@ export function CreateOrderDialog({ organizationId, patients, labs }: CreateOrde
                                         <SelectValue placeholder="Seleccionar Lab" />
                                     </SelectTrigger>
                                     <SelectContent className="bg-background border-border text-foreground">
-                                        {labs.map((lab) => (
-                                            <SelectItem key={lab.id} value={lab.id} className="focus:bg-muted focus:text-foreground">
-                                                {lab.name}
-                                            </SelectItem>
-                                        ))}
+                                        {labs.length > 0 ? (
+                                            labs.map((lab) => (
+                                                <SelectItem key={lab.id} value={lab.id} className="focus:bg-muted focus:text-foreground">
+                                                    {lab.name}
+                                                </SelectItem>
+                                            ))
+                                        ) : (
+                                            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                                No hay laboratorios registrados
+                                            </div>
+                                        )}
                                     </SelectContent>
                                 </Select>
                             </div>

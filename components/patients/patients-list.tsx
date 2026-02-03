@@ -19,6 +19,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, User, Phone, Mail } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Patient {
   id: string;
@@ -37,6 +39,7 @@ interface PatientsListProps {
 
 export function PatientsList({ patients, organizationId }: PatientsListProps) {
   const [search, setSearch] = useState("");
+  const router = useRouter();
 
   const filteredPatients = patients.filter(
     (p) =>
@@ -74,7 +77,7 @@ export function PatientsList({ patients, organizationId }: PatientsListProps) {
         </div>
 
         {filteredPatients.length > 0 ? (
-          <div className="relative w-full overflow-auto">
+          <div className="relative w-full">
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow className="hover:bg-transparent">
@@ -89,6 +92,7 @@ export function PatientsList({ patients, organizationId }: PatientsListProps) {
                   <TableRow
                     key={patient.id}
                     className="hover:bg-muted/30 transition-colors cursor-pointer group"
+                    onClick={() => router.push(`/dashboard/patients/${patient.id}`)}
                   >
                     <TableCell>
                       <div className="flex items-center gap-3">

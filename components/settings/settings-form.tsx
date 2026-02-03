@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, User, Building2, Shield } from "lucide-react";
+import { Loader2, User, Building2, Shield, Search, Link2 } from "lucide-react";
 
 interface SettingsFormProps {
   user: {
@@ -56,6 +56,127 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
     newPassword: "",
     confirmPassword: "",
   });
+
+  const [labSearch, setLabSearch] = useState("");
+  const [labSearchLoading, setLabSearchLoading] = useState(false);
+  const [labSearchResults, setLabSearchResults] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [connectedLabs, setConnectedLabs] = useState<
+    { id: string; name: string; status: string }[]
+  >([]);
+  const [labsLoading, setLabsLoading] = useState(false);
+
+  useEffect(() => {
+    if (organization.type !== "dentist") return;
+    let isMounted = true;
+
+    async function loadConnectedLabs() {
+      setLabsLoading(true);
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_dentist_relations")
+        .select(
+          "status, lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)"
+        )
+        .eq("dentist_org_id", organization.id)
+        .order("created_at", { ascending: false });
+
+      if (!isMounted) return;
+
+      if (error) {
+        setError(error.message);
+      } else {
+        const labs = (data || [])
+          .map((rel) => {
+            if (!rel.lab_org) return null;
+            return {
+              id: rel.lab_org.id,
+              name: rel.lab_org.name,
+              status: rel.status || "active",
+            };
+          })
+          .filter(Boolean) as { id: string; name: string; status: string }[];
+        setConnectedLabs(labs);
+      }
+      setLabsLoading(false);
+    }
+
+    loadConnectedLabs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [organization.id, organization.type]);
+
+  async function handleLabSearch(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+    const query = labSearch.trim();
+    if (!query) {
+      setLabSearchResults([]);
+      return;
+    }
+
+    setLabSearchLoading(true);
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("search_labs", {
+      search_term: query,
+    });
+
+    if (error) {
+      setError(error.message);
+      setLabSearchResults([]);
+    } else {
+      setLabSearchResults((data || []) as { id: string; name: string }[]);
+    }
+    setLabSearchLoading(false);
+  }
+
+  async function handleConnectLab(labId: string) {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("lab_dentist_relations")
+      .insert({
+        lab_org_id: labId,
+        dentist_org_id: organization.id,
+        status: "active",
+      });
+
+    if (error) {
+      setError(error.message);
+    } else {
+      setSuccess("Laboratorio conectado correctamente");
+      setLabSearch("");
+      setLabSearchResults([]);
+      const { data } = await supabase
+        .from("lab_dentist_relations")
+        .select(
+          "status, lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)"
+        )
+        .eq("dentist_org_id", organization.id)
+        .order("created_at", { ascending: false });
+      const labs = (data || [])
+        .map((rel) => {
+          if (!rel.lab_org) return null;
+          return {
+            id: rel.lab_org.id,
+            name: rel.lab_org.name,
+            status: rel.status || "active",
+          };
+        })
+        .filter(Boolean) as { id: string; name: string; status: string }[];
+      setConnectedLabs(labs);
+      router.refresh();
+    }
+
+    setLoading(false);
+  }
 
   async function handleProfileUpdate(e: React.FormEvent) {
     e.preventDefault();
@@ -255,6 +376,98 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
                 Actualizar Organizacion
               </Button>
             </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lab Connections */}
+      {role === "admin" && organization.type === "dentist" && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Link2 className="h-5 w-5" />
+              <CardTitle>Laboratorios</CardTitle>
+            </div>
+            <CardDescription>
+              Busca y conecta laboratorios para enviar pedidos
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form onSubmit={handleLabSearch} className="flex items-center gap-2">
+              <Input
+                value={labSearch}
+                onChange={(e) => setLabSearch(e.target.value)}
+                placeholder="Buscar laboratorio por nombre"
+              />
+              <Button type="submit" disabled={labSearchLoading}>
+                {labSearchLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="mr-2 h-4 w-4" />
+                )}
+                Buscar
+              </Button>
+            </form>
+
+            {labSearchResults.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Resultados
+                </p>
+                <div className="space-y-2">
+                  {labSearchResults.map((lab) => {
+                    const alreadyConnected = connectedLabs.some(
+                      (connected) => connected.id === lab.id
+                    );
+                    return (
+                      <div
+                        key={lab.id}
+                        className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2"
+                      >
+                        <div className="text-sm font-medium">{lab.name}</div>
+                        <Button
+                          type="button"
+                          variant={alreadyConnected ? "outline" : "default"}
+                          disabled={alreadyConnected || loading}
+                          onClick={() => handleConnectLab(lab.id)}
+                        >
+                          {alreadyConnected ? "Conectado" : "Conectar"}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">
+                Laboratorios conectados
+              </p>
+              {labsLoading ? (
+                <div className="text-sm text-muted-foreground">Cargando...</div>
+              ) : connectedLabs.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  Aún no tienes laboratorios conectados
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {connectedLabs.map((lab) => (
+                    <div
+                      key={lab.id}
+                      className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2"
+                    >
+                      <div>
+                        <div className="text-sm font-medium">{lab.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Estado: {lab.status}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}

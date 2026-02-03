@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -70,10 +71,15 @@ const DialogContent = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, children, ...props }, ref) => {
   const { open, onOpenChange } = React.useContext(DialogContext)
+  const [mounted, setMounted] = React.useState(false)
 
-  if (!open) return null
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
-  return (
+  if (!open || !mounted) return null
+
+  return createPortal(
     <div className="fixed inset-0 z-50">
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
@@ -82,21 +88,24 @@ const DialogContent = React.forwardRef<
       <div
         ref={ref}
         className={cn(
-          "fixed inset-0 z-50 grid h-full w-full gap-4 border-0 bg-background p-6 shadow-lg duration-200 overflow-y-auto",
+          "fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
+          "max-h-[90vh] overflow-y-auto",
           className
         )}
+        onClick={(e) => e.stopPropagation()}
         {...props}
       >
         {children}
         <button
-          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none z-10"
           onClick={() => onOpenChange(false)}
         >
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 })
 DialogContent.displayName = "DialogContent"

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { QuickActions } from "@/components/dashboard/quick-actions";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -104,6 +105,28 @@ export default async function DashboardPage() {
   const statusLabels = ORDER_STATUS_LABELS;
   const statusColors = ORDER_STATUS_BADGE_CLASSES;
 
+  // Fetch patients and labs for dialogs
+  let patients: { id: string; first_name: string; last_name: string }[] = [];
+  let labs: { id: string; name: string }[] = [];
+
+  if (isDentist) {
+    const { data: patientsData } = await supabase
+      .from("patients")
+      .select("id, first_name, last_name")
+      .eq("dentist_org_id", org.id);
+    patients = patientsData || [];
+
+    const { data: labRelations } = await supabase
+      .from("lab_dentist_relations")
+      .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
+      .eq("dentist_org_id", org.id)
+      .eq("status", "active");
+    labs = (labRelations || [])
+      .map((rel) => rel.lab_org)
+      .filter(Boolean) as { id: string; name: string }[];
+    labs.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
   return (
     <div className="flex flex-col">
       <DashboardHeader
@@ -117,45 +140,7 @@ export default async function DashboardPage() {
 
       <div className="flex-1 space-y-8 p-8 max-w-7xl mx-auto w-full">
         {/* Quick Actions for Dentists */}
-        {isDentist && (
-          <section className="space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/80 ml-1">Acciones Rápidas</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Link href="/dashboard/patients">
-                <Button className="w-full h-auto py-6 flex-col gap-2 rounded-2xl bg-background shadow-sm border border-border/50 hover:shadow-md hover:border-primary/50 text-foreground group transition-all duration-300">
-                  <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <UserPlus className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <span className="font-semibold">Nuevo Paciente</span>
-                </Button>
-              </Link>
-              <Link href="/dashboard/orders">
-                <Button className="w-full h-auto py-6 flex-col gap-2 rounded-2xl bg-background shadow-sm border border-border/50 hover:shadow-md hover:border-primary/50 text-foreground group transition-all duration-300">
-                  <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <PlusCircle className="h-5 w-5 text-primary" />
-                  </div>
-                  <span className="font-semibold">Crear Pedido</span>
-                </Button>
-              </Link>
-              <Link href="/dashboard/appointments">
-                <Button className="w-full h-auto py-6 flex-col gap-2 rounded-2xl bg-background shadow-sm border border-border/50 hover:shadow-md hover:border-primary/50 text-foreground group transition-all duration-300">
-                  <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <Calendar className="h-5 w-5 text-amber-600" />
-                  </div>
-                  <span className="font-semibold">Agendar Cita</span>
-                </Button>
-              </Link>
-              <Link href="/dashboard/orders">
-                <Button className="w-full h-auto py-6 flex-col gap-2 rounded-2xl bg-background shadow-sm border border-border/50 hover:shadow-md hover:border-primary/50 text-foreground group transition-all duration-300">
-                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <ClipboardList className="h-5 w-5 text-emerald-600" />
-                  </div>
-                  <span className="font-semibold">Ver Pedidos</span>
-                </Button>
-              </Link>
-            </div>
-          </section>
-        )}
+        {isDentist && <QuickActions organizationId={org.id} patients={patients} labs={labs} />}
 
         {/* Stats Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -208,8 +193,9 @@ export default async function DashboardPage() {
                       | undefined;
                     const patient = Array.isArray(patientData) ? patientData[0] : patientData ?? null;
                     return (
-                      <div
+                      <Link
                         key={order.id}
+                        href={`/dashboard/orders/${order.id}`}
                         className="flex items-center justify-between rounded-2xl p-4 hover:bg-muted/30 transition-all duration-300 group ring-1 ring-transparent hover:ring-border/50"
                       >
                         <div className="flex items-center gap-4">
@@ -238,7 +224,7 @@ export default async function DashboardPage() {
                             {statusLabels[order.status] || order.status}
                           </span>
                         </div>
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>

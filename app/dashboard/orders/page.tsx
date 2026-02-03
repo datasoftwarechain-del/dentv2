@@ -50,12 +50,15 @@ export default async function OrdersPage() {
       .order("first_name");
     patients = patientsData || [];
 
-    const { data: labsData } = await supabase
-      .from("organizations")
-      .select("id, name")
-      .eq("type", "lab")
-      .order("name");
-    labs = labsData || [];
+    const { data: labRelations } = await supabase
+      .from("lab_dentist_relations")
+      .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
+      .eq("dentist_org_id", org.id)
+      .eq("status", "active");
+    labs = (labRelations || [])
+      .map((rel) => rel.lab_org)
+      .filter(Boolean) as { id: string; name: string }[];
+    labs.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   return (

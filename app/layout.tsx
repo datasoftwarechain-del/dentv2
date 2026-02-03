@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ReactLenis } from "lenis/react";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -16,7 +17,9 @@ export const viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="es" className={inter.variable}>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <ReactLenis root>{children}</ReactLenis>
+      </body>
     </html>
   );
 }

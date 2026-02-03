@@ -30,6 +30,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Search, FileText, Building2, User } from "lucide-react";
 import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
+import Link from "next/link";
 
 interface Patient {
   id: string;
@@ -164,7 +165,7 @@ export function OrdersList({
         </div>
 
         {filteredOrders.length > 0 ? (
-          <div className="relative w-full overflow-auto">
+          <div className="relative w-full">
             <Table>
               <TableHeader className="bg-muted/30">
                 <TableRow className="hover:bg-transparent">
@@ -182,10 +183,7 @@ export function OrdersList({
                   <TableRow
                     key={order.id}
                     className="hover:bg-muted/30 transition-colors cursor-pointer group"
-                    onClick={() => {
-                      // TODO: Navigate to details
-                      // router.push(/dashboard/orders/${order.id});
-                    }}
+                    onClick={() => router.push(`/dashboard/orders/${order.id}`)}
                   >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
@@ -211,11 +209,10 @@ export function OrdersList({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {/* Note: work_type usually 1 per order item in new schema, but basic table assumes 1-1 or main type. keeping logic for now */}
                       {workTypes.find((t) => t.value === order.items?.[0]?.work_type)?.label ||
                         order.items?.[0]?.work_type || <span className="text-muted-foreground italic">Ver detalle</span>}
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       {!isDentist ? (
                         <Select
                           value={order.status}

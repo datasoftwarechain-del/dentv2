@@ -33,9 +33,10 @@ interface Patient {
 interface CreateAppointmentDialogProps {
     organizationId: string;
     patients: Patient[];
+    children?: React.ReactNode;
 }
 
-export function CreateAppointmentDialog({ organizationId, patients }: CreateAppointmentDialogProps) {
+export function CreateAppointmentDialog({ organizationId, patients, children }: CreateAppointmentDialogProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -90,10 +91,12 @@ export function CreateAppointmentDialog({ organizationId, patients }: CreateAppo
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nueva Cita
-                </Button>
+                {children || (
+                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nueva Cita
+                    </Button>
+                )}
             </DialogTrigger>
             <DialogContent className="sm:max-w-[500px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
                 <DialogHeader>

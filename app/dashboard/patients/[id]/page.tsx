@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { PatientActions, AppointmentActions, OrderActions } from "@/components/patients/patient-actions";
 
 export default async function PatientDetailsPage({
     params,
@@ -63,6 +64,17 @@ export default async function PatientDetailsPage({
         .select("*, lab_org:organizations(name)")
         .eq("patient_id", id)
         .order("created_at", { ascending: false });
+
+    // Fetch labs for order creation (connected labs only)
+    const { data: labRelations } = await supabase
+      .from("lab_dentist_relations")
+      .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
+      .eq("dentist_org_id", org.id)
+      .eq("status", "active");
+    const labs = (labRelations || [])
+      .map((rel) => rel.lab_org)
+      .filter(Boolean) as { id: string; name: string }[];
+    labs.sort((a, b) => a.name.localeCompare(b.name));
 
     return (
         <div className="flex flex-col min-h-screen bg-background/50">
@@ -127,11 +139,7 @@ export default async function PatientDetailsPage({
                                 </div>
                             </div>
 
-                            <div className="pt-4">
-                                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-10 shadow-lg">
-                                    Editar Perfil
-                                </Button>
-                            </div>
+                            <PatientActions patient={patient} organizationId={org.id} labs={labs || []} />
                         </CardContent>
                     </Card>
 
@@ -144,9 +152,7 @@ export default async function PatientDetailsPage({
                                     <CardTitle className="text-lg font-bold">Citas Médicas</CardTitle>
                                     <CardDescription className="text-xs">Historial de consultas del paciente</CardDescription>
                                 </div>
-                                <Button size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
-                                    <Plus className="h-3 w-3" /> Nueva Cita
-                                </Button>
+                                <AppointmentActions patient={patient} organizationId={org.id} />
                             </CardHeader>
                             <CardContent>
                                 {appointments && appointments.length > 0 ? (
@@ -186,9 +192,7 @@ export default async function PatientDetailsPage({
                                     <CardTitle className="text-lg font-bold">Órdenes de Laboratorio</CardTitle>
                                     <CardDescription className="text-xs">Trabajos dentales enviados</CardDescription>
                                 </div>
-                                <Button size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
-                                    <Plus className="h-3 w-3" /> Nueva Orden
-                                </Button>
+                                <OrderActions patient={patient} organizationId={org.id} labs={labs || []} />
                             </CardHeader>
                             <CardContent>
                                 {orders && orders.length > 0 ? (

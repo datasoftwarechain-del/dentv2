@@ -131,7 +131,8 @@ export function KanbanBoard({ orders }: KanbanBoardProps) {
                   key={order.id}
                   draggable
                   onDragStart={() => handleDragStart(order.id)}
-                  className="cursor-grab bg-card transition-shadow hover:shadow-md active:cursor-grabbing"
+                  onClick={() => router.push(`/dashboard/orders/${order.id}`)}
+                  className="cursor-pointer bg-card transition-shadow hover:shadow-md active:cursor-grabbing"
                 >
                   <CardHeader className="p-4 pb-2">
                     <div className="flex items-start justify-between">
@@ -171,21 +172,20 @@ export function KanbanBoard({ orders }: KanbanBoardProps) {
                       )}
                       {order.due_date && (
                         <div
-                          className={`flex items-center gap-2 ${
-                            isOverdue
+                          className={`flex items-center gap-2 ${isOverdue
                               ? "text-destructive"
                               : isUrgent
-                              ? "text-yellow-600"
-                              : "text-muted-foreground"
-                          }`}
+                                ? "text-yellow-600"
+                                : "text-muted-foreground"
+                            }`}
                         >
                           <Clock className="h-3 w-3" />
                           <span>
                             {isOverdue
                               ? `Vencido hace ${Math.abs(daysUntilDue!)} dias`
                               : daysUntilDue === 0
-                              ? "Entrega hoy"
-                              : `${daysUntilDue} dias restantes`}
+                                ? "Entrega hoy"
+                                : `${daysUntilDue} dias restantes`}
                           </span>
                         </div>
                       )}
