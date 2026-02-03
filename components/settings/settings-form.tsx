@@ -87,16 +87,23 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
       if (error) {
         setError(error.message);
       } else {
-        const labs = (data || [])
-          .map((rel) => {
-            if (!rel.lab_org) return null;
-            return {
-              id: rel.lab_org.id,
-              name: rel.lab_org.name,
+        type LabOrg = { id: string; name: string };
+        type LabRelation = { lab_org: LabOrg | LabOrg[] | null; status?: string | null };
+        const relations = (data || []) as LabRelation[];
+        const labs = relations
+          .flatMap((rel) => {
+            const lab = rel.lab_org;
+            if (!lab) return [];
+            const labList = Array.isArray(lab) ? lab : [lab];
+            return labList.map((entry) => ({
+              id: entry.id,
+              name: entry.name,
               status: rel.status || "active",
-            };
+            }));
           })
-          .filter(Boolean) as { id: string; name: string; status: string }[];
+          .filter((lab): lab is { id: string; name: string; status: string } =>
+            Boolean(lab?.id && lab?.name)
+          );
         setConnectedLabs(labs);
       }
       setLabsLoading(false);
@@ -161,16 +168,23 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
         )
         .eq("dentist_org_id", organization.id)
         .order("created_at", { ascending: false });
-      const labs = (data || [])
-        .map((rel) => {
-          if (!rel.lab_org) return null;
-          return {
-            id: rel.lab_org.id,
-            name: rel.lab_org.name,
+      type LabOrg = { id: string; name: string };
+      type LabRelation = { lab_org: LabOrg | LabOrg[] | null; status?: string | null };
+      const relations = (data || []) as LabRelation[];
+      const labs = relations
+        .flatMap((rel) => {
+          const lab = rel.lab_org;
+          if (!lab) return [];
+          const labList = Array.isArray(lab) ? lab : [lab];
+          return labList.map((entry) => ({
+            id: entry.id,
+            name: entry.name,
             status: rel.status || "active",
-          };
+          }));
         })
-        .filter(Boolean) as { id: string; name: string; status: string }[];
+        .filter((lab): lab is { id: string; name: string; status: string } =>
+          Boolean(lab?.id && lab?.name)
+        );
       setConnectedLabs(labs);
       router.refresh();
     }

@@ -66,14 +66,21 @@ export default async function PatientDetailsPage({
         .order("created_at", { ascending: false });
 
     // Fetch labs for order creation (connected labs only)
-    const { data: labRelations } = await supabase
+    type LabOrg = { id: string; name: string };
+    type LabRelation = { lab_org: LabOrg | LabOrg[] | null };
+    const { data: labRelationsRaw } = await supabase
       .from("lab_dentist_relations")
       .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
       .eq("dentist_org_id", org.id)
       .eq("status", "active");
-    const labs = (labRelations || [])
-      .map((rel) => rel.lab_org)
-      .filter(Boolean) as { id: string; name: string }[];
+    const labRelations = (labRelationsRaw || []) as LabRelation[];
+    const labs = labRelations
+      .flatMap((rel) => {
+        const lab = rel.lab_org;
+        if (!lab) return [];
+        return Array.isArray(lab) ? lab : [lab];
+      })
+      .filter((lab): lab is LabOrg => Boolean(lab?.id && lab?.name));
     labs.sort((a, b) => a.name.localeCompare(b.name));
 
     return (
