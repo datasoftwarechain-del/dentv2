@@ -9,9 +9,9 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="glass sticky top-0 z-50 w-full border-b border-border/40">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="premium-transition flex items-center gap-2 hover:opacity-80">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <span className="text-sm font-bold text-primary-foreground">DL</span>
           </div>
@@ -19,13 +19,13 @@ export function Header() {
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">
-          <Link href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="#features" className="premium-transition text-sm text-muted-foreground hover:text-foreground">
             Funciones
           </Link>
-          <Link href="#how-it-works" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="#how-it-works" className="premium-transition text-sm text-muted-foreground hover:text-foreground">
             Como Funciona
           </Link>
-          <Link href="#pricing" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
+          <Link href="#pricing" className="premium-transition text-sm text-muted-foreground hover:text-foreground">
             Precios
           </Link>
         </nav>

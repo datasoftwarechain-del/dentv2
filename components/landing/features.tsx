@@ -49,9 +49,9 @@ export function Features() {
 
         <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
-            <Card key={feature.title} className="border-border/50 bg-card/50">
+            <Card key={feature.title} className="glass-card border-none bg-card/40">
               <CardHeader>
-                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+                <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20">
                   <feature.icon className="h-5 w-5 text-primary-foreground" />
                 </div>
                 <CardTitle className="text-lg">{feature.title}</CardTitle>

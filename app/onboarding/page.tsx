@@ -75,20 +75,8 @@ export default function OnboardingPage() {
       return;
     }
 
-    // Add user as admin member
-    const { error: memberError } = await supabase
-      .from("org_members")
-      .insert({
-        org_id: org.id,
-        user_id: userId,
-        role: "admin",
-      });
-
-    if (memberError) {
-      setError(memberError.message);
-      setLoading(false);
-      return;
-    }
+    // The trigger 'on_org_created' in database handles adding the user as owner
+    // scripts/002_fix_permissions.sql
 
     router.push("/dashboard");
     router.refresh();

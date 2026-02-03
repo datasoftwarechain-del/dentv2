@@ -59,13 +59,13 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-card transition-all duration-300",
+          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border/50 glass transition-all duration-300",
           collapsed ? "-translate-x-full lg:translate-x-0 lg:w-16" : "w-64",
           "lg:relative lg:translate-x-0"
         )}
       >
         {/* Header */}
-        <div className="flex h-16 items-center justify-between border-b border-border px-4">
+        <div className="flex h-16 items-center justify-between border-b border-border/50 px-4">
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">

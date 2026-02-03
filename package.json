@@ -11,10 +11,12 @@
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.3",
+    "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
     "next": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "tailwind-merge": "^2.6.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

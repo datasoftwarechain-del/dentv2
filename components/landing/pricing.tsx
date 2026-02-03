@@ -67,11 +67,10 @@ export function Pricing() {
           {plans.map((plan) => (
             <Card
               key={plan.name}
-              className={`relative ${
-                plan.highlighted
-                  ? "border-2 border-primary shadow-lg"
-                  : "border-border/50"
-              }`}
+              className={`glass-card relative border-none ${plan.highlighted
+                  ? "ring-2 ring-accent shadow-2xl shadow-accent/10 scale-105"
+                  : "bg-card/40"
+                }`}
             >
               {plan.highlighted && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">

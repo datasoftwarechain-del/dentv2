@@ -38,7 +38,7 @@ export function DashboardHeader({ title, user }: DashboardHeaderProps) {
     : user.email[0].toUpperCase();
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
+    <header className="glass sticky top-0 z-10 flex h-16 items-center justify-between px-6 border-b border-border/40">
       <h1 className="text-xl font-semibold">{title}</h1>
 
       <div className="flex items-center gap-4">
