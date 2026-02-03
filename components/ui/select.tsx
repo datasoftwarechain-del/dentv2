@@ -1,23 +1,24 @@
-import * as React from "react";
-import { cn } from "@/lib/utils";
+import * as React from "react"
+import { cn } from "@/lib/utils"
+import { ChevronDown, Check } from "lucide-react"
 
 type SelectContextValue = {
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  value: string | undefined;
-  setValue: (value: string) => void;
-  registerItem: (value: string, label: string) => void;
-  getLabel: (value: string) => string | undefined;
-};
+  open: boolean
+  setOpen: (open: boolean) => void
+  value: string | undefined
+  setValue: (value: string) => void
+  registerItem: (value: string, label: string) => void
+  getLabel: (value: string) => string | undefined
+}
 
-const SelectContext = React.createContext<SelectContextValue | null>(null);
+const SelectContext = React.createContext<SelectContextValue | null>(null)
 
 export interface SelectProps {
-  children: React.ReactNode;
-  value?: string;
-  defaultValue?: string;
-  required?: boolean;
-  onValueChange?: (value: string) => void;
+  children: React.ReactNode
+  value?: string
+  defaultValue?: string
+  required?: boolean
+  onValueChange?: (value: string) => void
 }
 
 const Select = ({
@@ -26,32 +27,32 @@ const Select = ({
   defaultValue,
   onValueChange,
 }: SelectProps) => {
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(false)
   const [internalValue, setInternalValue] = React.useState<string | undefined>(
     defaultValue
-  );
-  const containerRef = React.useRef<HTMLDivElement>(null);
-  const isControlled = value !== undefined;
-  const finalValue = isControlled ? value : internalValue;
-  const itemsRef = React.useRef(new Map<string, string>());
+  )
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  const isControlled = value !== undefined
+  const finalValue = isControlled ? value : internalValue
+  const itemsRef = React.useRef(new Map<string, string>())
 
   const registerItem = React.useCallback((itemValue: string, label: string) => {
-    itemsRef.current.set(itemValue, label);
-  }, []);
+    itemsRef.current.set(itemValue, label)
+  }, [])
 
   const getLabel = React.useCallback((itemValue: string) => {
-    return itemsRef.current.get(itemValue);
-  }, []);
+    return itemsRef.current.get(itemValue)
+  }, [])
 
   const setValue = React.useCallback(
     (nextValue: string) => {
       if (!isControlled) {
-        setInternalValue(nextValue);
+        setInternalValue(nextValue)
       }
-      onValueChange?.(nextValue);
+      onValueChange?.(nextValue)
     },
     [isControlled, onValueChange]
-  );
+  )
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -59,15 +60,15 @@ const Select = ({
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)
       ) {
-        setOpen(false);
+        setOpen(false)
       }
     }
 
     if (open) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside)
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [open])
 
   return (
     <SelectContext.Provider
@@ -84,129 +85,136 @@ const Select = ({
         {children}
       </div>
     </SelectContext.Provider>
-  );
-};
+  )
+}
 
 const SelectTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, ...props }, ref) => {
-  const context = React.useContext(SelectContext);
-  if (!context) return null;
+>(({ className, children, ...props }, ref) => {
+  const context = React.useContext(SelectContext)
+  if (!context) return null
   return (
     <button
       ref={ref}
       type="button"
       className={cn(
-        "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm",
+        "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       onClick={(event) => {
-        props.onClick?.(event);
-        context.setOpen(!context.open);
+        props.onClick?.(event)
+        context.setOpen(!context.open)
       }}
       {...props}
-    />
-  );
-});
-SelectTrigger.displayName = "SelectTrigger";
+    >
+      {children}
+      <ChevronDown className="h-4 w-4 opacity-50" />
+    </button>
+  )
+})
+SelectTrigger.displayName = "SelectTrigger"
 
 const SelectContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => {
-  const context = React.useContext(SelectContext);
-  if (!context || !context.open) return null;
+  const context = React.useContext(SelectContext)
+  if (!context || !context.open) return null
   return (
     <div
       ref={ref}
       className={cn(
-        "absolute left-0 top-full z-50 mt-2 w-full rounded-md border border-border bg-background shadow-lg",
+        "absolute left-0 top-full z-50 mt-2 min-w-[8rem] w-full overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
         className
       )}
       {...props}
     />
-  );
-});
-SelectContent.displayName = "SelectContent";
+  )
+})
+SelectContent.displayName = "SelectContent"
 
 export interface SelectItemProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  value: string;
+  value: string
 }
 
 const SelectItem = React.forwardRef<HTMLButtonElement, SelectItemProps>(
   ({ className, value, children, ...props }, ref) => {
-    const context = React.useContext(SelectContext);
+    const context = React.useContext(SelectContext)
     const label =
-      typeof children === "string" ? children : props["aria-label"] || value;
+      typeof children === "string" ? children : props["aria-label"] || value
+    const isSelected = context?.value === value
 
     React.useEffect(() => {
       if (context && typeof label === "string") {
-        context.registerItem(value, label);
+        context.registerItem(value, label)
       }
-    }, [context, value, label]);
+    }, [context, value, label])
 
-    if (!context) return null;
+    if (!context) return null
 
     return (
       <button
         ref={ref}
         type="button"
         className={cn(
-          "w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-muted",
+          "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-accent hover:text-accent-foreground",
           className
         )}
         onClick={(event) => {
-          props.onClick?.(event);
-          context.setValue(value);
-          context.setOpen(false);
+          props.onClick?.(event)
+          context.setValue(value)
+          context.setOpen(false)
         }}
         {...props}
       >
-        {children}
+        <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+          {isSelected && <Check className="h-4 w-4" />}
+        </span>
+        <span className="truncate">{children}</span>
       </button>
-    );
+    )
   }
-);
-SelectItem.displayName = "SelectItem";
+)
+SelectItem.displayName = "SelectItem"
 
 export interface SelectValueProps
   extends React.HTMLAttributes<HTMLSpanElement> {
-  placeholder?: string;
+  placeholder?: string
 }
 
 const SelectValue = React.forwardRef<HTMLSpanElement, SelectValueProps>(
   ({ className, placeholder, ...props }, ref) => {
-    const context = React.useContext(SelectContext);
+    const context = React.useContext(SelectContext)
     const label =
       context?.value && context.getLabel(context.value)
         ? context.getLabel(context.value as string)
-        : context?.value;
+        : context?.value
     return (
-      <span ref={ref} className={className} {...props}>
-        {label || placeholder || "Seleccionar"}
+      <span ref={ref} className={cn("pointer-events-none", className)} {...props}>
+        {label || placeholder || "Select..."}
       </span>
-    );
+    )
   }
-);
-SelectValue.displayName = "SelectValue";
+)
+SelectValue.displayName = "SelectValue"
 
 const SelectGroup = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
   <div ref={ref} className={className} {...props} />
-));
-SelectGroup.displayName = "SelectGroup";
+))
+SelectGroup.displayName = "SelectGroup"
 
 const SelectLabel = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={className} {...props} />
-));
-SelectLabel.displayName = "SelectLabel";
+  <div ref={ref} className={cn("px-2 py-1.5 text-sm font-semibold", className)} {...props} />
+))
+SelectLabel.displayName = "SelectLabel"
 
 export {
   Select,
@@ -216,4 +224,4 @@ export {
   SelectValue,
   SelectGroup,
   SelectLabel,
-};
+}
