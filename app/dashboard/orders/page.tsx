@@ -30,6 +30,7 @@ export default async function OrdersPage() {
     .from("lab_orders")
     .select(`
       *,
+      items:lab_order_items(work_type),
       patient:patients(id, first_name, last_name),
       dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
       lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)

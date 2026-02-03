@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, User, Building2 } from "lucide-react";
+import { ORDER_STATUS_KANBAN_COLUMNS } from "@/lib/order-status";
 
 interface Patient {
   id: string;
@@ -22,9 +23,11 @@ interface Order {
   id: string;
   order_number: string;
   status: string;
-  work_type: string;
-  tooth_numbers: string | null;
-  shade: string | null;
+  items?: {
+    work_type: string | null;
+    tooth_positions: string[] | null;
+    shade: string | null;
+  }[];
   notes: string | null;
   due_date: string | null;
   created_at: string;
@@ -36,21 +39,22 @@ interface KanbanBoardProps {
   orders: Order[];
 }
 
-const columns = [
-  { id: "pending", title: "Pendiente", color: "bg-yellow-500" },
-  { id: "in_progress", title: "En Progreso", color: "bg-blue-500" },
-  { id: "completed", title: "Completado", color: "bg-green-500" },
-  { id: "delivered", title: "Entregado", color: "bg-accent" },
-];
+const columns = ORDER_STATUS_KANBAN_COLUMNS;
 
 const workTypeLabels: Record<string, string> = {
-  crown: "Corona",
-  bridge: "Puente",
-  implant: "Implante",
-  denture: "Protesis",
-  veneer: "Carilla",
-  inlay: "Inlay/Onlay",
-  other: "Otro",
+  corona_metal_ceramica: "Corona Metal-Ceramica",
+  corona_zirconia: "Corona Zirconia",
+  corona_emax: "Corona Emax",
+  puente_fijo: "Puente Fijo",
+  protesis_removible: "Protesis Removible",
+  protesis_total: "Protesis Total",
+  implante_corona: "Corona sobre Implante",
+  carilla: "Carilla",
+  incrustacion: "Incrustacion",
+  ferula: "Ferula",
+  retenedor: "Retenedor",
+  reparacion: "Reparacion",
+  otro: "Otro",
 };
 
 export function KanbanBoard({ orders }: KanbanBoardProps) {
@@ -117,6 +121,10 @@ export function KanbanBoard({ orders }: KanbanBoardProps) {
               const daysUntilDue = getDaysUntilDue(order.due_date);
               const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
               const isUrgent = daysUntilDue !== null && daysUntilDue <= 2 && daysUntilDue >= 0;
+              const firstItem = order.items?.[0];
+              const workType = firstItem?.work_type || "";
+              const toothPositions = firstItem?.tooth_positions || null;
+              const shade = firstItem?.shade || null;
 
               return (
                 <Card
@@ -131,7 +139,7 @@ export function KanbanBoard({ orders }: KanbanBoardProps) {
                         {order.order_number}
                       </CardTitle>
                       <Badge variant="outline" className="text-xs">
-                        {workTypeLabels[order.work_type] || order.work_type}
+                        {workTypeLabels[workType] || workType || "Sin trabajo"}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -151,14 +159,14 @@ export function KanbanBoard({ orders }: KanbanBoardProps) {
                           <span>{order.dentist_org.name}</span>
                         </div>
                       )}
-                      {order.tooth_numbers && (
+                      {toothPositions && toothPositions.length > 0 && (
                         <div className="text-muted-foreground">
-                          Piezas: {order.tooth_numbers}
+                          Piezas: {toothPositions.join(", ")}
                         </div>
                       )}
-                      {order.shade && (
+                      {shade && (
                         <div className="text-muted-foreground">
-                          Color: {order.shade}
+                          Color: {shade}
                         </div>
                       )}
                       {order.due_date && (

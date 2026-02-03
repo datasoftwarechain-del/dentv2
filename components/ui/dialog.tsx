@@ -1,82 +1,167 @@
-import * as React from "react";
+"use client"
 
-export interface DialogProps {
-  children: React.ReactNode;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+import * as React from "react"
+import { X } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+const DialogContext = React.createContext<{
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}>({
+  open: false,
+  onOpenChange: () => { },
+})
+
+const Dialog = ({
+  children,
+  open,
+  onOpenChange,
+}: {
+  children: React.ReactNode
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}) => {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false)
+  const isControlled = open !== undefined
+  const finalOpen = isControlled ? open : uncontrolledOpen
+  const finalOnOpenChange = isControlled
+    ? onOpenChange
+    : setUncontrolledOpen
+
+  return (
+    <DialogContext.Provider
+      value={{ open: !!finalOpen, onOpenChange: finalOnOpenChange || (() => { }) }}
+    >
+      {children}
+    </DialogContext.Provider>
+  )
 }
 
-const Dialog = ({ children }: DialogProps) => <div>{children}</div>;
+const DialogTrigger = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }
+>(({ className, onClick, asChild, ...props }, ref) => {
+  const { onOpenChange } = React.useContext(DialogContext)
 
-export interface DialogTriggerProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  asChild?: boolean;
-  children?: React.ReactNode;
-}
-
-const DialogTrigger = React.forwardRef<HTMLButtonElement, DialogTriggerProps>(
-  ({ className, asChild, children, ...props }, ref) => {
-    if (asChild && React.isValidElement(children)) {
-      return React.cloneElement(children, {
-        ...props,
-        className: [children.props.className, className].filter(Boolean).join(" "),
-      });
-    }
-    return (
-      <button ref={ref} className={className} {...props}>
-        {children}
-      </button>
-    );
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    onClick?.(e)
+    onOpenChange(true)
   }
-);
-DialogTrigger.displayName = "DialogTrigger";
+
+  if (asChild && React.isValidElement(props.children)) {
+    return React.cloneElement(props.children as React.ReactElement, {
+      onClick: handleClick,
+    })
+  }
+
+  return (
+    <button
+      ref={ref}
+      className={cn("inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background", className)}
+      onClick={handleClick}
+      {...props}
+    />
+  )
+})
+DialogTrigger.displayName = "DialogTrigger"
 
 const DialogContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className={className} {...props} />
-));
-DialogContent.displayName = "DialogContent";
+>(({ className, children, ...props }, ref) => {
+  const { open, onOpenChange } = React.useContext(DialogContext)
 
-const DialogHeader = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className={className} {...props} />
-));
-DialogHeader.displayName = "DialogHeader";
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+        onClick={() => onOpenChange(false)}
+      />
+      <div
+        ref={ref}
+        className={cn(
+          "fixed inset-0 z-50 grid h-full w-full gap-4 border-0 bg-background p-6 shadow-lg duration-200 overflow-y-auto",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <button
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+          onClick={() => onOpenChange(false)}
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </button>
+      </div>
+    </div>
+  )
+})
+DialogContent.displayName = "DialogContent"
+
+const DialogHeader = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      "flex flex-col space-y-1.5 text-center sm:text-left",
+      className
+    )}
+    {...props}
+  />
+)
+DialogHeader.displayName = "DialogHeader"
+
+const DialogFooter = ({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div
+    className={cn(
+      "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2",
+      className
+    )}
+    {...props}
+  />
+)
+DialogFooter.displayName = "DialogFooter"
 
 const DialogTitle = React.forwardRef<
-  HTMLHeadingElement,
+  HTMLParagraphElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
-  <h2 ref={ref} className={className} {...props} />
-));
-DialogTitle.displayName = "DialogTitle";
+  <h2
+    ref={ref}
+    className={cn(
+      "text-lg font-semibold leading-none tracking-tight",
+      className
+    )}
+    {...props}
+  />
+))
+DialogTitle.displayName = "DialogTitle"
 
 const DialogDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p ref={ref} className={className} {...props} />
-));
-DialogDescription.displayName = "DialogDescription";
-
-const DialogFooter = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className={className} {...props} />
-));
-DialogFooter.displayName = "DialogFooter";
+  <p
+    ref={ref}
+    className={cn("text-sm text-muted-foreground", className)}
+    {...props}
+  />
+))
+DialogDescription.displayName = "DialogDescription"
 
 export {
   Dialog,
   DialogTrigger,
   DialogContent,
   DialogHeader,
+  DialogFooter,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
-};
+}

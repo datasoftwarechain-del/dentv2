@@ -295,6 +295,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Auto-assign creator as org owner
+CREATE OR REPLACE FUNCTION public.handle_new_organization()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.org_members (org_id, user_id, role)
+  VALUES (NEW.id, auth.uid(), 'owner');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_org_created
+  AFTER INSERT ON organizations
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_organization();
+
 -- Generate order number
 CREATE OR REPLACE FUNCTION generate_order_number()
 RETURNS TRIGGER AS $$
@@ -375,6 +389,9 @@ ALTER TABLE ledger_movements ENABLE ROW LEVEL SECURITY;
 -- Organizations: Users can see orgs they belong to
 CREATE POLICY "org_select" ON organizations FOR SELECT
   USING (user_belongs_to_org(auth.uid(), id));
+
+CREATE POLICY "org_insert" ON organizations FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
 
 CREATE POLICY "org_update" ON organizations FOR UPDATE
   USING (EXISTS (

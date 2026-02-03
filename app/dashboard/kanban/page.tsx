@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
+import { ORDER_STATUS_KANBAN_COLUMNS } from "@/lib/order-status";
 
 export default async function KanbanPage() {
   const supabase = await createClient();
@@ -27,11 +28,15 @@ export default async function KanbanPage() {
     .from("lab_orders")
     .select(`
       *,
+      items:lab_order_items(work_type, tooth_positions, shade),
       patient:patients(id, first_name, last_name),
       dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name)
     `)
     .eq("lab_org_id", org.id)
-    .in("status", ["pending", "in_progress", "completed", "delivered"])
+    .in(
+      "status",
+      ORDER_STATUS_KANBAN_COLUMNS.map((column) => column.id) as unknown as string[]
+    )
     .order("created_at", { ascending: false });
 
   return (

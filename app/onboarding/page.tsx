@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 
 export default function OnboardingPage() {
@@ -58,16 +57,14 @@ export default function OnboardingPage() {
     const supabase = createClient();
 
     // Create organization
-    const { data: org, error: orgError } = await supabase
+    const { error: orgError } = await supabase
       .from("organizations")
       .insert({
         name: formData.orgName,
         type: formData.orgType,
         phone: formData.phone || null,
         address: formData.address || null,
-      })
-      .select()
-      .single();
+      });
 
     if (orgError) {
       setError(orgError.message);
@@ -117,21 +114,21 @@ export default function OnboardingPage() {
 
             <div className="space-y-2">
               <Label htmlFor="orgType">Tipo de organizacion</Label>
-              <Select
+              <select
+                id="orgType"
+                className="flex h-10 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 focus:bg-background"
                 value={formData.orgType}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, orgType: value })
+                onChange={(e) =>
+                  setFormData({ ...formData, orgType: e.target.value })
                 }
                 required
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona el tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dentist">Clinica Dental</SelectItem>
-                  <SelectItem value="lab">Laboratorio Dental</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="" disabled>
+                  Selecciona el tipo
+                </option>
+                <option value="dentist">Clinica Dental</option>
+                <option value="lab">Laboratorio Dental</option>
+              </select>
             </div>
 
             <div className="space-y-2">

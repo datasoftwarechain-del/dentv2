@@ -3,10 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
+import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -14,14 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -38,7 +28,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FileText, Loader2 } from "lucide-react";
+import { Search, FileText, Building2, User } from "lucide-react";
+import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
 
 interface Patient {
   id: string;
@@ -55,12 +46,7 @@ interface Order {
   id: string;
   order_number: string;
   status: string;
-  work_type: string;
-  tooth_numbers: string | null;
-  shade: string | null;
-  notes: string | null;
-  due_date: string | null;
-  total_price: number;
+  items?: { work_type: string | null }[];
   created_at: string;
   patient: Patient | null;
   dentist_org: Organization | null;
@@ -75,30 +61,23 @@ interface OrdersListProps {
   labs?: Organization[];
 }
 
-const statusLabels: Record<string, string> = {
-  pending: "Pendiente",
-  in_progress: "En Progreso",
-  completed: "Completado",
-  delivered: "Entregado",
-  cancelled: "Cancelado",
-};
-
-const statusColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100",
-  in_progress: "bg-blue-100 text-blue-800 hover:bg-blue-100",
-  completed: "bg-green-100 text-green-800 hover:bg-green-100",
-  delivered: "bg-accent/10 text-accent hover:bg-accent/10",
-  cancelled: "bg-red-100 text-red-800 hover:bg-red-100",
-};
+const statusLabels = ORDER_STATUS_LABELS;
+const statusColors = ORDER_STATUS_BADGE_CLASSES;
 
 const workTypes = [
-  { value: "crown", label: "Corona" },
-  { value: "bridge", label: "Puente" },
-  { value: "implant", label: "Implante" },
-  { value: "denture", label: "Protesis" },
-  { value: "veneer", label: "Carilla" },
-  { value: "inlay", label: "Inlay/Onlay" },
-  { value: "other", label: "Otro" },
+  { value: "corona_metal_ceramica", label: "Corona Metal-Cerámica" },
+  { value: "corona_zirconia", label: "Corona Zirconia" },
+  { value: "corona_emax", label: "Corona Emax" },
+  { value: "puente_fijo", label: "Puente Fijo" },
+  { value: "protesis_removible", label: "Prótesis Removible" },
+  { value: "protesis_total", label: "Prótesis Total" },
+  { value: "implante_corona", label: "Corona sobre Implante" },
+  { value: "carilla", label: "Carilla" },
+  { value: "incrustacion", label: "Incrustación" },
+  { value: "ferula", label: "Férula" },
+  { value: "retenedor", label: "Retenedor" },
+  { value: "reparacion", label: "Reparación" },
+  { value: "otro", label: "Otro" },
 ];
 
 export function OrdersList({
@@ -111,66 +90,17 @@ export function OrdersList({
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    patientId: "",
-    labId: "",
-    workType: "",
-    toothNumbers: "",
-    shade: "",
-    notes: "",
-    dueDate: "",
-  });
 
   const filteredOrders = orders.filter((order) => {
+    const patientFirst = order.patient?.first_name?.toLowerCase() ?? "";
+    const patientLast = order.patient?.last_name?.toLowerCase() ?? "";
     const matchesSearch =
       order.order_number.toLowerCase().includes(search.toLowerCase()) ||
-      order.patient?.first_name.toLowerCase().includes(search.toLowerCase()) ||
-      order.patient?.last_name.toLowerCase().includes(search.toLowerCase());
+      patientFirst.includes(search.toLowerCase()) ||
+      patientLast.includes(search.toLowerCase());
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-
-  async function handleCreateOrder(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-
-    const supabase = createClient();
-    
-    // Generate order number
-    const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}`;
-
-    const { error } = await supabase.from("lab_orders").insert({
-      order_number: orderNumber,
-      dentist_org_id: organizationId,
-      lab_org_id: formData.labId || null,
-      patient_id: formData.patientId,
-      work_type: formData.workType,
-      tooth_numbers: formData.toothNumbers || null,
-      shade: formData.shade || null,
-      notes: formData.notes || null,
-      due_date: formData.dueDate || null,
-      status: "pending",
-      total_price: 0,
-    });
-
-    if (!error) {
-      setDialogOpen(false);
-      setFormData({
-        patientId: "",
-        labId: "",
-        workType: "",
-        toothNumbers: "",
-        shade: "",
-        notes: "",
-        dueDate: "",
-      });
-      router.refresh();
-    }
-
-    setLoading(false);
-  }
 
   async function handleStatusChange(orderId: string, newStatus: string) {
     const supabase = createClient();
@@ -182,225 +112,108 @@ export function OrdersList({
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-0 shadow-lg bg-white/50 dark:bg-black/20 backdrop-blur-sm">
+      <CardHeader className="border-b border-border/50">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Lista de Pedidos</CardTitle>
+            <CardTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/60">
+              Lista de Pedidos
+            </CardTitle>
             <CardDescription>
               {isDentist
-                ? "Pedidos enviados a laboratorios"
-                : "Pedidos recibidos de clinicas"}
+                ? "Gestión de pedidos enviados a laboratorios"
+                : "Gestión de pedidos recibidos de clínicas"}
             </CardDescription>
           </div>
           {isDentist && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nuevo Pedido
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Crear Pedido</DialogTitle>
-                  <DialogDescription>
-                    Envia un nuevo pedido al laboratorio
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleCreateOrder} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="patientId">Paciente</Label>
-                    <Select
-                      value={formData.patientId}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, patientId: value })
-                      }
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un paciente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {patients.map((patient) => (
-                          <SelectItem key={patient.id} value={patient.id}>
-                            {patient.first_name} {patient.last_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="labId">Laboratorio</Label>
-                    <Select
-                      value={formData.labId}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, labId: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un laboratorio" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {labs.map((lab) => (
-                          <SelectItem key={lab.id} value={lab.id}>
-                            {lab.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="workType">Tipo de Trabajo</Label>
-                    <Select
-                      value={formData.workType}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, workType: value })
-                      }
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona el tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {workTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>
-                            {type.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="toothNumbers">Piezas Dentales</Label>
-                      <Input
-                        id="toothNumbers"
-                        placeholder="Ej: 11, 12, 21"
-                        value={formData.toothNumbers}
-                        onChange={(e) =>
-                          setFormData({ ...formData, toothNumbers: e.target.value })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="shade">Color/Tono</Label>
-                      <Input
-                        id="shade"
-                        placeholder="Ej: A2, B1"
-                        value={formData.shade}
-                        onChange={(e) =>
-                          setFormData({ ...formData, shade: e.target.value })
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="dueDate">Fecha de Entrega</Label>
-                    <Input
-                      id="dueDate"
-                      type="date"
-                      value={formData.dueDate}
-                      onChange={(e) =>
-                        setFormData({ ...formData, dueDate: e.target.value })
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Notas</Label>
-                    <Textarea
-                      id="notes"
-                      value={formData.notes}
-                      onChange={(e) =>
-                        setFormData({ ...formData, notes: e.target.value })
-                      }
-                      placeholder="Instrucciones adicionales..."
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setDialogOpen(false)}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={loading}>
-                      {loading && (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
-                      Crear Pedido
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <CreateOrderDialog
+              organizationId={organizationId}
+              patients={patients}
+              labs={labs}
+            />
           )}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="mb-4 flex flex-col gap-4 sm:flex-row">
+      <CardContent className="p-0">
+        <div className="p-4 border-b border-border/50 flex flex-col gap-4 sm:flex-row">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Buscar pedidos..."
+              placeholder="Buscar por # Orden, Paciente..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
+              className="pl-10 bg-background/50 focus:bg-background transition-all"
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-40">
-              <SelectValue placeholder="Estado" />
+            <SelectTrigger className="w-full sm:w-48 bg-background/50 focus:bg-background transition-all">
+              <SelectValue placeholder="Filtrar por Estado" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
-              <SelectItem value="pending">Pendiente</SelectItem>
-              <SelectItem value="in_progress">En Progreso</SelectItem>
-              <SelectItem value="completed">Completado</SelectItem>
+              <SelectItem value="draft">Borrador</SelectItem>
+              <SelectItem value="received">Recibido</SelectItem>
+              <SelectItem value="missing_info">Falta Info</SelectItem>
+              <SelectItem value="in_production">En Producción</SelectItem>
+              <SelectItem value="quality_check">Control Calidad</SelectItem>
+              <SelectItem value="ready">Listo</SelectItem>
               <SelectItem value="delivered">Entregado</SelectItem>
+              <SelectItem value="cancelled">Cancelado</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {filteredOrders.length > 0 ? (
-          <div className="rounded-md border">
+          <div className="relative w-full overflow-auto">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Pedido</TableHead>
-                  <TableHead>Paciente</TableHead>
-                  <TableHead>{isDentist ? "Laboratorio" : "Clinica"}</TableHead>
-                  <TableHead>Trabajo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Fecha</TableHead>
+              <TableHeader className="bg-muted/30">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="font-semibold text-primary">Pedido</TableHead>
+                  <TableHead className="font-semibold text-primary">Paciente</TableHead>
+                  <TableHead className="font-semibold text-primary">{isDentist ? "Laboratorio" : "Clínica"}</TableHead>
+                  {/* Keep work type column if data available, else might need adjustment */}
+                  <TableHead className="font-semibold text-primary">Trabajo</TableHead>
+                  <TableHead className="font-semibold text-primary">Estado</TableHead>
+                  <TableHead className="font-semibold text-primary">Fecha</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredOrders.map((order) => (
-                  <TableRow key={order.id}>
+                  <TableRow
+                    key={order.id}
+                    className="hover:bg-muted/30 transition-colors cursor-pointer group"
+                    onClick={() => {
+                      // TODO: Navigate to details
+                      // router.push(/dashboard/orders/${order.id});
+                    }}
+                  >
                     <TableCell className="font-medium">
-                      {order.order_number}
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{order.order_number}</span>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      {order.patient
-                        ? `${order.patient.first_name} ${order.patient.last_name}`
-                        : "-"}
+                      {order.patient ? (
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span>{order.patient.first_name} {order.patient.last_name}</span>
+                        </div>
+                      ) : <span className="text-muted-foreground">-</span>}
                     </TableCell>
                     <TableCell>
-                      {isDentist
-                        ? order.lab_org?.name || "Sin asignar"
-                        : order.dentist_org?.name || "-"}
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span>
+                          {isDentist
+                            ? order.lab_org?.name || "Sin asignar"
+                            : order.dentist_org?.name || "-"}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>
-                      {workTypes.find((t) => t.value === order.work_type)?.label ||
-                        order.work_type}
+                      {/* Note: work_type usually 1 per order item in new schema, but basic table assumes 1-1 or main type. keeping logic for now */}
+                      {workTypes.find((t) => t.value === order.items?.[0]?.work_type)?.label ||
+                        order.items?.[0]?.work_type || <span className="text-muted-foreground italic">Ver detalle</span>}
                     </TableCell>
                     <TableCell>
                       {!isDentist ? (
@@ -410,27 +223,33 @@ export function OrdersList({
                             handleStatusChange(order.id, value)
                           }
                         >
-                          <SelectTrigger className="h-8 w-32">
+                          <SelectTrigger className={`h-8 w-36 border-0 ${statusColors[order.status] || "bg-muted"}`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="pending">Pendiente</SelectItem>
-                            <SelectItem value="in_progress">En Progreso</SelectItem>
-                            <SelectItem value="completed">Completado</SelectItem>
+                            <SelectItem value="missing_info">Falta Info</SelectItem>
+                            <SelectItem value="received">Recibido</SelectItem>
+                            <SelectItem value="in_production">En Producción</SelectItem>
+                            <SelectItem value="quality_check">Control Calidad</SelectItem>
+                            <SelectItem value="ready">Listo</SelectItem>
                             <SelectItem value="delivered">Entregado</SelectItem>
+                            <SelectItem value="cancelled">Cancelado</SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (
                         <Badge
                           variant="secondary"
-                          className={statusColors[order.status] || ""}
+                          className={`font-medium border ${statusColors[order.status] || "bg-muted"}`}
                         >
                           {statusLabels[order.status] || order.status}
                         </Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(order.created_at).toLocaleDateString("es-ES")}
+                      {new Date(order.created_at).toLocaleDateString("es-ES", {
+                        month: 'short',
+                        day: 'numeric'
+                      })}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -438,13 +257,15 @@ export function OrdersList({
             </Table>
           </div>
         ) : (
-          <div className="py-12 text-center">
-            <FileText className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mt-4 text-lg font-medium">No hay pedidos</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <div className="py-16 text-center bg-muted/5">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted shadow-sm mb-4">
+              <FileText className="h-8 w-8 text-muted-foreground/50" />
+            </div>
+            <h3 className="text-lg font-medium text-foreground">No hay pedidos</h3>
+            <p className="mt-2 text-sm text-muted-foreground max-w-xs mx-auto">
               {isDentist
-                ? "Crea tu primer pedido para el laboratorio"
-                : "Aun no has recibido pedidos"}
+                ? "Crea tu primer pedido para el laboratorio y comienza a gestionar tus trabajos."
+                : "Aún no has recibido pedidos de clínicas."}
             </p>
           </div>
         )}
