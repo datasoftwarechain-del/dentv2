@@ -5,6 +5,7 @@ import { Header } from "@/components/landing/header";
 import { Hero } from "@/components/landing/hero";
 import { Stats } from "@/components/landing/stats";
 import { Features } from "@/components/landing/features";
+import { CurvedTextSection } from "@/components/landing/curved-text-section";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { Pricing } from "@/components/landing/pricing";
 import { Footer } from "@/components/landing/footer";
@@ -23,6 +24,9 @@ export default function HomePage() {
         </ScrollSection>
         <ScrollSection>
           <Features />
+        </ScrollSection>
+        <ScrollSection>
+          <CurvedTextSection />
         </ScrollSection>
         <ScrollSection>
           <HowItWorks />
