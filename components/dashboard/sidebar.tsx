@@ -16,7 +16,7 @@ import {
   Menu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface SidebarProps {
   orgType: "dentist" | "lab";
@@ -44,7 +44,21 @@ const labNav = [
 export function Sidebar({ orgType, orgName }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const navItems = orgType === "dentist" ? dentistNav : labNav;
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const handleLinkClick = useCallback(() => {
+    if (isMobile) setCollapsed(true);
+  }, [isMobile]);
 
   return (
     <>
@@ -78,9 +92,7 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
             <Link
               href="/dashboard"
               className="flex items-center gap-2 group"
-              onClick={() => {
-                if (window.innerWidth < 1024) setCollapsed(true);
-              }}
+              onClick={handleLinkClick}
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg group-hover:scale-110 transition-transform">
                 <span className="text-sm font-bold text-white">DL</span>
@@ -115,11 +127,7 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => {
-                  if (window.innerWidth < 1024) {
-                    setCollapsed(true);
-                  }
-                }}
+                onClick={handleLinkClick}
                 className={cn(
                   "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                   isActive

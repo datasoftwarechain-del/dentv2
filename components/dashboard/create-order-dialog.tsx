@@ -23,6 +23,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Plus, Loader2, User, Building2, Ticket, Calendar, FileText, Info } from "lucide-react";
+import { toast } from "sonner";
 
 interface Patient {
     id: string;
@@ -40,6 +41,7 @@ interface CreateOrderDialogProps {
     patients: Patient[];
     labs: Organization[];
     children?: React.ReactNode;
+    mode?: "dentist" | "lab";
 }
 
 const workTypes = [
@@ -58,13 +60,13 @@ const workTypes = [
     { value: "otro", label: "Otro" },
 ];
 
-export function CreateOrderDialog({ organizationId, patients, labs, children }: CreateOrderDialogProps) {
+export function CreateOrderDialog({ organizationId, patients, labs, children, mode = "dentist" }: CreateOrderDialogProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         patientId: "",
-        labId: "",
+        targetOrgId: "", // Generic name for labId or dentistId
         workType: "",
         toothNumbers: "",
         shade: "",
@@ -74,26 +76,32 @@ export function CreateOrderDialog({ organizationId, patients, labs, children }: 
 
     // Debug: Log labs when component mounts or labs change
     React.useEffect(() => {
-        console.log("CreateOrderDialog - Labs received:", labs);
-    }, [labs]);
+        console.log("CreateOrderDialog - props received:", { labs, mode });
+    }, [labs, mode]);
 
     async function handleCreateOrder(e: React.FormEvent) {
         e.preventDefault();
         setLoading(true);
 
         try {
+            if (!formData.patientId || !formData.targetOrgId || !formData.workType) {
+                toast.error("Por favor completa los campos requeridos");
+                setLoading(false);
+                return;
+            }
+
             const supabase = createClient();
 
-            // 1. Generate order number (backend trigger might handle this, but let's rely on backend trigger if it exists)
-            // The schema said: trigger set_order_number BEFORE INSERT ... check if null.
-            // So we can just omit it or send null/empty if the trigger is active.
+            // Determine IDs based on mode
+            const dentistOrgId = mode === "dentist" ? organizationId : formData.targetOrgId;
+            const labOrgId = mode === "dentist" ? formData.targetOrgId : organizationId;
 
-            // 2. Insert into lab_orders
+            // 1. Insert into lab_orders
             const { data: orderData, error: orderError } = await supabase
                 .from("lab_orders")
                 .insert({
-                    dentist_org_id: organizationId,
-                    lab_org_id: formData.labId,
+                    dentist_org_id: dentistOrgId,
+                    lab_org_id: labOrgId,
                     patient_id: formData.patientId,
                     due_date: formData.dueDate || null,
                     notes: formData.notes || null,
@@ -106,7 +114,7 @@ export function CreateOrderDialog({ organizationId, patients, labs, children }: 
             if (orderError) throw orderError;
             if (!orderData) throw new Error("No se pudo crear la orden");
 
-            // 3. Insert into lab_order_items
+            // 2. Insert into lab_order_items
             // Convert comma separated tooth numbers to array if present
             const toothArray = formData.toothNumbers
                 ? formData.toothNumbers.split(',').map(s => s.trim()).filter(Boolean)
@@ -124,16 +132,15 @@ export function CreateOrderDialog({ organizationId, patients, labs, children }: 
                 });
 
             if (itemError) {
-                // If item creation fails, we might want to cleanup the order or alert. 
-                // For MVP, throwing error to catch block.
                 console.error("Error creating item", itemError);
                 throw itemError;
             }
 
+            toast.success("Pedido creado exitosamente");
             setOpen(false);
             setFormData({
                 patientId: "",
-                labId: "",
+                targetOrgId: "",
                 workType: "",
                 toothNumbers: "",
                 shade: "",
@@ -144,7 +151,7 @@ export function CreateOrderDialog({ organizationId, patients, labs, children }: 
 
         } catch (error) {
             console.error("Error creating order:", error);
-            // Optional: Show error toast here
+            toast.error("Error al crear el pedido. Intenta nuevamente.");
         } finally {
             setLoading(false);
         }
@@ -198,18 +205,20 @@ export function CreateOrderDialog({ organizationId, patients, labs, children }: 
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="labId" className="text-foreground">Laboratorio</Label>
+                            <Label htmlFor="targetOrgId" className="text-foreground">
+                                {mode === "dentist" ? "Laboratorio" : "Clínica / Dentista"}
+                            </Label>
                             <div className="relative">
                                 <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground z-10" />
                                 <Select
-                                    value={formData.labId}
+                                    value={formData.targetOrgId}
                                     onValueChange={(value) =>
-                                        setFormData({ ...formData, labId: value })
+                                        setFormData({ ...formData, targetOrgId: value })
                                     }
                                     required
                                 >
                                     <SelectTrigger className="pl-9 bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all">
-                                        <SelectValue placeholder="Seleccionar Lab" />
+                                        <SelectValue placeholder={mode === "dentist" ? "Seleccionar Lab" : "Seleccionar Clínica"} />
                                     </SelectTrigger>
                                     <SelectContent className="bg-background border-border text-foreground">
                                         {labs.length > 0 ? (

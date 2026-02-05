@@ -1,3 +1,6 @@
+"use client";
+
+import { ReactLenis } from "lenis/react";
 import { Header } from "@/components/landing/header";
 import { Hero } from "@/components/landing/hero";
 import { Stats } from "@/components/landing/stats";
@@ -9,7 +12,7 @@ import { ScrollSection } from "@/components/landing/scroll-section";
 
 export default function HomePage() {
   return (
-    <>
+    <ReactLenis root>
       <Header />
       <main>
         <ScrollSection>
@@ -29,6 +32,6 @@ export default function HomePage() {
         </ScrollSection>
       </main>
       <Footer />
-    </>
+    </ReactLenis>
   );
 }

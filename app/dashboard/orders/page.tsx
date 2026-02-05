@@ -66,6 +66,42 @@ export default async function OrdersPage() {
       })
       .filter((lab): lab is LabOrg => Boolean(lab?.id && lab?.name));
     labs.sort((a, b) => a.name.localeCompare(b.name));
+  } else {
+    // Logic for Laboratory Users
+    // 1. Get connected Dentists (Clinics)
+    type DentistOrg = { id: string; name: string };
+    type DentistRelation = { dentist_org: DentistOrg | DentistOrg[] | null };
+
+    // Note: We use the same 'labs' variable to store target organizations (clinics) to avoid prop drilling changes for now,
+    // though renaming it to 'targetOrgs' in the future would be better.
+    const { data: dentistRelationsRaw } = await supabase
+      .from("lab_dentist_relations")
+      .select("dentist_org:organizations!lab_dentist_relations_dentist_org_id_fkey(id, name)")
+      .eq("lab_org_id", org.id)
+      .eq("status", "active");
+
+    const dentistRelations = (dentistRelationsRaw || []) as DentistRelation[];
+    labs = dentistRelations
+      .flatMap((rel) => {
+        const dentist = rel.dentist_org;
+        if (!dentist) return [];
+        return Array.isArray(dentist) ? dentist : [dentist];
+      })
+      .filter((dentist): dentist is DentistOrg => Boolean(dentist?.id && dentist?.name));
+    labs.sort((a, b) => a.name.localeCompare(b.name));
+
+    // 2. Get Patients
+    // Ideally we should filter patients by the selected dentist in the UI, 
+    // but for the initial load we get patients from all connected clinics.
+    if (labs.length > 0) {
+      const connectedDentistIds = labs.map(l => l.id);
+      const { data: patientsData } = await supabase
+        .from("patients")
+        .select("id, first_name, last_name")
+        .in("dentist_org_id", connectedDentistIds)
+        .order("first_name");
+      patients = patientsData || [];
+    }
   }
 
   return (

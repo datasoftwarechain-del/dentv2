@@ -126,13 +126,12 @@ export function OrdersList({
                 : "Gestión de pedidos recibidos de clínicas"}
             </CardDescription>
           </div>
-          {isDentist && (
-            <CreateOrderDialog
-              organizationId={organizationId}
-              patients={patients}
-              labs={labs}
-            />
-          )}
+          <CreateOrderDialog
+            organizationId={organizationId}
+            patients={patients}
+            labs={labs} // This is connected Orgs (Dentists for Labs, Labs for Dentists)
+            mode={isDentist ? "dentist" : "lab"}
+          />
         </div>
       </CardHeader>
       <CardContent className="p-0">
