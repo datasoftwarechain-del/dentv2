@@ -19,7 +19,13 @@ const nextConfig = {
 
     // Experimental features for better performance
     experimental: {
-        optimizePackageImports: ['lucide-react', 'framer-motion', '@radix-ui/react-dropdown-menu'],
+        optimizePackageImports: [
+            'lucide-react',
+            'framer-motion',
+            '@radix-ui/react-dropdown-menu',
+            'date-fns',
+            'sonner',
+        ],
     },
 };
 

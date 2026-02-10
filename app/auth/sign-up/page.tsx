@@ -35,8 +35,21 @@ export default function SignUpPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError("La contrasena debe tener al menos 6 caracteres");
+    // Validación robusta de contraseña
+    if (formData.password.length < 12) {
+      setError("La contraseña debe tener al menos 12 caracteres");
+      return;
+    }
+
+    const hasUppercase = /[A-Z]/.test(formData.password);
+    const hasLowercase = /[a-z]/.test(formData.password);
+    const hasNumber = /[0-9]/.test(formData.password);
+    const hasSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(formData.password);
+
+    if (!hasUppercase || !hasLowercase || !hasNumber || !hasSpecial) {
+      setError(
+        "La contraseña debe contener: mayúscula, minúscula, número y carácter especial (!@#$%^&*...)"
+      );
       return;
     }
 
