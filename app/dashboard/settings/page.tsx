@@ -9,30 +9,22 @@ export default async function SettingsPage() {
 
   if (!user) redirect("/auth/login");
 
-  const { data: membership } = await supabase
+  // Get user's organizations (handle multiple orgs like layout does)
+  const { data: memberships } = await supabase
     .from("org_members")
     .select("organization:org_id(*), role")
-    .eq("user_id", user.id)
-    .single();
+    .eq("user_id", user.id);
 
-  const orgData = membership?.organization as
-    | {
-        id: string;
-        name: string;
-        type: string;
-        phone: string | null;
-        address: string | null;
-      }
-    | {
-        id: string;
-        name: string;
-        type: string;
-        phone: string | null;
-        address: string | null;
-      }[]
-    | null
-    | undefined;
-  const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
+  // Filter for system accounts only and get the first one
+  const orgs = (memberships || [])
+    .map((m: any) => {
+      const orgData = m.organization;
+      return Array.isArray(orgData) ? orgData[0] : orgData;
+    })
+    .filter((o: any) => o && o.is_system_account !== false);
+
+  const org = orgs[0] || null;
+  const membership = memberships?.[0] || null;
 
   if (!org) redirect("/dashboard");
 

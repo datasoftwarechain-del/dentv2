@@ -14,21 +14,24 @@ export default async function DashboardLayout({
     redirect("/auth/login");
   }
 
-  // Get user's organization
-  const { data: membership } = await supabase
+  // Get user's organizations (only system accounts, not client records)
+  // Changed from .single() to handle users with multiple orgs
+  const { data: memberships } = await supabase
     .from("org_members")
-    .select("organization:org_id(id, name, type)")
-    .eq("user_id", user.id)
-    .single();
+    .select("organization:org_id(id, name, type, is_system_account)")
+    .eq("user_id", user.id);
 
-  // If no organization, redirect to onboarding
-  const orgData = membership?.organization as
-    | { id: string; name: string; type: string }
-    | { id: string; name: string; type: string }[]
-    | null
-    | undefined;
-  const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
+  // Filter for system accounts only and get the first one
+  const orgs = (memberships || [])
+    .map((m: any) => {
+      const orgData = m.organization;
+      return Array.isArray(orgData) ? orgData[0] : orgData;
+    })
+    .filter((o: any) => o && o.is_system_account !== false);
 
+  const org = orgs[0] || null;
+
+  // If no valid organization, redirect to onboarding
   if (!org) {
     redirect("/onboarding");
   }

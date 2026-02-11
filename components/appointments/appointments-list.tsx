@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Calendar, Clock, User } from "lucide-react";
+import { formatShortDate, formatTime } from "@/lib/date-utils";
 
 interface Patient {
   id: string;
@@ -69,14 +70,18 @@ export function AppointmentsList({
 
   function AppointmentCard({ appointment }: { appointment: Appointment }) {
     const date = new Date(appointment.scheduled_at);
+    const day = date.getUTCDate();
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const month = months[date.getUTCMonth()];
+
     return (
       <div className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-4 hover:bg-white/10 transition-all hover:shadow-lg hover:border-white/10">
         <div className="flex items-center gap-4">
           <div className="flex h-14 w-14 flex-col items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary border border-primary/10 group-hover:from-accent/20 group-hover:to-accent/5 group-hover:text-accent transition-all">
             <span className="text-xs font-medium uppercase tracking-wider">
-              {date.toLocaleDateString("es-ES", { month: "short" })}
+              {month}
             </span>
-            <span className="text-xl font-bold">{date.getDate()}</span>
+            <span className="text-xl font-bold">{day}</span>
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -89,10 +94,7 @@ export function AppointmentsList({
               <div className="flex items-center gap-1.5 bg-background/50 px-2 py-0.5 rounded-md border border-border/50">
                 <Clock className="h-3.5 w-3.5" />
                 <span>
-                  {date.toLocaleTimeString("es-ES", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formatTime(appointment.scheduled_at)}
                 </span>
               </div>
               <span className="text-muted-foreground/40">•</span>

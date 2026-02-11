@@ -37,3 +37,10 @@ export const ORDER_STATUS_KANBAN_COLUMNS = [
   { id: "ready", title: "Listo", color: "bg-emerald-500" },
   { id: "delivered", title: "Entregado", color: "bg-accent" },
 ] as const;
+
+export const ORDER_STATUS_GROUPS = {
+  active: ["draft", "received", "missing_info", "in_production", "quality_check"],
+  completed: ["ready", "delivered"],
+  delivered: ["delivered"],
+  cancelled: ["cancelled"],
+} as const;

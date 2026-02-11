@@ -18,6 +18,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
+import { formatSimpleDate, formatDateTime } from "@/lib/date-utils";
 
 export default async function OrderDetailsPage({
     params,
@@ -30,15 +31,21 @@ export default async function OrderDetailsPage({
 
     if (!user) redirect("/auth/login");
 
-    // Get organization
-    const { data: membership } = await supabase
+    // Get user's organizations (handle multiple orgs like layout does)
+    const { data: memberships } = await supabase
         .from("org_members")
-        .select("organization:org_id(id, name, type)")
-        .eq("user_id", user.id)
-        .single();
+        .select("organization:org_id(id, name, type, is_system_account)")
+        .eq("user_id", user.id);
 
-    const orgData = membership?.organization as any;
-    const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
+    // Filter for system accounts only and get the first one
+    const orgs = (memberships || [])
+        .map((m: any) => {
+            const orgData = m.organization;
+            return Array.isArray(orgData) ? orgData[0] : orgData;
+        })
+        .filter((o: any) => o && o.is_system_account !== false);
+
+    const org = orgs[0] || null;
     if (!org) redirect("/dashboard");
 
     const isDentist = org.type === "dentist";
@@ -105,7 +112,7 @@ export default async function OrderDetailsPage({
                                 <div>
                                     <CardTitle className="text-2xl font-bold">{order.order_number}</CardTitle>
                                     <CardDescription className="text-xs font-medium mt-1">
-                                        Creada el {new Date(order.created_at).toLocaleDateString()}
+                                        Creada el {formatSimpleDate(order.created_at)}
                                     </CardDescription>
                                 </div>
                                 <Badge className={cn("px-4 py-1 text-xs font-bold uppercase", statusColors[order.status])}>
@@ -137,7 +144,7 @@ export default async function OrderDetailsPage({
                                             <Calendar className="h-3 w-3" /> Fecha Entrega
                                         </p>
                                         <p className="font-bold text-sm">
-                                            {order.due_date ? new Date(order.due_date).toLocaleDateString() : "No especificada"}
+                                            {order.due_date ? formatSimpleDate(order.due_date) : "No especificada"}
                                         </p>
                                     </div>
                                 </div>
@@ -205,7 +212,7 @@ export default async function OrderDetailsPage({
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-xs font-bold">Orden Recibida</p>
-                                            <p className="text-[10px] text-muted-foreground font-medium">{new Date(order.created_at).toLocaleString()}</p>
+                                            <p className="text-[10px] text-muted-foreground font-medium">{formatDateTime(order.created_at)}</p>
                                         </div>
                                     </div>
 

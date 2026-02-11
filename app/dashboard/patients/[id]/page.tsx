@@ -18,6 +18,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { PatientActions, AppointmentActions, OrderActions } from "@/components/patients/patient-actions";
+import { formatSimpleDate, formatFullDate, formatTime } from "@/lib/date-utils";
 
 export default async function PatientDetailsPage({
     params,
@@ -30,15 +31,21 @@ export default async function PatientDetailsPage({
 
     if (!user) redirect("/auth/login");
 
-    // Get organization
-    const { data: membership } = await supabase
+    // Get user's organizations (handle multiple orgs like layout does)
+    const { data: memberships } = await supabase
         .from("org_members")
-        .select("organization:org_id(id, name, type)")
-        .eq("user_id", user.id)
-        .single();
+        .select("organization:org_id(id, name, type, is_system_account)")
+        .eq("user_id", user.id);
 
-    const orgData = membership?.organization as any;
-    const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
+    // Filter for system accounts only and get the first one
+    const orgs = (memberships || [])
+        .map((m: any) => {
+            const orgData = m.organization;
+            return Array.isArray(orgData) ? orgData[0] : orgData;
+        })
+        .filter((o: any) => o && o.is_system_account !== false);
+
+    const org = orgs[0] || null;
     if (!org || org.type !== "dentist") redirect("/dashboard");
 
     // Fetch patient details
@@ -113,7 +120,7 @@ export default async function PatientDetailsPage({
                             <div>
                                 <CardTitle className="text-xl font-bold">{patient.first_name} {patient.last_name}</CardTitle>
                                 <CardDescription className="text-xs font-medium mt-1">
-                                    Registrado el {new Date(patient.created_at).toLocaleDateString()}
+                                    Registrado el {formatSimpleDate(patient.created_at)}
                                 </CardDescription>
                             </div>
                         </CardHeader>
@@ -142,7 +149,7 @@ export default async function PatientDetailsPage({
                                 </div>
                                 <div>
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase">Fecha de Nacimiento</p>
-                                    <p className="font-medium">{patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString() : "No registrado"}</p>
+                                    <p className="font-medium">{patient.date_of_birth ? formatSimpleDate(patient.date_of_birth) : "No registrado"}</p>
                                 </div>
                             </div>
 
@@ -171,8 +178,8 @@ export default async function PatientDetailsPage({
                                                         <Clock className="h-4 w-4 text-muted-foreground" />
                                                     </div>
                                                     <div>
-                                                        <p className="text-sm font-bold">{new Date(apt.scheduled_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long' })}</p>
-                                                        <p className="text-[10px] font-medium text-muted-foreground">{new Date(apt.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {apt.duration_minutes} min</p>
+                                                        <p className="text-sm font-bold">{formatFullDate(apt.scheduled_at)}</p>
+                                                        <p className="text-[10px] font-medium text-muted-foreground">{formatTime(apt.scheduled_at)} • {apt.duration_minutes} min</p>
                                                     </div>
                                                 </div>
                                                 <Badge variant="outline" className={cn(

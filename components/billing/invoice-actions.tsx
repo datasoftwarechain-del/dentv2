@@ -1,0 +1,253 @@
+"use client";
+
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { InvoiceDetail } from "./invoice-detail";
+import {
+  Eye,
+  Download,
+  FileText,
+  Image as ImageIcon,
+  Send,
+  Mail,
+  MessageCircle,
+  MoreVertical,
+  Loader2,
+} from "lucide-react";
+import { toast } from "sonner";
+
+interface Organization {
+  id: string;
+  name: string;
+}
+
+interface Invoice {
+  id: string;
+  invoice_number: string;
+  total: number;
+  subtotal: number;
+  tax_amount: number;
+  status: string;
+  due_date: string | null;
+  created_at: string;
+  patient_name?: string | null;
+  work_type?: string | null;
+  delivery_date?: string | null;
+  notes?: string | null;
+  dentist_org: Organization | null;
+  lab_org: Organization | null;
+}
+
+interface InvoiceActionsProps {
+  invoice: Invoice;
+  isDentist: boolean;
+}
+
+export function InvoiceActions({ invoice, isDentist }: InvoiceActionsProps) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  async function handleExportPDF() {
+    setIsExporting(true);
+    try {
+      // Importar dinámicamente para reducir bundle
+      const { exportInvoiceToPDF } = await import("@/lib/invoice-export");
+      await exportInvoiceToPDF(invoice, isDentist);
+      toast.success("PDF descargado correctamente");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error("Error al exportar PDF");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  async function handleExportJPG() {
+    setIsExporting(true);
+    try {
+      const { exportInvoiceToJPG } = await import("@/lib/invoice-export");
+      await exportInvoiceToJPG(invoice, isDentist);
+      toast.success("Imagen descargada correctamente");
+    } catch (error) {
+      console.error("Error exporting JPG:", error);
+      toast.error("Error al exportar imagen");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  async function handleSendEmail() {
+    try {
+      toast.info("Funcionalidad de email en desarrollo. Configure su servicio de email en la API.");
+
+      // Descomentar cuando configures el servicio de email
+      /*
+      const response = await fetch("/api/billing/send-invoice", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceId: invoice.id,
+          method: "email",
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to send email");
+
+      toast.success("Factura enviada por email");
+      */
+    } catch (error) {
+      console.error("Error sending email:", error);
+      toast.error("Error al enviar email");
+    }
+  }
+
+  async function handleSendWhatsApp() {
+    try {
+      // Generar mensaje para WhatsApp
+      const message = `Factura #${invoice.invoice_number}
+Paciente: ${invoice.patient_name || "N/A"}
+Total: $${invoice.total}
+Estado: ${invoice.status}`;
+
+      const encodedMessage = encodeURIComponent(message);
+      const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+
+      window.open(whatsappUrl, "_blank");
+      toast.success("Abriendo WhatsApp...");
+    } catch (error) {
+      console.error("Error opening WhatsApp:", error);
+      toast.error("Error al abrir WhatsApp");
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {/* View Details Button */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs font-semibold hover:bg-primary/10 hover:text-primary"
+          >
+            <Eye className="mr-1.5 h-3.5 w-3.5" />
+            Ver
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">
+              Factura #{invoice.invoice_number}
+            </DialogTitle>
+            <DialogDescription>
+              Detalles completos de la factura
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4">
+            <InvoiceDetail invoice={invoice} isDentist={isDentist} />
+          </div>
+
+          {/* Action buttons in dialog */}
+          <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              className="flex-1 min-w-[120px]"
+            >
+              {isExporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-2 h-4 w-4" />
+              )}
+              Descargar PDF
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportJPG}
+              disabled={isExporting}
+              className="flex-1 min-w-[120px]"
+            >
+              {isExporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <ImageIcon className="mr-2 h-4 w-4" />
+              )}
+              Descargar JPG
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSendWhatsApp}
+              className="flex-1 min-w-[120px]"
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              WhatsApp
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSendEmail}
+              className="flex-1 min-w-[120px]"
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Email
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* More Actions Dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-primary/10"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={handleExportPDF} disabled={isExporting}>
+            <FileText className="mr-2 h-4 w-4" />
+            Exportar PDF
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleExportJPG} disabled={isExporting}>
+            <ImageIcon className="mr-2 h-4 w-4" />
+            Exportar JPG
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleSendWhatsApp}>
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Enviar por WhatsApp
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleSendEmail}>
+            <Mail className="mr-2 h-4 w-4" />
+            Enviar por Email
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}

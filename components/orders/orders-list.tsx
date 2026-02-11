@@ -28,7 +28,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, FileText, Building2, User } from "lucide-react";
+import { Search, FileText, Building2, User, Calendar, Clock } from "lucide-react";
+import { formatDueTime, formatDueDate, formatShortDate, isOverdue, isUrgent } from "@/lib/date-utils";
 import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import Link from "next/link";
 
@@ -49,6 +50,7 @@ interface Order {
   status: string;
   items?: { work_type: string | null }[];
   created_at: string;
+  due_date: string | null;
   patient: Patient | null;
   dentist_org: Organization | null;
   lab_org: Organization | null;
@@ -174,7 +176,8 @@ export function OrdersList({
                   {/* Keep work type column if data available, else might need adjustment */}
                   <TableHead className="font-semibold text-primary">Trabajo</TableHead>
                   <TableHead className="font-semibold text-primary">Estado</TableHead>
-                  <TableHead className="font-semibold text-primary">Fecha</TableHead>
+                  <TableHead className="font-semibold text-primary">Creación</TableHead>
+                  <TableHead className="font-semibold text-primary">Entrega</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -220,7 +223,9 @@ export function OrdersList({
                           }
                         >
                           <SelectTrigger className={`h-8 w-36 border-0 ${statusColors[order.status] || "bg-muted"}`}>
-                            <SelectValue />
+                            <span className="text-left font-medium">
+                              {statusLabels[order.status] || order.status}
+                            </span>
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="missing_info">Falta Info</SelectItem>
@@ -241,11 +246,34 @@ export function OrdersList({
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {new Date(order.created_at).toLocaleDateString("es-ES", {
-                        month: 'short',
-                        day: 'numeric'
-                      })}
+                    <TableCell className="text-muted-foreground text-xs">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {formatShortDate(order.created_at)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {order.due_date ? (
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1 text-xs font-medium">
+                            <Clock className="h-3 w-3 text-amber-600" />
+                            <span className={
+                              isOverdue(order.due_date)
+                                ? "text-red-600 font-bold"
+                                : isUrgent(order.due_date)
+                                ? "text-amber-600 font-bold"
+                                : "text-foreground"
+                            }>
+                              {formatDueDate(order.due_date)}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-muted-foreground font-medium">
+                            {formatDueTime(order.due_date)}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs italic">Sin fecha</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

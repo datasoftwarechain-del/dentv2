@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CreatePatientDialog } from "@/components/dashboard/create-patient-dialog";
 import { Input } from "@/components/ui/input";
+import { formatShortDate, formatSimpleDate } from "@/lib/date-utils";
 import {
   Card,
   CardContent,
@@ -128,18 +129,11 @@ export function PatientsList({ patients, organizationId }: PatientsListProps) {
                     </TableCell>
                     <TableCell>
                       {patient.date_of_birth
-                        ? new Date(patient.date_of_birth).toLocaleDateString("es-ES", {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })
+                        ? formatSimpleDate(patient.date_of_birth)
                         : "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(patient.created_at).toLocaleDateString("es-ES", {
-                        month: 'short',
-                        day: 'numeric'
-                      })}
+                      {formatShortDate(patient.created_at)}
                     </TableCell>
                   </TableRow>
                 ))}

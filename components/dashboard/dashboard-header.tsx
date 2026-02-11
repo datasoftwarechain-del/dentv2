@@ -53,7 +53,11 @@ export function DashboardHeader({ title, user }: DashboardHeaderProps) {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative flex items-center gap-2 px-1 py-1 h-10 rounded-full hover:bg-muted/80 transition-all border border-transparent hover:border-border/50">
+            <Button
+              variant="ghost"
+              className="relative flex items-center gap-2 px-1 py-1 h-10 rounded-full hover:bg-muted/80 transition-all border border-transparent hover:border-border/50"
+              suppressHydrationWarning
+            >
               <Avatar className="h-8 w-8 transition-transform group-hover:scale-105 shadow-sm">
                 <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white text-[10px] font-bold">
                   {initials}

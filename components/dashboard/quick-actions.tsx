@@ -35,11 +35,10 @@ export function QuickActions({ organizationId, patients, labs }: QuickActionsPro
         <section className="space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/80 ml-1">Acciones Rápidas</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {/* New Patient */}
                 <CreatePatientDialog organizationId={organizationId}>
                     <Button className="w-full h-auto py-6 flex-col gap-2 rounded-2xl bg-background shadow-sm border border-border/50 hover:shadow-md hover:border-primary/50 text-foreground group transition-all duration-300">
-                        <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <UserPlus className="h-5 w-5 text-blue-600" />
+                        <div className="h-10 w-10 rounded-xl bg-secondary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <UserPlus className="h-5 w-5 text-secondary" />
                         </div>
                         <span className="font-semibold">Nuevo Paciente</span>
                     </Button>

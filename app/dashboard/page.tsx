@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { formatShortDate } from "@/lib/date-utils";
 import {
   ORDER_STATUS_ACTIVE,
   ORDER_STATUS_BADGE_CLASSES,
@@ -22,6 +23,13 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { QuickActions } from "@/components/dashboard/quick-actions";
+import { DeliveryAlerts } from "@/components/dashboard/delivery-alerts";
+// Laboratory components
+import { TotalOrdersCard } from "@/app/dashboard/laboratory/components/TotalOrdersCard";
+import { ActiveClientCard } from "@/app/dashboard/laboratory/components/ActiveClientCard";
+import { SummaryReportCard } from "@/app/dashboard/laboratory/components/SummaryReportCard";
+import { WorksInProgressList } from "@/app/dashboard/laboratory/components/WorksInProgressList";
+import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -29,110 +37,247 @@ export default async function DashboardPage() {
 
   if (!user) return null;
 
-  // Get organization
-  const { data: membership } = await supabase
+  // Get user's organizations (only system accounts, not client records)
+  // Changed from .single() to handle users with multiple orgs
+  const { data: memberships } = await supabase
     .from("org_members")
-    .select("organization:org_id(id, name, type)")
-    .eq("user_id", user.id)
-    .single();
+    .select("organization:org_id(id, name, type, is_system_account)")
+    .eq("user_id", user.id);
 
-  const orgData = membership?.organization as
-    | { id: string; name: string; type: string }
-    | { id: string; name: string; type: string }[]
-    | null
-    | undefined;
-  const org = Array.isArray(orgData) ? orgData[0] : orgData ?? null;
+  // Filter for system accounts only and get the first one
+  const orgs = (memberships || [])
+    .map((m: any) => {
+      const orgData = m.organization;
+      return Array.isArray(orgData) ? orgData[0] : orgData;
+    })
+    .filter((o: any) => o && o.is_system_account !== false);
+
+  const org = orgs[0] || null;
+
+  // If no valid organization, return null
   if (!org) return null;
 
   const isDentist = org.type === "dentist";
+  const isLab = org.type === "lab";
 
-  // Fetch stats
+  // If laboratory, render enhanced laboratory dashboard
+  if (isLab) {
+    // Fetch data for manual order entry
+    const { data: dentistOrgs } = await supabase
+      .from("organizations")
+      .select("id, name")
+      .eq("type", "dentist")
+      .order("name");
+
+    const { data: patients } = await supabase
+      .from("patients")
+      .select("id, first_name, last_name")
+      .order("last_name");
+
+    // Get today and tomorrow date ranges for delivery alerts
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowEnd = new Date(tomorrow);
+    tomorrowEnd.setHours(23, 59, 59, 999);
+
+    // Fetch orders due today
+    const { data: todayOrders } = await supabase
+      .from("lab_orders")
+      .select(`
+        id,
+        order_number,
+        status,
+        due_date,
+        patient:patients(id, first_name, last_name),
+        dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
+        lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
+      `)
+      .eq("lab_org_id", org.id)
+      .not("due_date", "is", null)
+      .gte("due_date", today.toISOString())
+      .lte("due_date", todayEnd.toISOString())
+      .order("due_date", { ascending: true });
+
+    // Fetch orders due tomorrow
+    const { data: tomorrowOrders } = await supabase
+      .from("lab_orders")
+      .select(`
+        id,
+        order_number,
+        status,
+        due_date,
+        patient:patients(id, first_name, last_name),
+        dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
+        lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
+      `)
+      .eq("lab_org_id", org.id)
+      .not("due_date", "is", null)
+      .gte("due_date", tomorrow.toISOString())
+      .lte("due_date", tomorrowEnd.toISOString())
+      .order("due_date", { ascending: true });
+
+    return (
+      <div className="flex flex-col">
+        <DashboardHeader
+          title="Dashboard Laboratorio"
+          user={{
+            email: user.email || "",
+            firstName: user.user_metadata?.first_name,
+            lastName: user.user_metadata?.last_name,
+          }}
+        />
+
+        <div className="flex-1 space-y-8 p-8 max-w-7xl mx-auto w-full">
+          <div className="flex items-center justify-end mb-6">
+            <CreateOrderDialog
+              organizationId={org.id}
+              mode="lab"
+              patients={patients || []}
+              labs={dentistOrgs || []}
+            />
+          </div>
+
+          {/* Delivery Alerts */}
+          <DeliveryAlerts
+            todayOrders={todayOrders || []}
+            tomorrowOrders={tomorrowOrders || []}
+            isDentist={false}
+          />
+
+          {/* Stats Grid */}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <TotalOrdersCard orgId={org.id} />
+            <ActiveClientCard orgId={org.id} />
+            <div className="sm:col-span-2">
+              <SummaryReportCard orgId={org.id} />
+            </div>
+          </div>
+
+          {/* Works in Progress */}
+          <WorksInProgressList orgId={org.id} />
+        </div>
+      </div>
+    );
+  }
+
+  // Fetch stats (for dentist dashboard)
   const { count: ordersCount } = await supabase
     .from("lab_orders")
     .select("*", { count: "exact", head: true })
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id);
+    .eq("dentist_org_id", org.id);
 
   const { count: activeOrders } = await supabase
     .from("lab_orders")
     .select("*", { count: "exact", head: true })
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
+    .eq("dentist_org_id", org.id)
     .in("status", ORDER_STATUS_ACTIVE as unknown as string[]);
 
-  const { count: inProductionOrders } = await supabase
-    .from("lab_orders")
+  // Get patient count (dentist only at this point)
+  const { count } = await supabase
+    .from("patients")
     .select("*", { count: "exact", head: true })
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
-    .in("status", ["in_production"]);
+    .eq("dentist_org_id", org.id);
+  const patientsCount = count || 0;
 
-  // For dentists, get patient count
-  let patientsCount = 0;
-  if (isDentist) {
-    const { count } = await supabase
-      .from("patients")
-      .select("*", { count: "exact", head: true })
-      .eq("dentist_org_id", org.id);
-    patientsCount = count || 0;
-  }
-
-  // Get recent orders
+  // Get recent orders (dentist only)
   const { data: recentOrders } = await supabase
     .from("lab_orders")
     .select(`
-      id, 
-      order_number, 
-      status, 
+      id,
+      order_number,
+      status,
       created_at,
       patient:patients(first_name, last_name)
     `)
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
+    .eq("dentist_org_id", org.id)
     .order("created_at", { ascending: false })
     .limit(5);
 
-  const stats = isDentist
-    ? [
-      { label: "Total Pacientes", value: patientsCount, icon: Users, color: "text-blue-600", bg: "bg-blue-500/10" },
-      { label: "Pedidos Totales", value: ordersCount || 0, icon: FileText, color: "text-accent", bg: "bg-accent/10" },
-      { label: "Pendientes", value: activeOrders || 0, icon: Clock, color: "text-amber-600", bg: "bg-amber-500/10" },
-      { label: "Facturación Mes", value: "$2,450", icon: DollarSign, color: "text-emerald-600", bg: "bg-emerald-500/10" },
-    ]
-    : [
-      { label: "Pedidos Totales", value: ordersCount || 0, icon: FileText, color: "text-accent", bg: "bg-accent/10" },
-      { label: "En Producción", value: inProductionOrders || 0, icon: Clock, color: "text-amber-600", bg: "bg-amber-500/10" },
-      { label: "Clínicas Activas", value: 12, icon: Users, color: "text-blue-600", bg: "bg-blue-500/10" },
-      { label: "Ingresos Mes", value: "$8,750", icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-500/10" },
-    ];
+  const stats = [
+    { label: "Total Pacientes", value: patientsCount, icon: Users, color: "text-secondary", bg: "bg-secondary/10" },
+    { label: "Pedidos Totales", value: ordersCount || 0, icon: FileText, color: "text-accent", bg: "bg-accent/10" },
+    { label: "Pendientes", value: activeOrders || 0, icon: Clock, color: "text-amber-600", bg: "bg-amber-500/10" },
+    { label: "Facturación Mes", value: "$2,450", icon: DollarSign, color: "text-primary", bg: "bg-primary/10" },
+  ];
 
   const statusLabels = ORDER_STATUS_LABELS;
   const statusColors = ORDER_STATUS_BADGE_CLASSES;
 
-  // Fetch patients and labs for dialogs
-  let patients: { id: string; first_name: string; last_name: string }[] = [];
-  let labs: { id: string; name: string }[] = [];
+  // Fetch patients and labs for dialogs (dentist only)
+  const { data: patientsData } = await supabase
+    .from("patients")
+    .select("id, first_name, last_name")
+    .eq("dentist_org_id", org.id);
+  const patients = patientsData || [];
 
-  if (isDentist) {
-    const { data: patientsData } = await supabase
-      .from("patients")
-      .select("id, first_name, last_name")
-      .eq("dentist_org_id", org.id);
-    patients = patientsData || [];
+  type LabOrg = { id: string; name: string };
+  type LabRelation = { lab_org: LabOrg | LabOrg[] | null };
+  const { data: labRelationsRaw } = await supabase
+    .from("lab_dentist_relations")
+    .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
+    .eq("dentist_org_id", org.id)
+    .eq("status", "active");
+  const labRelations = (labRelationsRaw || []) as LabRelation[];
+  const labs = labRelations
+    .flatMap((rel) => {
+      const lab = rel.lab_org;
+      if (!lab) return [];
+      return Array.isArray(lab) ? lab : [lab];
+    })
+    .filter((lab): lab is LabOrg => Boolean(lab?.id && lab?.name));
+  labs.sort((a, b) => a.name.localeCompare(b.name));
 
-    type LabOrg = { id: string; name: string };
-    type LabRelation = { lab_org: LabOrg | LabOrg[] | null };
-    const { data: labRelationsRaw } = await supabase
-      .from("lab_dentist_relations")
-      .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
-      .eq("dentist_org_id", org.id)
-      .eq("status", "active");
-    const labRelations = (labRelationsRaw || []) as LabRelation[];
-    labs = labRelations
-      .flatMap((rel) => {
-        const lab = rel.lab_org;
-        if (!lab) return [];
-        return Array.isArray(lab) ? lab : [lab];
-      })
-      .filter((lab): lab is LabOrg => Boolean(lab?.id && lab?.name));
-    labs.sort((a, b) => a.name.localeCompare(b.name));
-  }
+  // Get today and tomorrow date ranges for delivery alerts
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowEnd = new Date(tomorrow);
+  tomorrowEnd.setHours(23, 59, 59, 999);
+
+  // Fetch orders due today (dentist)
+  const { data: todayOrders } = await supabase
+    .from("lab_orders")
+    .select(`
+      id,
+      order_number,
+      status,
+      due_date,
+      patient:patients(id, first_name, last_name),
+      dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
+      lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
+    `)
+    .eq("dentist_org_id", org.id)
+    .not("due_date", "is", null)
+    .gte("due_date", today.toISOString())
+    .lte("due_date", todayEnd.toISOString())
+    .order("due_date", { ascending: true });
+
+  // Fetch orders due tomorrow (dentist)
+  const { data: tomorrowOrders } = await supabase
+    .from("lab_orders")
+    .select(`
+      id,
+      order_number,
+      status,
+      due_date,
+      patient:patients(id, first_name, last_name),
+      dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
+      lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
+    `)
+    .eq("dentist_org_id", org.id)
+    .not("due_date", "is", null)
+    .gte("due_date", tomorrow.toISOString())
+    .lte("due_date", tomorrowEnd.toISOString())
+    .order("due_date", { ascending: true });
 
   return (
     <div className="flex flex-col">
@@ -147,7 +292,14 @@ export default async function DashboardPage() {
 
       <div className="flex-1 space-y-8 p-8 max-w-7xl mx-auto w-full">
         {/* Quick Actions for Dentists */}
-        {isDentist && <QuickActions organizationId={org.id} patients={patients} labs={labs} />}
+        <QuickActions organizationId={org.id} patients={patients} labs={labs} />
+
+        {/* Delivery Alerts */}
+        <DeliveryAlerts
+          todayOrders={todayOrders || []}
+          tomorrowOrders={tomorrowOrders || []}
+          isDentist={true}
+        />
 
         {/* Stats Grid */}
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
@@ -180,7 +332,7 @@ export default async function DashboardPage() {
               <div>
                 <CardTitle className="text-lg font-bold">Pedidos Recientes</CardTitle>
                 <CardDescription className="text-xs font-medium">
-                  Últimos pedidos {isDentist ? "enviados al laboratorio" : "recibidos en el laboratorio"}
+                  Últimos pedidos enviados al laboratorio
                 </CardDescription>
               </div>
               <Link href="/dashboard/orders">
@@ -219,7 +371,7 @@ export default async function DashboardPage() {
                         <div className="flex items-center gap-4">
                           <div className="text-right hidden sm:block">
                             <p className="text-[11px] font-bold text-muted-foreground">
-                              {new Date(order.created_at).toLocaleDateString("es-ES", { day: '2-digit', month: 'short' })}
+                              {formatShortDate(order.created_at)}
                             </p>
                           </div>
                           <span
