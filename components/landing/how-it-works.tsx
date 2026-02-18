@@ -30,7 +30,7 @@ export function HowItWorks() {
             Como funciona
           </h2>
           <p className="mt-4 text-pretty text-lg text-muted-foreground">
-            Empieza a usar DentLab Pro en cuatro simples pasos
+            Empieza a usar DigitalDent en cuatro simples pasos
           </p>
         </div>
 

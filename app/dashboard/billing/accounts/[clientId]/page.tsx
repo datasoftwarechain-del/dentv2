@@ -68,18 +68,8 @@ export default async function ClientAccountPage({ params }: PageProps) {
   // Total pagado = suma de todos los cobros/pagos registrados
   const totalPaid = movements?.filter(m => m.type === "payment").reduce((sum, m) => sum + Number(m.amount), 0) || 0;
 
-  // Calculate REAL balance from ledger (último balance registrado)
-  const { data: lastMovement } = await supabase
-    .from("ledger_movements")
-    .select("balance")
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
-    .eq(isDentist ? "lab_org_id" : "dentist_org_id", resolvedParams.clientId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  // El saldo real es el último balance del ledger, O si no hay movimientos, usar facturas pendientes
-  const balance = lastMovement?.balance || (totalInvoiced - totalPaid);
+  // El saldo real se calcula siempre desde facturas y pagos para mantener coherencia
+  const balance = totalInvoiced - totalPaid;
 
   return (
     <div className="flex flex-col">

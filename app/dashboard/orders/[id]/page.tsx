@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import { formatSimpleDate, formatDateTime } from "@/lib/date-utils";
+import { EditDueDateButton } from "@/components/orders/edit-due-date-button";
 
 export default async function OrderDetailsPage({
     params,
@@ -143,15 +144,16 @@ export default async function OrderDetailsPage({
                                         <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
                                             <Calendar className="h-3 w-3" /> Fecha Entrega
                                         </p>
-                                        <p className="font-bold text-sm">
-                                            {order.due_date ? formatSimpleDate(order.due_date) : "No especificada"}
-                                        </p>
+                                        <EditDueDateButton
+                                            orderId={order.id}
+                                            currentDueDate={order.due_date}
+                                        />
                                     </div>
                                 </div>
 
                                 {/* Items Section */}
                                 <div className="space-y-4">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Ítems del Pedido</h3>
+                                    <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Ítems de la Orden</h3>
                                     {order.items && order.items.length > 0 ? (
                                         <div className="rounded-2xl border border-border/40 bg-muted/20 overflow-hidden text-sm">
                                             <table className="w-full">
@@ -205,23 +207,29 @@ export default async function OrderDetailsPage({
                                 <CardDescription className="text-xs font-medium">Cronología de producción</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
-                                <div className="relative space-y-6 before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-muted/80">
-                                    <div className="relative flex gap-4 pl-10">
-                                        <div className="absolute left-0 h-8 w-8 rounded-full border-4 border-background bg-primary shadow-sm flex items-center justify-center z-10 transition-transform hover:scale-110">
-                                            <Clock className="h-3 w-3 text-white" />
+                                <div className="space-y-0">
+                                    {/* Step 1: Orden Recibida */}
+                                    <div className="flex gap-3">
+                                        <div className="flex flex-col items-center">
+                                            <div className="h-9 w-9 rounded-full border-4 border-background bg-primary shadow-md flex items-center justify-center shrink-0 transition-transform hover:scale-110">
+                                                <Clock className="h-3.5 w-3.5 text-white" />
+                                            </div>
+                                            <div className="w-[2px] bg-muted/60 grow my-1 rounded-full" />
                                         </div>
-                                        <div className="space-y-1">
+                                        <div className="space-y-0.5 pb-5 pt-1">
                                             <p className="text-xs font-bold">Orden Recibida</p>
                                             <p className="text-[10px] text-muted-foreground font-medium">{formatDateTime(order.created_at)}</p>
                                         </div>
                                     </div>
 
-                                    {/* Placeholder for real history if table existed */}
-                                    <div className="relative flex gap-4 pl-10 opacity-40">
-                                        <div className="absolute left-0 h-8 w-8 rounded-full border-4 border-background bg-muted shadow-sm flex items-center justify-center z-10">
-                                            <Building2 className="h-3 w-3 text-muted-foreground" />
+                                    {/* Step 2: En Producción (pending) */}
+                                    <div className="flex gap-3 opacity-40">
+                                        <div className="flex flex-col items-center">
+                                            <div className="h-9 w-9 rounded-full border-4 border-background bg-muted shadow-sm flex items-center justify-center shrink-0">
+                                                <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                            </div>
                                         </div>
-                                        <div className="space-y-1">
+                                        <div className="space-y-0.5 pt-1">
                                             <p className="text-xs font-bold">En Producción</p>
                                             <p className="text-[10px] text-muted-foreground font-medium">Pendiente</p>
                                         </div>

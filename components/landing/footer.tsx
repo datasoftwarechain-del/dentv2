@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const footerLinks = {
@@ -26,11 +27,11 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-8 md:grid-cols-4">
           <div>
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <span className="text-sm font-bold text-primary-foreground">DL</span>
-              </div>
-              <span className="text-lg font-semibold">DentLab Pro</span>
+            <Link href="/" className="flex items-center gap-2.5">
+              <Image src="/logo.png" alt="DigitalDent" width={32} height={32} className="rounded-lg" />
+              <span className="text-lg font-bold">
+                <span className="text-[#044c64]">Digital</span><span className="text-[#09919b]">Dent</span>
+              </span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
               La plataforma lider para conectar clinicas dentales con laboratorios.
@@ -88,7 +89,7 @@ export function Footer() {
 
         <div className="mt-12 border-t border-border pt-8">
           <p className="text-center text-sm text-muted-foreground">
-            2026 DentLab Pro. Todos los derechos reservados.
+            2026 DigitalDent. Todos los derechos reservados.
           </p>
         </div>
       </div>

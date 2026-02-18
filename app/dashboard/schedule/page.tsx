@@ -3,19 +3,20 @@ import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { WeeklySchedule } from "@/components/schedule/weekly-schedule";
 
-export default async function SchedulePage() {
+export const dynamic = "force-dynamic";
+
+export default async function SchedulePage(props: any) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect("/auth/login");
 
-  // Get user's organizations (handle multiple orgs like layout does)
+  // Get user's organizations
   const { data: memberships } = await supabase
     .from("org_members")
     .select("organization:org_id(id, name, type, is_system_account)")
     .eq("user_id", user.id);
 
-  // Filter for system accounts only and get the first one
   const orgs = (memberships || [])
     .map((m: any) => {
       const orgData = m.organization;
@@ -28,19 +29,37 @@ export default async function SchedulePage() {
 
   const isDentist = org.type === "dentist";
 
-  // Get current week start (Monday) and end (Sunday)
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Adjust to Monday
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() + diff);
-  weekStart.setHours(0, 0, 0, 0);
+  // ── Read week param (supports both sync & async searchParams) ─────────────
+  const searchParams = await Promise.resolve(props.searchParams ?? {});
+  const weekParam: string | undefined = searchParams?.week;
+
+  // ── Calculate weekStart from param or default to current Monday ───────────
+  let weekStart: Date;
+
+  if (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam)) {
+    const [y, m, d] = weekParam.split("-").map(Number);
+    weekStart = new Date(y, m - 1, d); // local date, no UTC offset
+  } else {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // adjust to Monday
+    weekStart = new Date(now);
+    weekStart.setDate(now.getDate() + diff);
+    weekStart.setHours(0, 0, 0, 0);
+  }
 
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
 
-  // Fetch orders with due dates in the current week
+  // Serialize weekStart as YYYY-MM-DD string (safe for RSC → client prop)
+  const weekStartStr = [
+    weekStart.getFullYear(),
+    String(weekStart.getMonth() + 1).padStart(2, "0"),
+    String(weekStart.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  // ── Fetch orders for the selected week ────────────────────────────────────
   const { data: orders } = await supabase
     .from("lab_orders")
     .select(`
@@ -70,7 +89,7 @@ export default async function SchedulePage() {
         <WeeklySchedule
           orders={orders || []}
           isDentist={isDentist}
-          weekStart={weekStart}
+          weekStartStr={weekStartStr}
         />
       </div>
     </div>

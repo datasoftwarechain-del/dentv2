@@ -13,7 +13,7 @@ export async function generateCSRFToken(): Promise<string> {
   const cookieStore = await cookies();
 
   cookieStore.set(CSRF_COOKIE_NAME, token, {
-    httpOnly: true,
+    httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     path: '/',

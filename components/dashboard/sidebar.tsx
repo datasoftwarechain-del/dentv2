@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,7 @@ const dentistNav = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/dashboard/patients", label: "Pacientes", icon: Users },
   { href: "/dashboard/appointments", label: "Citas", icon: Calendar },
-  { href: "/dashboard/orders", label: "Pedidos", icon: FileText },
+  { href: "/dashboard/orders", label: "Órdenes", icon: FileText },
   { href: "/dashboard/schedule", label: "Agenda Semanal", icon: CalendarClock },
   { href: "/dashboard/billing", label: "Facturacion", icon: CreditCard },
   { href: "/dashboard/settings", label: "Configuracion", icon: Settings },
@@ -38,7 +39,7 @@ const dentistNav = [
 
 const labNav = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/dashboard/orders", label: "Pedidos", icon: FileText },
+  { href: "/dashboard/orders", label: "Órdenes", icon: FileText },
   { href: "/dashboard/kanban", label: "Produccion", icon: Package },
   { href: "/dashboard/schedule", label: "Agenda Semanal", icon: CalendarClock },
   { href: "/dashboard/clients", label: "Clinicas", icon: Building2 },
@@ -96,31 +97,42 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
           {!collapsed && (
             <Link
               href="/dashboard"
-              className="flex items-center gap-3 group"
+              className="flex items-center gap-2.5 group"
               onClick={handleLinkClick}
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 shadow-sm group-hover:bg-slate-800 transition-colors">
-                <span className="text-[13px] font-bold text-white tracking-tight">DL</span>
+              <Image
+                src="/logo.png"
+                alt="DigitalDent logo"
+                width={36}
+                height={36}
+                className="rounded-lg shrink-0"
+              />
+              <div className="leading-none">
+                <span className="text-[15px] font-bold text-[#044c64] tracking-tight">Digital</span>
+                <span className="text-[15px] font-bold text-[#09919b] tracking-tight">Dent</span>
               </div>
-              <span className="text-[17px] font-bold text-slate-900 tracking-tight">
-                DentLab
-              </span>
             </Link>
           )}
           {collapsed && (
-            <Link href="/dashboard" className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 shadow-sm hover:bg-slate-800 transition-colors">
-              <span className="text-[13px] font-bold text-white tracking-tight">DL</span>
+            <Link href="/dashboard" className="mx-auto">
+              <Image
+                src="/logo.png"
+                alt="DigitalDent logo"
+                width={36}
+                height={36}
+                className="rounded-lg"
+              />
             </Link>
           )}
         </div>
 
-        {/* Organization */}
+        {/* Organization type badge */}
         {!collapsed && (
-          <div className="mx-4 mt-4 mb-3 rounded-lg bg-slate-50 px-3 py-2.5 border border-slate-200/60">
-            <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 mb-1">
-              {orgType === "dentist" ? "Clínica" : "Laboratorio"}
-            </p>
-            <p className="truncate text-[13px] font-semibold text-slate-900">{orgName}</p>
+          <div className="mx-4 mt-4 mb-3 flex">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#d2f2f3] px-3 py-1 text-[11px] font-semibold text-[#044c64] border border-[#b0dde0]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#09919b]" />
+              {orgType === "dentist" ? "Clínica Dental" : "Laboratorio"}
+            </span>
           </div>
         )}
 
@@ -137,7 +149,7 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
                 className={cn(
                   "group relative flex items-center gap-3.5 rounded-lg px-3 py-3 text-[13px] font-medium transition-all duration-200 ease-out",
                   isActive
-                    ? "bg-slate-800 text-white shadow-sm"
+                    ? "bg-[#d2f2f3] text-[#044c64] shadow-sm"
                     : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                   collapsed && "justify-center px-2"
                 )}
@@ -145,14 +157,14 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
                 <Icon
                   className={cn(
                     "shrink-0 transition-all duration-200",
-                    isActive ? "text-white" : "text-slate-500 group-hover:text-slate-700",
+                    isActive ? "text-[#044c64]" : "text-slate-500 group-hover:text-slate-700",
                     collapsed ? "h-5 w-5" : "h-[18px] w-[18px]"
                   )}
                   strokeWidth={isActive ? 2.5 : 1.8}
                 />
                 {!collapsed && <span className="tracking-wide">{item.label}</span>}
                 {!collapsed && isActive && (
-                  <div className="ml-auto h-1 w-1 rounded-full bg-white/70" />
+                  <div className="ml-auto h-1 w-1 rounded-full bg-[#09919b]" />
                 )}
               </Link>
             );

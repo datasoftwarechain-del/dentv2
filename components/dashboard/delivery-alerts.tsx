@@ -139,7 +139,7 @@ export function DeliveryAlerts({
                           <div
                             className={cn(
                               "flex items-center justify-end gap-1 font-bold",
-                              overdue ? "text-primary px-2 py-0.5 bg-primary/5 rounded-lg" : "text-amber-600"
+                              overdue ? "text-primary px-2 py-0.5 bg-primary/5 rounded-lg" : "text-[#09919b]"
                             )}
                           >
                             <Clock className="h-3.5 w-3.5" />
@@ -172,18 +172,18 @@ export function DeliveryAlerts({
 
       {/* Tomorrow's Deliveries - Warning Alert */}
       {tomorrowOrders.length > 0 && (
-        <Card className="border-2 border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20 dark:border-amber-900/50 shadow-md animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
+        <Card className="border border-indigo-200 bg-gradient-to-r from-indigo-50 to-[#d2f2f3] dark:from-indigo-950/20 dark:to-[#044c64]/10 dark:border-indigo-900/50 shadow-md animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500 shadow-lg shadow-amber-500/50">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/30">
                   <Bell className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg font-bold text-amber-900 dark:text-amber-400">
-                    ⚠️ Entregas MAÑANA
+                  <CardTitle className="text-lg font-bold text-indigo-900 dark:text-indigo-300">
+                    Entregas MAÑANA
                   </CardTitle>
-                  <p className="text-xs text-amber-700 dark:text-amber-500 font-medium mt-0.5">
+                  <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-0.5">
                     {tomorrowOrders.length}{" "}
                     {tomorrowOrders.length === 1 ? "trabajo programado" : "trabajos programados"}
                   </p>
@@ -193,7 +193,7 @@ export function DeliveryAlerts({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-amber-300 hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/30"
+                  className="border-indigo-300 hover:bg-indigo-100 dark:border-indigo-800 dark:hover:bg-indigo-900/30"
                 >
                   Ver Agenda
                   <ChevronRight className="ml-1 h-4 w-4" />
@@ -210,12 +210,12 @@ export function DeliveryAlerts({
 
               return (
                 <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
-                  <Card className="group cursor-pointer border border-amber-200/50 hover:border-amber-400 hover:shadow-md transition-all bg-white/80 dark:bg-background/50 backdrop-blur-sm">
+                  <Card className="group cursor-pointer border border-indigo-200/50 hover:border-indigo-400 hover:shadow-md transition-all bg-white/80 dark:bg-background/50 backdrop-blur-sm">
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <p className="text-sm font-bold text-foreground group-hover:text-amber-600 transition-colors">
+                            <p className="text-sm font-bold text-foreground group-hover:text-indigo-600 transition-colors">
                               {order.order_number}
                             </p>
                             <Badge
@@ -241,7 +241,7 @@ export function DeliveryAlerts({
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-1 text-amber-600 font-bold">
+                        <div className="flex items-center gap-1 text-[#09919b] font-bold">
                           <Clock className="h-4 w-4" />
                           <span className="text-lg">{formatDueTime(order.due_date)}</span>
                         </div>
@@ -253,7 +253,7 @@ export function DeliveryAlerts({
             })}
             {tomorrowOrders.length > 3 && (
               <Link href="/dashboard/schedule">
-                <div className="text-center py-2 text-xs text-amber-700 dark:text-amber-500 font-medium hover:text-amber-800 dark:hover:text-amber-400 transition-colors">
+                <div className="text-center py-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
                   + {tomorrowOrders.length - 3} entregas más mañana
                 </div>
               </Link>

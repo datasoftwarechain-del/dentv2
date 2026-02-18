@@ -42,6 +42,7 @@ interface CreateOrderDialogProps {
     labs: Organization[];
     children?: React.ReactNode;
     mode?: "dentist" | "lab";
+    defaultLabId?: string | null;
 }
 
 const workTypes = [
@@ -60,7 +61,7 @@ const workTypes = [
     { value: "otro", label: "Otro" },
 ];
 
-export function CreateOrderDialog({ organizationId, patients, labs, children, mode = "dentist" }: CreateOrderDialogProps) {
+export function CreateOrderDialog({ organizationId, patients, labs, children, mode = "dentist", defaultLabId }: CreateOrderDialogProps) {
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -70,7 +71,7 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
     const [manualClinicName, setManualClinicName] = useState('');
     const [formData, setFormData] = useState({
         patientId: "",
-        targetOrgId: "", // Generic name for labId or dentistId
+        targetOrgId: (mode === "dentist" && defaultLabId) ? defaultLabId : "",
         workType: "",
         toothNumbers: "",
         shade: "",
@@ -104,22 +105,22 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
                 return;
             }
 
-            // For non-manual clinic entry, require clinic ID
+            // For non-manual clinic/lab entry, require the ID
             if (!useManualClinic && !formData.targetOrgId) {
-                toast.error("Por favor selecciona una clínica");
+                toast.error(mode === "dentist" ? "Por favor selecciona un laboratorio" : "Por favor selecciona una clínica");
                 setLoading(false);
                 return;
             }
 
-            // For lab mode with manual patient, require manual name
-            if (mode === 'lab' && useManualPatient && !manualPatientName.trim()) {
+            // If manual patient, require the name
+            if (useManualPatient && !manualPatientName.trim()) {
                 toast.error("Por favor ingresa el nombre del paciente");
                 setLoading(false);
                 return;
             }
 
-            // For non-manual patient entry in non-lab mode, require patient ID
-            if (mode === 'dentist' && !formData.patientId) {
+            // If not manual patient entry, require patient ID
+            if (!useManualPatient && !formData.patientId) {
                 toast.error("Por favor selecciona un paciente");
                 setLoading(false);
                 return;
@@ -169,10 +170,10 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
             const dentistOrgId = mode === "dentist" ? organizationId : finalTargetOrgId;
             const labOrgId = mode === "dentist" ? finalTargetOrgId : organizationId;
 
-            // Handle patient creation for manual entry (lab mode)
+            // Handle patient creation for manual entry (both lab and dentist mode)
             let finalPatientId = formData.patientId;
 
-            if (mode === 'lab' && useManualPatient && manualPatientName && !finalPatientId) {
+            if (useManualPatient && manualPatientName && !finalPatientId) {
                 // Create patient on-the-fly linked to the dentist org
                 const nameParts = manualPatientName.trim().split(' ');
                 const firstName = nameParts[0] || manualPatientName;
@@ -181,10 +182,9 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
                 const { data: newPatient, error: patientError } = await supabase
                     .from('patients')
                     .insert({
-                        dentist_org_id: dentistOrgId, // The dentist org (could be newly created)
+                        dentist_org_id: dentistOrgId,
                         first_name: firstName,
                         last_name: lastName,
-                        notes: 'Creado desde orden manual de laboratorio'
                     })
                     .select('id')
                     .single();
@@ -195,6 +195,17 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
                 }
                 if (!newPatient) throw new Error("No se pudo crear el paciente");
                 finalPatientId = newPatient.id;
+            }
+
+            // For dentist mode: auto-create lab-dentist relation if selecting a new lab
+            if (mode === 'dentist' && labOrgId) {
+                await supabase
+                    .from('lab_dentist_relations')
+                    .upsert({
+                        lab_org_id: labOrgId,
+                        dentist_org_id: dentistOrgId,
+                        status: 'active'
+                    }, { onConflict: 'lab_org_id,dentist_org_id', ignoreDuplicates: true });
             }
 
             // 1. Generate sequential order number
@@ -280,13 +291,11 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
 
             // Success message with context
             let description = '';
-            if (mode === 'lab') {
-                const created = [];
-                if (useManualClinic) created.push('Clínica');
-                if (useManualPatient) created.push('Paciente');
-                if (created.length > 0) {
-                    description = `${created.join(' y ')} creado${created.length > 1 ? 's' : ''} automáticamente`;
-                }
+            const created = [];
+            if (mode === 'lab' && useManualClinic) created.push('Clínica');
+            if (useManualPatient) created.push('Paciente');
+            if (created.length > 0) {
+                description = `${created.join(' y ')} creado${created.length > 1 ? 's' : ''} automáticamente`;
             }
 
             toast.success("Pedido creado exitosamente", {
@@ -296,7 +305,7 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
             setOpen(false);
             setFormData({
                 patientId: "",
-                targetOrgId: "",
+                targetOrgId: (mode === "dentist" && defaultLabId) ? defaultLabId : "",
                 workType: "",
                 toothNumbers: "",
                 shade: "",
@@ -328,7 +337,7 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
                 {children || (
                     <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300">
                         <Plus className="mr-2 h-4 w-4" />
-                        Nuevo Pedido
+                        Nueva Orden
                     </Button>
                 )}
             </DialogTrigger>
@@ -351,26 +360,24 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
                                 Paciente {mode === 'lab' && <span className="text-xs text-muted-foreground">(opcional)</span>}
                             </Label>
 
-                            {/* Manual patient entry option for lab mode */}
-                            {mode === 'lab' && (
-                                <div className="flex items-center gap-2 mb-2">
-                                    <input
-                                        type="checkbox"
-                                        id="manualPatient"
-                                        checked={useManualPatient}
-                                        onChange={(e) => {
-                                            setUseManualPatient(e.target.checked);
-                                            if (e.target.checked) {
-                                                setFormData({ ...formData, patientId: '' });
-                                            }
-                                        }}
-                                        className="h-4 w-4 rounded border-gray-300"
-                                    />
-                                    <Label htmlFor="manualPatient" className="text-xs text-muted-foreground cursor-pointer">
-                                        Paciente no está en el sistema
-                                    </Label>
-                                </div>
-                            )}
+                            {/* Manual patient entry option for both lab and dentist mode */}
+                            <div className="flex items-center gap-2 mb-2">
+                                <input
+                                    type="checkbox"
+                                    id="manualPatient"
+                                    checked={useManualPatient}
+                                    onChange={(e) => {
+                                        setUseManualPatient(e.target.checked);
+                                        if (e.target.checked) {
+                                            setFormData({ ...formData, patientId: '' });
+                                        }
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                />
+                                <Label htmlFor="manualPatient" className="text-xs text-muted-foreground cursor-pointer">
+                                    Crear nuevo paciente
+                                </Label>
+                            </div>
 
                             {useManualPatient ? (
                                 <div className="relative">
@@ -429,6 +436,9 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
                             <Label htmlFor="targetOrgId" className="text-foreground">
                                 {mode === "dentist" ? "Laboratorio" : "Clínica / Dentista"}
                             </Label>
+
+                            {/* Spacer to match the patient checkbox row height in dentist mode */}
+                            {mode === 'dentist' && <div className="h-4 mb-2" />}
 
                             {/* Manual clinic entry option for lab mode */}
                             {mode === 'lab' && (
@@ -652,7 +662,7 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
                         <Button
                             type="submit"
                             disabled={loading}
-                            className="bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/20"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
                         >
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Crear Pedido

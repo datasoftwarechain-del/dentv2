@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
-import { formatDueTime, formatShortDate } from "@/lib/date-utils";
+import { formatDueTime } from "@/lib/date-utils";
 import {
   Calendar,
   ChevronLeft,
@@ -39,7 +39,7 @@ interface Order {
 interface WeeklyScheduleProps {
   orders: Order[];
   isDentist: boolean;
-  weekStart: Date;
+  weekStartStr: string; // YYYY-MM-DD — string to avoid RSC Date serialization issues
 }
 
 const DAYS_OF_WEEK = [
@@ -52,8 +52,42 @@ const DAYS_OF_WEEK = [
   { name: "Domingo", short: "Dom" },
 ];
 
-export function WeeklySchedule({ orders, isDentist, weekStart }: WeeklyScheduleProps) {
-  const [currentWeekStart] = useState(weekStart);
+export function WeeklySchedule({ orders, isDentist, weekStartStr }: WeeklyScheduleProps) {
+
+  // ── Parse YYYY-MM-DD as local Date (no UTC offset) ────────────────────────
+  const parseLocalDate = (str: string): Date => {
+    const [y, m, d] = str.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+
+  const currentWeekStart = parseLocalDate(weekStartStr);
+
+  // ── Format Date → YYYY-MM-DD (local, no UTC) ──────────────────────────────
+  const toDateParam = (d: Date): string =>
+    [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, "0"),
+      String(d.getDate()).padStart(2, "0"),
+    ].join("-");
+
+  // ── Pre-compute href URLs (no JS event handlers needed) ──────────────────
+  const prevDate = new Date(currentWeekStart);
+  prevDate.setDate(prevDate.getDate() - 7);
+  const prevWeekUrl = `/dashboard/schedule?week=${toDateParam(prevDate)}`;
+
+  const nextDate = new Date(currentWeekStart);
+  nextDate.setDate(nextDate.getDate() + 7);
+  const nextWeekUrl = `/dashboard/schedule?week=${toDateParam(nextDate)}`;
+
+  const isCurrentWeek = (() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const thisMonday = new Date(now);
+    thisMonday.setDate(now.getDate() + diff);
+    thisMonday.setHours(0, 0, 0, 0);
+    return toDateParam(currentWeekStart) === toDateParam(thisMonday);
+  })();
 
   // Group orders by day
   const ordersByDay = useMemo(() => {
@@ -88,8 +122,8 @@ export function WeeklySchedule({ orders, isDentist, weekStart }: WeeklyScheduleP
 
   const formatDate = (date: Date) => {
     const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-    const day = date.getUTCDate().toString().padStart(2, '0');
-    const month = months[date.getUTCMonth()];
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = months[date.getMonth()];
     return `${day} ${month}`;
   };
 
@@ -122,7 +156,7 @@ export function WeeklySchedule({ orders, isDentist, weekStart }: WeeklyScheduleP
           </div>
           <CardHeader className="pb-2 relative z-10">
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">
-              Semana Actual
+              {isCurrentWeek ? "Semana Actual" : "Semana Seleccionada"}
             </p>
           </CardHeader>
           <CardContent className="relative z-10">
@@ -158,13 +192,13 @@ export function WeeklySchedule({ orders, isDentist, weekStart }: WeeklyScheduleP
             <div className="flex items-baseline gap-2">
               <div className={cn(
                 "text-3xl font-bold",
-                urgentOrders > 0 ? "text-amber-600" : "text-emerald-600"
+                urgentOrders > 0 ? "text-indigo-600" : "text-emerald-600"
               )}>
                 {urgentOrders}
               </div>
               <Clock className={cn(
                 "h-4 w-4",
-                urgentOrders > 0 ? "text-amber-600" : "text-emerald-600"
+                urgentOrders > 0 ? "text-indigo-600" : "text-emerald-600"
               )} />
             </div>
           </CardContent>
@@ -198,11 +232,24 @@ export function WeeklySchedule({ orders, isDentist, weekStart }: WeeklyScheduleP
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-8 px-3" disabled>
-                <ChevronLeft className="h-4 w-4" />
+              <Button variant="outline" size="sm" className="h-8 px-3" asChild>
+                <a href={prevWeekUrl} aria-label="Semana anterior">
+                  <ChevronLeft className="h-4 w-4" />
+                </a>
               </Button>
-              <Button variant="outline" size="sm" className="h-8 px-3" disabled>
-                <ChevronRight className="h-4 w-4" />
+              {!isCurrentWeek && (
+                <Button
+                  variant="outline" size="sm"
+                  className="h-8 px-3 text-xs font-semibold text-[#09919b] border-[#b0dde0] hover:bg-[#d2f2f3]"
+                  asChild
+                >
+                  <a href="/dashboard/schedule">Hoy</a>
+                </Button>
+              )}
+              <Button variant="outline" size="sm" className="h-8 px-3" asChild>
+                <a href={nextWeekUrl} aria-label="Semana siguiente">
+                  <ChevronRight className="h-4 w-4" />
+                </a>
               </Button>
             </div>
           </div>
@@ -268,57 +315,61 @@ export function WeeklySchedule({ orders, isDentist, weekStart }: WeeklyScheduleP
                             href={`/dashboard/orders/${order.id}`}
                             className="block"
                           >
-                            <Card className="group cursor-pointer border border-border/30 hover:border-primary/50 hover:shadow-lg transition-all duration-300 bg-background/50 backdrop-blur-sm overflow-hidden">
-                              <CardContent className="p-3 space-y-2">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                      <p className="text-xs font-bold truncate group-hover:text-primary transition-colors">
-                                        {order.order_number}
-                                      </p>
-                                      <span className="text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded">
-                                        {formatDueTime(order.due_date)}
-                                      </span>
-                                    </div>
-                                    {patient && (
-                                      <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-                                        <User className="h-2.5 w-2.5" />
-                                        {patient.first_name} {patient.last_name}
-                                      </p>
-                                    )}
-                                  </div>
+                            <Card className="group cursor-pointer border border-border/40 hover:border-primary/40 hover:shadow-md transition-all duration-200 bg-card overflow-hidden">
+                              <CardContent className="p-2.5 space-y-1.5">
+                                {/* Order number — full, never truncated */}
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="font-mono text-[11px] font-bold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md leading-none">
+                                    {order.order_number}
+                                  </span>
                                   <Badge
                                     variant="outline"
                                     className={cn(
-                                      "text-[9px] font-bold uppercase px-1.5 py-0",
+                                      "text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0 leading-none shrink-0",
                                       statusColors[order.status]
                                     )}
                                   >
-                                    {statusLabels[order.status]?.substring(0, 3) || order.status.substring(0, 3)}
+                                    {statusLabels[order.status] || order.status}
                                   </Badge>
                                 </div>
 
+                                {/* Time */}
+                                <div className="flex items-center gap-1 text-[10px] font-semibold text-[#09919b]">
+                                  <Clock className="h-3 w-3 shrink-0" />
+                                  {formatDueTime(order.due_date)}
+                                </div>
+
+                                {/* Patient */}
+                                {patient && (
+                                  <p className="text-[10px] text-foreground/70 truncate flex items-center gap-1 font-medium">
+                                    <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                    {patient.first_name} {patient.last_name}
+                                  </p>
+                                )}
+
+                                {/* Org */}
                                 {org && (
-                                  <p className="text-[9px] text-muted-foreground truncate flex items-center gap-1">
-                                    <Building2 className="h-2.5 w-2.5" />
+                                  <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+                                    <Building2 className="h-3 w-3 shrink-0" />
                                     {org.name}
                                   </p>
                                 )}
 
+                                {/* Work types */}
                                 {order.items && order.items.length > 0 && (
-                                  <div className="flex flex-wrap gap-1">
-                                    {order.items.slice(0, 2).map((item, idx) => (
+                                  <div className="flex flex-wrap gap-1 pt-0.5">
+                                    {order.items.slice(0, 1).map((item, idx) => (
                                       <Badge
                                         key={idx}
                                         variant="secondary"
-                                        className="text-[8px] px-1.5 py-0 font-medium"
+                                        className="text-[9px] px-1.5 py-0 font-medium max-w-full truncate"
                                       >
-                                        {item.work_type.replace(/_/g, " ").substring(0, 10)}
+                                        {item.work_type.replace(/_/g, " ")}
                                       </Badge>
                                     ))}
-                                    {order.items.length > 2 && (
-                                      <Badge variant="secondary" className="text-[8px] px-1.5 py-0">
-                                        +{order.items.length - 2}
+                                    {order.items.length > 1 && (
+                                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">
+                                        +{order.items.length - 1}
                                       </Badge>
                                     )}
                                   </div>
@@ -348,21 +399,21 @@ export function WeeklySchedule({ orders, isDentist, weekStart }: WeeklyScheduleP
 
       {/* Urgent Orders Alert */}
       {urgentOrders > 0 && (
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-900/30 dark:bg-amber-950/20">
+        <Card className="border-indigo-200 bg-indigo-50 dark:border-indigo-900/30 dark:bg-indigo-950/20">
           <CardContent className="flex items-center gap-4 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20">
-              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/20">
+              <AlertCircle className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-bold text-amber-900 dark:text-amber-400">
+              <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300">
                 {urgentOrders} {urgentOrders === 1 ? "entrega urgente" : "entregas urgentes"}
               </p>
-              <p className="text-xs text-amber-700 dark:text-amber-500">
+              <p className="text-xs text-indigo-700 dark:text-indigo-400">
                 Requieren atención en las próximas 48 horas
               </p>
             </div>
             <Link href="/dashboard/orders">
-              <Button size="sm" variant="outline" className="border-amber-300 hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/30">
+              <Button size="sm" variant="outline" className="border-indigo-300 hover:bg-indigo-100 dark:border-indigo-800 dark:hover:bg-indigo-900/30">
                 Ver Pedidos
               </Button>
             </Link>

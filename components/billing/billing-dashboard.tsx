@@ -48,7 +48,35 @@ import {
   ChevronRight,
   AlertCircle,
   Users,
+  Check,
 } from "lucide-react";
+
+const WORK_TYPE_LABELS: Record<string, string> = {
+  corona_metal_ceramica: "Corona Metal-Cerámica",
+  corona_zirconia:       "Corona Zirconia",
+  corona_emax:           "Corona Emax",
+  puente_fijo:           "Puente Fijo",
+  protesis_removible:    "Prótesis Removible",
+  protesis_total:        "Prótesis Total",
+  implante_corona:       "Corona s/ Implante",
+  carilla:               "Carilla",
+  incrustacion:          "Incrustación",
+  ferula:                "Férula",
+  retenedor:             "Retenedor",
+  reparacion:            "Reparación",
+  otro:                  "Otro",
+};
+
+function formatWorkType(wt: string | null | undefined): string {
+  if (!wt) return "—";
+  return WORK_TYPE_LABELS[wt] || wt.replace(/_/g, " ");
+}
+
+function shortInvoiceNumber(num: string): string {
+  // Keep proper invoice numbers (INV-000001), truncate UUIDs/order refs
+  if (num.length <= 16) return num;
+  return num.slice(0, 14) + "…";
+}
 import { InvoiceActions } from "./invoice-actions";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -111,11 +139,16 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelada",
 };
 
+// Billing statuses use brand palette
+// pending → brand mid-teal (waiting, not alarming)
+// paid    → emerald (universal "done", harmonizes with teal)
+// overdue → rose (critical, reserved only for this)
+// cancelled → neutral
 const statusColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100",
-  paid: "bg-green-100 text-green-800 hover:bg-green-100",
-  overdue: "bg-red-100 text-red-800 hover:bg-red-100",
-  cancelled: "bg-muted text-muted-foreground hover:bg-muted",
+  pending:   "bg-[#d2f2f3] text-[#4b8899] border-[#a8d8dc]",
+  paid:      "bg-emerald-50 text-emerald-700 border-emerald-200",
+  overdue:   "bg-rose-50 text-rose-600 border-rose-200",
+  cancelled: "bg-slate-100 text-slate-500 border-slate-200",
 };
 
 export function BillingDashboard({
@@ -295,12 +328,12 @@ export function BillingDashboard({
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
               Pendiente
             </p>
-            <div className="p-2 rounded-xl bg-amber-500/10 transition-colors">
-              <Clock className="h-4 w-4 text-amber-600" />
+            <div className="p-2 rounded-xl bg-[#d2f2f3] transition-colors">
+              <Clock className="h-4 w-4 text-[#09919b]" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tracking-tight text-amber-600">
+            <div className="text-3xl font-bold tracking-tight text-[#09919b]">
               ${formatNumber(stats.totalPending)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 font-medium">
@@ -345,7 +378,7 @@ export function BillingDashboard({
               </div>
               <div className={cn(
                 "flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg",
-                Number(monthGrowth) >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                Number(monthGrowth) >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-500"
               )}>
                 {Number(monthGrowth) >= 0 ? (
                   <TrendingUp className="h-3 w-3" />
@@ -375,18 +408,18 @@ export function BillingDashboard({
         </Card>
 
         {overdueInvoices.length > 0 && (
-          <Card className="border-2 border-red-200 shadow-sm bg-red-50/50">
+          <Card className="border border-rose-200 shadow-sm bg-rose-50/50">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-red-100">
-                  <AlertCircle className="h-5 w-5 text-red-600" />
+                <div className="p-2 rounded-xl bg-rose-100">
+                  <AlertCircle className="h-5 w-5 text-rose-500" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500 mb-1">
                     Facturas Vencidas
                   </p>
-                  <p className="text-2xl font-bold text-red-700">{overdueInvoices.length}</p>
-                  <p className="text-[10px] text-red-600 mt-1">
+                  <p className="text-2xl font-bold text-rose-600">{overdueInvoices.length}</p>
+                  <p className="text-[10px] text-rose-500 mt-1">
                     ${formatNumber(overdueInvoices.reduce((sum, inv) => sum + Number(inv.total), 0))}
                   </p>
                 </div>
@@ -440,7 +473,7 @@ export function BillingDashboard({
                       {client.pendingAmount > 0 && (
                         <div className="flex justify-between items-center text-xs">
                           <span className="text-muted-foreground">Pendiente</span>
-                          <span className="font-bold text-amber-600">
+                          <span className="font-bold text-[#09919b]">
                             ${formatNumber(client.pendingAmount)}
                           </span>
                         </div>
@@ -455,11 +488,11 @@ export function BillingDashboard({
       )}
 
       {/* Invoices Table */}
-      <Card className="border border-border/50 shadow-premium bg-background/50 backdrop-blur-sm">
-        <CardHeader className="border-b border-border/40 pb-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="border border-border shadow-sm bg-background overflow-hidden">
+        <CardHeader className="border-b border-border pb-4 px-5 pt-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-lg font-bold">Facturas</CardTitle>
+              <CardTitle className="text-base font-bold">Facturas</CardTitle>
               <CardDescription className="text-xs font-medium">
                 {isDentist ? "Control de facturación recibida" : "Gestión de facturas emitidas"}
               </CardDescription>
@@ -532,85 +565,83 @@ export function BillingDashboard({
             </Dialog>
           </div>
         </CardHeader>
-        <CardContent className="pt-6">
-          {invoices.length > 0 ? (
-            <div className="rounded-2xl border border-border/40 overflow-hidden bg-background/30">
+        <CardContent className="pt-4 px-0 pb-0">
+          {invoices.length > 0 ? (<>
+
+            {/* ── DESKTOP TABLE (md+) ───────────────────────────────── */}
+            <div className="hidden md:block overflow-x-auto">
               <Table>
-                <TableHeader className="bg-muted/50">
-                  <TableRow className="hover:bg-transparent border-border/40">
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Factura</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Paciente</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Trabajo</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{isDentist ? "Laboratorio" : "Clinica"}</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monto</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Entrega</TableHead>
-                    <TableHead className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Estado</TableHead>
-                    <TableHead className="text-right text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Acciones</TableHead>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent border-border bg-muted/40">
+                    {["Factura", "Paciente · Trabajo", isDentist ? "Laboratorio" : "Clínica", "Monto", "Estado", ""].map(h => (
+                      <TableHead key={h} className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-3 h-10 first:pl-6 last:pr-4">
+                        {h}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {invoices.map((invoice) => (
-                    <TableRow key={invoice.id} className="border-border/40 hover:bg-muted/20 transition-colors group">
-                      <TableCell className="font-bold py-4">
+                    <TableRow key={invoice.id} className="border-border/60 hover:bg-muted/20 transition-colors group">
+                      {/* Factura + fecha entrega */}
+                      <TableCell className="py-3.5 pl-6">
                         <div className="flex items-center gap-2">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-                          <span className="font-mono">{invoice.invoice_number}</span>
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0 group-hover:text-primary transition-colors" />
+                          <div>
+                            <p className="font-mono text-xs font-semibold text-foreground/80">
+                              {shortInvoiceNumber(invoice.invoice_number)}
+                            </p>
+                            {invoice.delivery_date && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {formatSimpleDate(invoice.delivery_date)}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">
-                        {invoice.patient_name ? (
-                          <div className="flex items-center gap-2">
-                            <User className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>{invoice.patient_name}</span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-xs italic">Sin paciente</span>
-                        )}
+
+                      {/* Paciente + trabajo */}
+                      <TableCell className="py-3.5 max-w-[200px]">
+                        <p className="text-sm font-medium truncate">
+                          {invoice.patient_name || <span className="text-muted-foreground italic text-xs">Sin paciente</span>}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {formatWorkType(invoice.work_type)}
+                        </p>
                       </TableCell>
-                      <TableCell className="font-medium text-sm">
-                        {invoice.work_type ? (
-                          <div className="flex items-center gap-2 max-w-[180px]">
-                            <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                            <span className="truncate" title={invoice.work_type}>
-                              {invoice.work_type}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground text-xs italic">Sin especificar</span>
-                        )}
+
+                      {/* Org */}
+                      <TableCell className="py-3.5 text-sm font-medium">
+                        {isDentist ? invoice.lab_org?.name : invoice.dentist_org?.name || "—"}
                       </TableCell>
-                      <TableCell className="font-medium">
-                        {isDentist
-                          ? invoice.lab_org?.name
-                          : invoice.dentist_org?.name}
+
+                      {/* Monto */}
+                      <TableCell className="py-3.5">
+                        <span className="text-base font-bold">${formatNumber(invoice.total)}</span>
                       </TableCell>
-                      <TableCell className="font-bold text-base">
-                        ${formatNumber(invoice.total)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground font-medium">
-                        {invoice.delivery_date
-                          ? formatSimpleDate(invoice.delivery_date)
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
+
+                      {/* Estado */}
+                      <TableCell className="py-3.5">
                         <Badge
                           variant="outline"
-                          className={cn("text-[10px] font-bold uppercase tracking-widest", statusColors[invoice.status] || "")}
+                          className={cn("text-[10px] font-semibold uppercase tracking-wide rounded-full px-2.5", statusColors[invoice.status] || "")}
                         >
                           {statusLabels[invoice.status] || invoice.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
+
+                      {/* Acciones */}
+                      <TableCell className="py-3.5 pr-4">
+                        <div className="flex items-center justify-end gap-1.5">
                           <InvoiceActions invoice={invoice} isDentist={isDentist} />
                           {!isDentist && invoice.status === "pending" && (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-8 text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all"
+                              className="h-7 px-3 text-[10px] font-bold uppercase tracking-wide hover:bg-emerald-600 hover:text-white border-emerald-300 text-emerald-700 transition-all"
                               onClick={() => handleMarkAsPaid(invoice.id)}
                             >
-                              Marcar Pagada
+                              <Check className="h-3 w-3 mr-1" /> Pagada
                             </Button>
                           )}
                         </div>
@@ -620,13 +651,75 @@ export function BillingDashboard({
                 </TableBody>
               </Table>
             </div>
-          ) : (
-            <div className="py-16 text-center space-y-4">
-              <div className="h-16 w-16 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto">
-                <FileText className="h-8 w-8 text-muted-foreground/50" />
+
+            {/* ── MOBILE CARDS (<md) ────────────────────────────────── */}
+            <div className="md:hidden divide-y divide-border">
+              {invoices.map((invoice) => (
+                <div key={invoice.id} className="px-4 py-4 hover:bg-muted/20 transition-colors">
+                  {/* Row 1: invoice number + amount + status */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="font-mono text-xs font-semibold text-foreground/80 truncate">
+                        {shortInvoiceNumber(invoice.invoice_number)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-bold">${formatNumber(invoice.total)}</span>
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[9px] font-semibold uppercase tracking-wide rounded-full px-2", statusColors[invoice.status] || "")}
+                      >
+                        {statusLabels[invoice.status] || invoice.status}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Row 2: patient + work type */}
+                  <div className="flex items-center gap-3 mb-1.5">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {invoice.patient_name || <span className="text-muted-foreground italic text-xs">Sin paciente</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {formatWorkType(invoice.work_type)}
+                        {(isDentist ? invoice.lab_org?.name : invoice.dentist_org?.name)
+                          ? ` · ${isDentist ? invoice.lab_org?.name : invoice.dentist_org?.name}`
+                          : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Row 3: delivery date + actions */}
+                  <div className="flex items-center justify-between mt-2.5">
+                    <span className="text-[11px] text-muted-foreground">
+                      {invoice.delivery_date ? formatSimpleDate(invoice.delivery_date) : "Sin fecha entrega"}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <InvoiceActions invoice={invoice} isDentist={isDentist} />
+                      {!isDentist && invoice.status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2.5 text-[10px] font-bold hover:bg-emerald-600 hover:text-white border-emerald-300 text-emerald-700"
+                          onClick={() => handleMarkAsPaid(invoice.id)}
+                        >
+                          <Check className="h-3 w-3 mr-1" /> Pagada
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </>) : (
+            <div className="py-16 text-center space-y-3 px-4">
+              <div className="h-14 w-14 rounded-2xl bg-muted/30 border border-border flex items-center justify-center mx-auto">
+                <FileText className="h-7 w-7 text-muted-foreground/40" />
               </div>
-              <div className="max-w-[200px] mx-auto text-sm">
-                <h3 className="font-bold">No hay facturas</h3>
+              <div>
+                <h3 className="font-bold text-sm">No hay facturas</h3>
                 <p className="text-xs text-muted-foreground mt-1">
                   Las facturas aparecerán aquí cuando se generen automáticamente.
                 </p>
@@ -654,13 +747,13 @@ export function BillingDashboard({
                     <div
                       className={cn(
                         "flex h-10 w-10 items-center justify-center rounded-xl transition-transform group-hover:scale-110 shadow-sm",
-                        movement.type === "charge" ? "bg-emerald-500/10" : "bg-rose-500/10"
+                        movement.type === "charge" ? "bg-emerald-500/10" : "bg-[#d2f2f3]"
                       )}
                     >
                       {movement.type === "charge" ? (
                         <TrendingUp className="h-5 w-5 text-emerald-600" />
                       ) : (
-                        <TrendingDown className="h-5 w-5 text-rose-600" />
+                        <TrendingDown className="h-5 w-5 text-[#09919b]" />
                       )}
                     </div>
                     <div>
@@ -676,7 +769,7 @@ export function BillingDashboard({
                   <span
                     className={cn(
                       "font-bold text-lg",
-                      movement.type === "charge" ? "text-emerald-600" : "text-rose-600"
+                      movement.type === "charge" ? "text-emerald-600" : "text-[#09919b]"
                     )}
                   >
                     {movement.type === "charge" ? "+" : "-"}$

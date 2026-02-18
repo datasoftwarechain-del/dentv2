@@ -57,8 +57,8 @@ export function QuickActions({ organizationId, patients, labs }: QuickActionsPro
                 {/* New Appointment */}
                 <CreateAppointmentDialog organizationId={organizationId} patients={patients}>
                     <Button className="w-full h-auto py-6 flex-col gap-2 rounded-2xl bg-background shadow-sm border border-border/50 hover:shadow-md hover:border-primary/50 text-foreground group transition-all duration-300">
-                        <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Calendar className="h-5 w-5 text-amber-600" />
+                        <div className="h-10 w-10 rounded-xl bg-[#d2f2f3] flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Calendar className="h-5 w-5 text-[#09919b]" />
                         </div>
                         <span className="font-semibold">Agendar Cita</span>
                     </Button>

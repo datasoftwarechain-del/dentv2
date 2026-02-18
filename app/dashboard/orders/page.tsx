@@ -44,6 +44,7 @@ export default async function OrdersPage() {
   // For dentists, get patients and available labs
   let patients: { id: string; first_name: string; last_name: string }[] = [];
   let labs: { id: string; name: string }[] = [];
+  let defaultLabId: string | null = null;
 
   if (isDentist) {
     const { data: patientsData } = await supabase
@@ -69,6 +70,30 @@ export default async function OrdersPage() {
       })
       .filter((lab): lab is LabOrg => Boolean(lab?.id && lab?.name));
     labs.sort((a, b) => a.name.localeCompare(b.name));
+
+    // If no lab relations found, show Digital Dent as default (platform's main lab)
+    if (labs.length === 0) {
+      const { data: allLabs } = await supabase
+        .from("organizations")
+        .select("id, name")
+        .eq("type", "lab")
+        .eq("is_system_account", true)
+        .order("name");
+      const allLabsData = (allLabs || []) as LabOrg[];
+      // Prefer labs named "Digital Dent"; fall back to all if none found
+      const digitalDentLabs = allLabsData.filter(l =>
+        l.name.trim().toLowerCase().includes("digital dent")
+      );
+      labs = digitalDentLabs.length > 0 ? digitalDentLabs : allLabsData;
+    }
+
+    // Auto-select: if only 1 lab, pre-select it; otherwise prefer lab named "Digital Dent"
+    if (labs.length === 1) {
+      defaultLabId = labs[0].id;
+    } else if (labs.length > 1) {
+      const preferred = labs.find(l => l.name.trim().toLowerCase().includes("digital dent"));
+      defaultLabId = preferred?.id || labs[0].id;
+    }
   } else {
     // Logic for Laboratory Users
     // 1. Get connected Dentists (Clinics)
@@ -110,7 +135,7 @@ export default async function OrdersPage() {
   return (
     <div className="flex flex-col">
       <DashboardHeader
-        title="Pedidos"
+        title="Órdenes"
         user={{
           email: user.email || "",
           firstName: user.user_metadata?.first_name,
@@ -124,6 +149,7 @@ export default async function OrdersPage() {
           organizationId={org.id}
           patients={patients}
           labs={labs}
+          defaultLabId={defaultLabId}
         />
       </div>
     </div>

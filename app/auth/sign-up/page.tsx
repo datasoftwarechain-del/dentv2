@@ -90,11 +90,11 @@ export default function SignUpPage() {
 
       <Card className="glass-card w-full max-w-md border-none">
         <CardHeader className="text-center">
-          <Link href="/" className="mx-auto mb-4 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <span className="text-sm font-bold text-primary-foreground">DL</span>
-            </div>
-            <span className="text-lg font-semibold">DentLab Pro</span>
+          <Link href="/" className="mx-auto mb-4 flex items-center gap-2.5">
+            <img src="/logo.png" alt="DigitalDent" className="h-9 w-9 rounded-lg" />
+            <span className="text-lg font-bold">
+              <span className="text-[#044c64]">Digital</span><span className="text-[#09919b]">Dent</span>
+            </span>
           </Link>
           <CardTitle>Crear Cuenta</CardTitle>
           <CardDescription>

@@ -41,10 +41,10 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-  paid: "bg-green-100 text-green-800 border-green-200",
-  overdue: "bg-red-100 text-red-800 border-red-200",
-  cancelled: "bg-gray-100 text-gray-800 border-gray-200",
+  pending:   "bg-[#d2f2f3] text-[#4b8899] border-[#a8d8dc]",
+  paid:      "bg-emerald-50 text-emerald-700 border-emerald-200",
+  overdue:   "bg-rose-50 text-rose-600 border-rose-200",
+  cancelled: "bg-slate-100 text-slate-500 border-slate-200",
 };
 
 export function InvoiceDetail({ invoice, isDentist, className }: InvoiceDetailProps) {
@@ -183,10 +183,10 @@ export function InvoiceDetail({ invoice, isDentist, className }: InvoiceDetailPr
 
         {/* Due Date */}
         {invoice.due_date && invoice.status === "pending" && (
-          <div className="mt-6 p-4 rounded-lg bg-amber-50 border border-amber-200">
+          <div className="mt-6 p-4 rounded-lg bg-[#e0f4f6] border border-[#b0dde0]">
             <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-semibold text-amber-900">
+              <Calendar className="h-4 w-4 text-[#09919b]" />
+              <span className="text-sm font-semibold text-[#0d687d]">
                 Vence el: {formatSimpleDate(invoice.due_date)}
               </span>
             </div>

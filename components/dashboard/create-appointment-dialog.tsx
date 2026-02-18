@@ -22,7 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2, Calendar, Clock, User, FileText } from "lucide-react";
+import { Plus, Loader2, Calendar, Clock, User, FileText, UserPlus } from "lucide-react";
 
 interface Patient {
     id: string;
@@ -40,6 +40,8 @@ export function CreateAppointmentDialog({ organizationId, patients, children }: 
     const router = useRouter();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [useManualPatient, setUseManualPatient] = useState(false);
+    const [newPatient, setNewPatient] = useState({ first_name: "", last_name: "" });
     const [formData, setFormData] = useState({
         patientId: "",
         date: "",
@@ -55,13 +57,28 @@ export function CreateAppointmentDialog({ organizationId, patients, children }: 
 
         try {
             const supabase = createClient();
+            let patientId = formData.patientId;
+
+            if (useManualPatient) {
+                const { data: created, error: patientError } = await supabase
+                    .from("patients")
+                    .insert({
+                        first_name: newPatient.first_name.trim(),
+                        last_name: newPatient.last_name.trim(),
+                        dentist_org_id: organizationId,
+                    })
+                    .select("id")
+                    .single();
+                if (patientError) throw patientError;
+                patientId = created.id;
+            }
 
             // Combine date and time
             const scheduledAt = new Date(`${formData.date}T${formData.time}:00`).toISOString();
 
             const { error } = await supabase.from("appointments").insert({
                 dentist_org_id: organizationId,
-                patient_id: formData.patientId,
+                patient_id: patientId,
                 scheduled_at: scheduledAt,
                 duration_minutes: parseInt(formData.duration),
                 status: formData.status,
@@ -71,14 +88,9 @@ export function CreateAppointmentDialog({ organizationId, patients, children }: 
             if (error) throw error;
 
             setOpen(false);
-            setFormData({
-                patientId: "",
-                date: "",
-                time: "",
-                duration: "30",
-                notes: "",
-                status: "scheduled"
-            });
+            setFormData({ patientId: "", date: "", time: "", duration: "30", notes: "", status: "scheduled" });
+            setNewPatient({ first_name: "", last_name: "" });
+            setUseManualPatient(false);
             router.refresh();
 
         } catch (error) {
@@ -110,28 +122,65 @@ export function CreateAppointmentDialog({ organizationId, patients, children }: 
                 <form onSubmit={handleCreateAppointment} className="space-y-6 mt-4">
 
                     <div className="space-y-2">
-                        <Label htmlFor="patientId" className="text-foreground">Paciente</Label>
-                        <div className="relative">
-                            <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground z-10" />
-                            <Select
-                                value={formData.patientId}
-                                onValueChange={(value) =>
-                                    setFormData({ ...formData, patientId: value })
-                                }
-                                required
+                        <div className="flex items-center justify-between">
+                            <Label htmlFor="patientId" className="text-foreground">Paciente</Label>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setUseManualPatient(!useManualPatient);
+                                    setFormData({ ...formData, patientId: "" });
+                                    setNewPatient({ first_name: "", last_name: "" });
+                                }}
+                                className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors font-medium"
                             >
-                                <SelectTrigger className="pl-9 bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all">
-                                    <SelectValue placeholder="Seleccionar Paciente" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-background border-border text-foreground">
-                                    {patients.map((patient) => (
-                                        <SelectItem key={patient.id} value={patient.id} className="focus:bg-muted focus:text-foreground">
-                                            {patient.first_name} {patient.last_name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                <UserPlus className="h-3.5 w-3.5" />
+                                {useManualPatient ? "Seleccionar existente" : "Crear nuevo paciente"}
+                            </button>
                         </div>
+
+                        {useManualPatient ? (
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="relative">
+                                    <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Nombre"
+                                        className="pl-9 bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all"
+                                        value={newPatient.first_name}
+                                        onChange={(e) => setNewPatient({ ...newPatient, first_name: e.target.value })}
+                                        required
+                                    />
+                                </div>
+                                <Input
+                                    placeholder="Apellido"
+                                    className="bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all"
+                                    value={newPatient.last_name}
+                                    onChange={(e) => setNewPatient({ ...newPatient, last_name: e.target.value })}
+                                    required
+                                />
+                            </div>
+                        ) : (
+                            <div className="relative">
+                                <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground z-10" />
+                                <Select
+                                    value={formData.patientId}
+                                    onValueChange={(value) =>
+                                        setFormData({ ...formData, patientId: value })
+                                    }
+                                    required
+                                >
+                                    <SelectTrigger className="pl-9 bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all">
+                                        <SelectValue placeholder="Seleccionar Paciente" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-background border-border text-foreground">
+                                        {patients.map((patient) => (
+                                            <SelectItem key={patient.id} value={patient.id} className="focus:bg-muted focus:text-foreground">
+                                                {patient.first_name} {patient.last_name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

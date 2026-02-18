@@ -24,11 +24,8 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { DeliveryAlerts } from "@/components/dashboard/delivery-alerts";
-// Laboratory components
-import { TotalOrdersCard } from "@/app/dashboard/laboratory/components/TotalOrdersCard";
-import { ActiveClientCard } from "@/app/dashboard/laboratory/components/ActiveClientCard";
-import { SummaryReportCard } from "@/app/dashboard/laboratory/components/SummaryReportCard";
-import { WorksInProgressList } from "@/app/dashboard/laboratory/components/WorksInProgressList";
+import { LabDashboard } from "@/components/dashboard/lab-dashboard";
+// Legacy laboratory components (dentist dashboard still uses these)
 import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog";
 
 export default async function DashboardPage() {
@@ -60,9 +57,8 @@ export default async function DashboardPage() {
   const isDentist = org.type === "dentist";
   const isLab = org.type === "lab";
 
-  // If laboratory, render enhanced laboratory dashboard
+  // Laboratory dashboard
   if (isLab) {
-    // Fetch data for manual order entry
     const { data: dentistOrgs } = await supabase
       .from("organizations")
       .select("id, name")
@@ -74,25 +70,32 @@ export default async function DashboardPage() {
       .select("id, first_name, last_name")
       .order("last_name");
 
-    // Get today and tomorrow date ranges for delivery alerts
+    // All orders for stats, charts and recent list
+    const { data: allOrders } = await supabase
+      .from("lab_orders")
+      .select(`
+        id, order_number, status, created_at, due_date,
+        patient:patients(id, first_name, last_name),
+        dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name)
+      `)
+      .eq("lab_org_id", org.id)
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    // Today / tomorrow for delivery alerts
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
-
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowEnd = new Date(tomorrow);
     tomorrowEnd.setHours(23, 59, 59, 999);
 
-    // Fetch orders due today
     const { data: todayOrders } = await supabase
       .from("lab_orders")
       .select(`
-        id,
-        order_number,
-        status,
-        due_date,
+        id, order_number, status, due_date,
         patient:patients(id, first_name, last_name),
         dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
         lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
@@ -103,14 +106,10 @@ export default async function DashboardPage() {
       .lte("due_date", todayEnd.toISOString())
       .order("due_date", { ascending: true });
 
-    // Fetch orders due tomorrow
     const { data: tomorrowOrders } = await supabase
       .from("lab_orders")
       .select(`
-        id,
-        order_number,
-        status,
-        due_date,
+        id, order_number, status, due_date,
         patient:patients(id, first_name, last_name),
         dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
         lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
@@ -131,36 +130,15 @@ export default async function DashboardPage() {
             lastName: user.user_metadata?.last_name,
           }}
         />
-
-        <div className="flex-1 space-y-8 p-8 max-w-7xl mx-auto w-full">
-          <div className="flex items-center justify-end mb-6">
-            <CreateOrderDialog
-              organizationId={org.id}
-              mode="lab"
-              patients={patients || []}
-              labs={dentistOrgs || []}
-            />
-          </div>
-
-          {/* Delivery Alerts */}
-          <DeliveryAlerts
-            todayOrders={todayOrders || []}
-            tomorrowOrders={tomorrowOrders || []}
-            isDentist={false}
-          />
-
-          {/* Stats Grid */}
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <TotalOrdersCard orgId={org.id} />
-            <ActiveClientCard orgId={org.id} />
-            <div className="sm:col-span-2">
-              <SummaryReportCard orgId={org.id} />
-            </div>
-          </div>
-
-          {/* Works in Progress */}
-          <WorksInProgressList orgId={org.id} />
-        </div>
+        <LabDashboard
+          orgId={org.id}
+          orgName={org.name}
+          orders={(allOrders as any) || []}
+          todayOrders={(todayOrders as any) || []}
+          tomorrowOrders={(tomorrowOrders as any) || []}
+          patients={patients || []}
+          dentistOrgs={dentistOrgs || []}
+        />
       </div>
     );
   }

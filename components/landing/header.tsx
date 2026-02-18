@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,11 +12,11 @@ export function Header() {
   return (
     <header className="glass sticky top-0 z-50 w-full border-b border-border/40">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/" className="premium-transition flex items-center gap-2 hover:opacity-80">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <span className="text-sm font-bold text-primary-foreground">DL</span>
-          </div>
-          <span className="text-lg font-semibold tracking-tight">DentLab Pro</span>
+        <Link href="/" className="premium-transition flex items-center gap-2.5 hover:opacity-80">
+          <Image src="/logo.png" alt="DigitalDent" width={32} height={32} className="rounded-lg" />
+          <span className="text-lg font-bold tracking-tight">
+            <span className="text-[#044c64]">Digital</span><span className="text-[#09919b]">Dent</span>
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">

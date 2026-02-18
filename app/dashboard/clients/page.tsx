@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Building2, FileText, DollarSign } from "lucide-react";
+import { Building2, FileText, DollarSign, ChevronRight } from "lucide-react";
 import { formatNumber } from "@/lib/date-utils";
+import Link from "next/link";
 
 export default async function ClientsPage() {
   const supabase = await createClient();
@@ -102,36 +103,45 @@ export default async function ClientsPage() {
                   </TableHeader>
                   <TableBody>
                     {clients.map((client) => (
-                      <TableRow key={client.id}>
+                      <TableRow key={client.id} className="cursor-pointer hover:bg-muted/40 transition-colors group">
                         <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
+                          <Link href={`/dashboard/clients/${client.id}`} className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted group-hover:bg-primary/10 transition-colors">
+                              <Building2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                             </div>
                             <div>
-                              <p className="font-medium">{client.name}</p>
-                              {client.address && (
-                                <p className="text-sm text-muted-foreground">
-                                  {client.address}
-                                </p>
+                              <p className="font-bold group-hover:text-primary transition-colors">{client.name}</p>
+                              {client.address ? (
+                                <p className="text-xs text-muted-foreground">{client.address}</p>
+                              ) : (
+                                <p className="text-xs text-muted-foreground/50 italic">Sin dirección</p>
                               )}
                             </div>
-                          </div>
+                          </Link>
                         </TableCell>
                         <TableCell>
-                          {client.phone || "-"}
+                          <Link href={`/dashboard/clients/${client.id}`} className="block">
+                            {client.phone ? (
+                              <span className="font-medium">{client.phone}</span>
+                            ) : (
+                              <span className="text-muted-foreground/50 italic text-xs">Sin teléfono</span>
+                            )}
+                          </Link>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
+                          <Link href={`/dashboard/clients/${client.id}`} className="flex items-center gap-2">
                             <FileText className="h-4 w-4 text-muted-foreground" />
-                            {client.orderCount}
-                          </div>
+                            <span className="font-medium">{client.orderCount}</span>
+                          </Link>
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <DollarSign className="h-4 w-4 text-muted-foreground" />
-                            ${formatNumber(client.totalValue)}
-                          </div>
+                          <Link href={`/dashboard/clients/${client.id}`} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <DollarSign className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-bold">${formatNumber(client.totalValue)}</span>
+                            </div>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+                          </Link>
                         </TableCell>
                       </TableRow>
                     ))}

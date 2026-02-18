@@ -107,10 +107,10 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  pending: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100",
-  paid: "bg-green-100 text-green-800 hover:bg-green-100",
-  overdue: "bg-red-100 text-red-800 hover:bg-red-100",
-  cancelled: "bg-muted text-muted-foreground hover:bg-muted",
+  pending:   "bg-[#d2f2f3] text-[#4b8899] border-[#a8d8dc] hover:bg-[#d2f2f3]",
+  paid:      "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50",
+  overdue:   "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-50",
+  cancelled: "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100",
 };
 
 export function ClientAccountStatement({
@@ -275,7 +275,7 @@ export function ClientAccountStatement({
               variant="outline"
               className={cn(
                 "text-xs font-bold uppercase tracking-wider px-3 py-1",
-                balance > 0 ? "bg-amber-100 text-amber-800" : "bg-green-100 text-green-800"
+                balance > 0 ? "bg-[#d2f2f3] text-[#0d687d] border-[#a8d8dc]" : "bg-emerald-50 text-emerald-700 border-emerald-200"
               )}
             >
               {balance > 0 ? "Con Saldo Pendiente" : "Al Día"}
@@ -336,13 +336,13 @@ export function ClientAccountStatement({
           <CardContent>
             <div className={cn(
               "text-3xl font-bold tracking-tight",
-              balance > 0 ? "text-amber-600" : balance < 0 ? "text-emerald-600" : "text-foreground"
+              balance > 0 ? "text-[#09919b]" : balance < 0 ? "text-emerald-600" : "text-foreground"
             )}>
               ${formatNumber(Math.abs(balance))}
             </div>
             <p className="text-[10px] font-semibold mt-2">
               {balance > 0 ? (
-                <span className="text-amber-600">⚠️ A cobrar</span>
+                <span className="text-[#09919b]">· A cobrar</span>
               ) : balance < 0 ? (
                 <span className="text-emerald-600">✓ A favor del cliente</span>
               ) : (
