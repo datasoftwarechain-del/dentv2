@@ -63,13 +63,13 @@ export default async function ClientAccountPage({ params }: PageProps) {
     .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
     .order("created_at", { ascending: false });
 
-  // Calculate balance from invoices and payments
+  // Calculate balance from invoices, payments and manual charge adjustments
   const totalInvoiced = invoices?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
-  // Total pagado = suma de todos los cobros/pagos registrados
-  const totalPaid = movements?.filter(m => m.type === "payment").reduce((sum, m) => sum + Number(m.amount), 0) || 0;
+  const totalPaid    = movements?.filter(m => m.type === "payment").reduce((sum, m) => sum + Number(m.amount), 0) || 0;
+  const totalCharges = movements?.filter(m => m.type === "charge").reduce((sum, m) => sum + Number(m.amount), 0) || 0;
 
-  // El saldo real se calcula siempre desde facturas y pagos para mantener coherencia
-  const balance = totalInvoiced - totalPaid;
+  // balance = facturas + cargos manuales - cobros/pagos
+  const balance = totalInvoiced + totalCharges - totalPaid;
 
   return (
     <div className="flex flex-col">

@@ -42,6 +42,7 @@ interface Invoice {
   total: number;
   subtotal: number;
   tax_amount: number;
+  tax_rate?: number;
   status: string;
   due_date: string | null;
   created_at: string;
@@ -56,18 +57,21 @@ interface Invoice {
 interface InvoiceActionsProps {
   invoice: Invoice;
   isDentist: boolean;
+  balanceBefore?: number;
+  balanceAfter?: number;
 }
 
-export function InvoiceActions({ invoice, isDentist }: InvoiceActionsProps) {
+export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter }: InvoiceActionsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  const invoiceWithBalance = { ...invoice, balanceBefore, balanceAfter };
 
   async function handleExportPDF() {
     setIsExporting(true);
     try {
-      // Importar dinámicamente para reducir bundle
       const { exportInvoiceToPDF } = await import("@/lib/invoice-export");
-      await exportInvoiceToPDF(invoice, isDentist);
+      await exportInvoiceToPDF(invoiceWithBalance, isDentist);
       toast.success("PDF descargado correctamente");
     } catch (error) {
       console.error("Error exporting PDF:", error);
@@ -81,7 +85,7 @@ export function InvoiceActions({ invoice, isDentist }: InvoiceActionsProps) {
     setIsExporting(true);
     try {
       const { exportInvoiceToJPG } = await import("@/lib/invoice-export");
-      await exportInvoiceToJPG(invoice, isDentist);
+      await exportInvoiceToJPG(invoiceWithBalance, isDentist);
       toast.success("Imagen descargada correctamente");
     } catch (error) {
       console.error("Error exporting JPG:", error);
@@ -117,21 +121,49 @@ export function InvoiceActions({ invoice, isDentist }: InvoiceActionsProps) {
   }
 
   async function handleSendWhatsApp() {
+    setIsExporting(true);
     try {
-      // Generar mensaje para WhatsApp
-      const message = `Factura #${invoice.invoice_number}
-Paciente: ${invoice.patient_name || "N/A"}
-Total: $${invoice.total}
-Estado: ${invoice.status}`;
+      const { generateInvoiceBlob } = await import("@/lib/invoice-export");
+      const blob = await generateInvoiceBlob(invoiceWithBalance, isDentist);
 
-      const encodedMessage = encodeURIComponent(message);
-      const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+      // Intentar copiar imagen al portapapeles
+      let copiedToClipboard = false;
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({ "image/png": blob }),
+        ]);
+        copiedToClipboard = true;
+      } catch {
+        // Clipboard no disponible — descargar el archivo
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Factura_${invoice.invoice_number}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
 
-      window.open(whatsappUrl, "_blank");
-      toast.success("Abriendo WhatsApp...");
+      // Abrir WhatsApp Web
+      window.open("https://web.whatsapp.com/", "_blank");
+
+      if (copiedToClipboard) {
+        toast.success(
+          "Imagen copiada al portapapeles. Pégala en WhatsApp con Ctrl+V / ⌘+V",
+          { duration: 6000 }
+        );
+      } else {
+        toast.info(
+          "Imagen descargada. Adjúntala manualmente en WhatsApp.",
+          { duration: 6000 }
+        );
+      }
     } catch (error) {
-      console.error("Error opening WhatsApp:", error);
-      toast.error("Error al abrir WhatsApp");
+      console.error("Error al preparar WhatsApp:", error);
+      toast.error("Error al generar la imagen de la factura");
+    } finally {
+      setIsExporting(false);
     }
   }
 
@@ -159,7 +191,12 @@ Estado: ${invoice.status}`;
             </DialogDescription>
           </DialogHeader>
           <div className="mt-4">
-            <InvoiceDetail invoice={invoice} isDentist={isDentist} />
+            <InvoiceDetail
+              invoice={invoice}
+              isDentist={isDentist}
+              balanceBefore={balanceBefore}
+              balanceAfter={balanceAfter}
+            />
           </div>
 
           {/* Action buttons in dialog */}

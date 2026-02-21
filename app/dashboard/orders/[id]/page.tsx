@@ -12,7 +12,9 @@ import {
     Calendar,
     Printer,
     MessageSquare,
-    AlertCircle
+    AlertCircle,
+    Download,
+    File
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import { formatSimpleDate, formatDateTime } from "@/lib/date-utils";
 import { EditDueDateButton } from "@/components/orders/edit-due-date-button";
+import { CaseFilesSection } from "@/components/orders/case-files-section";
 
 export default async function OrderDetailsPage({
     params,
@@ -63,6 +66,7 @@ export default async function OrderDetailsPage({
     `)
         .eq("id", id)
         .single();
+
 
     if (!order) notFound();
 
@@ -183,6 +187,9 @@ export default async function OrderDetailsPage({
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Case Files Section - Client Component */}
+                                <CaseFilesSection orderId={order.id} />
 
                                 {/* Notes */}
                                 {(order.notes || order.internal_notes) && (

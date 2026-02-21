@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 // PATCH: update contact info for a client org that belongs to the lab
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createClient();

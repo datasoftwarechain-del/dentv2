@@ -80,13 +80,15 @@ function SparkBars({ data, color, height = 36 }: { data: number[]; color: string
 // Status → pie segment color (brand palette)
 const STATUS_PIE_COLORS: Record<string, string> = {
   received:      "#d2f2f3",
-  missing_info:  "#8b5cf6",
-  in_production: "#09919b",
-  quality_check: "#0d687d",
+  in_progress:   "#09919b",
   ready:         "#b0dde0",
   delivered:     "#43eada",
+  // Legacy DB values
+  draft:         "#d2f2f3",
+  missing_info:  "#09919b",
+  in_production: "#09919b",
+  quality_check: "#09919b",
   cancelled:     "#94a3b8",
-  draft:         "#cbd5e1",
 };
 
 function shortDay(d: Date) {
@@ -103,10 +105,11 @@ export function LabDashboard({
   // ── KPIs ────────────────────────────────────────────────────────────────
   const monthStart   = new Date(now.getFullYear(), now.getMonth(), 1);
   const activeOrders = orders.filter(o =>
-    ["received", "missing_info", "in_production", "quality_check", "ready"].includes(o.status)
+    ["received", "in_progress", "ready",
+     "draft", "missing_info", "in_production", "quality_check"].includes(o.status)
   );
   const inProduction = orders.filter(o =>
-    ["in_production", "quality_check"].includes(o.status)
+    ["in_progress", "in_production", "quality_check", "missing_info"].includes(o.status)
   );
   const readyOrders          = orders.filter(o => o.status === "ready");
   const deliveredThisMonth   = orders.filter(o =>

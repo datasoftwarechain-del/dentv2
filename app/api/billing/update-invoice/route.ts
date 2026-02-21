@@ -13,7 +13,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { invoiceId, total, patient_name, work_type, organizationId, clientId, isDentist } = body;
+    const { invoiceId, total, subtotal, tax_rate, tax_amount, patient_name, work_type, organizationId, clientId, isDentist } = body;
 
     if (!invoiceId || !total) {
       return NextResponse.json(
@@ -32,11 +32,17 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const parsedTotal = parseFloat(total);
+    const parsedTotal    = parseFloat(total);
+    const parsedSubtotal = subtotal  != null ? parseFloat(subtotal)   : parsedTotal;
+    const parsedTaxRate  = tax_rate  != null ? parseFloat(tax_rate)   : 0;
+    const parsedTaxAmt   = tax_amount != null ? parseFloat(tax_amount) : 0;
 
     // Preparar datos de actualización
     const updateData: any = {
-      total: parsedTotal,
+      total:      parsedTotal,
+      subtotal:   parsedSubtotal,
+      tax_rate:   parsedTaxRate,
+      tax_amount: parsedTaxAmt,
       patient_name: patient_name || null,
       work_type: work_type || null,
     };

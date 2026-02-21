@@ -42,7 +42,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, TrendingUp, TrendingDown, Calendar, Edit2, Trash2, DollarSign, Loader2, User } from "lucide-react";
+import { FileText, TrendingUp, TrendingDown, Calendar, Edit2, Trash2, DollarSign, Loader2, User, Percent } from "lucide-react";
 import { toast } from "sonner";
 
 interface Organization {
@@ -116,9 +116,11 @@ export function UnifiedAccountStatement({
     date: "",
   });
   const [editInvoiceFormData, setEditInvoiceFormData] = useState({
-    total: "",
+    subtotal: "",
     patient_name: "",
     work_type: "",
+    applyIva: false,
+    ivaRate: "10",
   });
 
   // Crear transacciones unificadas
@@ -201,9 +203,11 @@ export function UnifiedAccountStatement({
   function handleEditInvoiceClick(invoice: Invoice) {
     setSelectedInvoice(invoice);
     setEditInvoiceFormData({
-      total: invoice.total.toString(),
+      subtotal: invoice.total.toString(), // pre-load with current total as subtotal
       patient_name: invoice.patient_name || "",
       work_type: invoice.work_type || "",
+      applyIva: false,
+      ivaRate: "10",
     });
     setEditInvoiceDialogOpen(true);
   }
@@ -254,6 +258,11 @@ export function UnifiedAccountStatement({
     e.preventDefault();
     if (!selectedInvoice) return;
 
+    const parsedSubtotal = parseFloat(editInvoiceFormData.subtotal) || 0;
+    const parsedIvaRate  = editInvoiceFormData.applyIva ? parseFloat(editInvoiceFormData.ivaRate) || 10 : 0;
+    const parsedIvaAmt   = editInvoiceFormData.applyIva ? parseFloat((parsedSubtotal * parsedIvaRate / 100).toFixed(2)) : 0;
+    const parsedTotal    = parseFloat((parsedSubtotal + parsedIvaAmt).toFixed(2));
+
     setLoading(true);
     try {
       const response = await fetch("/api/billing/update-invoice", {
@@ -264,7 +273,10 @@ export function UnifiedAccountStatement({
         },
         body: JSON.stringify({
           invoiceId: selectedInvoice.id,
-          total: parseFloat(editInvoiceFormData.total),
+          total: parsedTotal,
+          subtotal: parsedSubtotal,
+          tax_rate: parsedIvaRate,
+          tax_amount: parsedIvaAmt,
           patient_name: editInvoiceFormData.patient_name,
           work_type: editInvoiceFormData.work_type,
           organizationId,
@@ -556,30 +568,108 @@ export function UnifiedAccountStatement({
 
       {/* Edit Invoice Dialog */}
       <Dialog open={editInvoiceDialogOpen} onOpenChange={setEditInvoiceDialogOpen}>
-        <DialogContent className="sm:max-w-[425px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
+        <DialogContent className="sm:max-w-[440px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Editar Factura</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Modifica el total y detalles de la factura
+              Modifica el monto, IVA y detalles de la factura
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleUpdateInvoice} className="space-y-6 mt-4">
+          <form onSubmit={handleUpdateInvoice} className="space-y-5 mt-4">
+            {/* Subtotal */}
             <div className="space-y-2">
-              <Label htmlFor="edit-invoice-total">Monto Total</Label>
+              <Label htmlFor="edit-invoice-subtotal">Subtotal</Label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="edit-invoice-total"
+                  id="edit-invoice-subtotal"
                   type="number"
                   step="0.01"
+                  min="0"
                   placeholder="0.00"
                   className="pl-9 bg-background focus:border-primary font-bold"
-                  value={editInvoiceFormData.total}
-                  onChange={(e) => setEditInvoiceFormData({ ...editInvoiceFormData, total: e.target.value })}
+                  value={editInvoiceFormData.subtotal}
+                  onChange={(e) => setEditInvoiceFormData({ ...editInvoiceFormData, subtotal: e.target.value })}
                   required
                 />
               </div>
             </div>
+
+            {/* IVA toggle */}
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Percent className="h-4 w-4 text-primary/70" />
+                  <span className="text-sm font-semibold">Aplicar IVA</span>
+                  <span className="text-[10px] text-muted-foreground">(opcional)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditInvoiceFormData({ ...editInvoiceFormData, applyIva: !editInvoiceFormData.applyIva })}
+                  className={cn(
+                    "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none",
+                    editInvoiceFormData.applyIva ? "bg-primary" : "bg-muted-foreground/30"
+                  )}
+                >
+                  <span className={cn(
+                    "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform",
+                    editInvoiceFormData.applyIva ? "translate-x-4" : "translate-x-1"
+                  )} />
+                </button>
+              </div>
+              {editInvoiceFormData.applyIva && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-invoice-iva" className="text-xs text-muted-foreground">
+                    Porcentaje de IVA (mínimo 10%)
+                  </Label>
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="edit-invoice-iva"
+                      type="number"
+                      step="0.5"
+                      min="10"
+                      max="100"
+                      placeholder="10"
+                      className="pl-9 bg-background focus:border-primary font-bold"
+                      value={editInvoiceFormData.ivaRate}
+                      onChange={(e) => setEditInvoiceFormData({ ...editInvoiceFormData, ivaRate: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Total preview */}
+            {editInvoiceFormData.subtotal && !isNaN(parseFloat(editInvoiceFormData.subtotal)) && (
+              <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-1.5 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span>${formatNumber(parseFloat(editInvoiceFormData.subtotal) || 0)}</span>
+                </div>
+                {editInvoiceFormData.applyIva && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>IVA ({editInvoiceFormData.ivaRate || 10}%)</span>
+                    <span>
+                      ${formatNumber((parseFloat(editInvoiceFormData.subtotal) || 0) * (parseFloat(editInvoiceFormData.ivaRate) || 10) / 100)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold border-t border-primary/20 pt-1.5 text-primary">
+                  <span>Total</span>
+                  <span>
+                    ${formatNumber(
+                      (parseFloat(editInvoiceFormData.subtotal) || 0) +
+                      (editInvoiceFormData.applyIva
+                        ? (parseFloat(editInvoiceFormData.subtotal) || 0) * (parseFloat(editInvoiceFormData.ivaRate) || 10) / 100
+                        : 0)
+                    )}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Patient & Work Type */}
             <div className="space-y-2">
               <Label htmlFor="edit-invoice-patient">Paciente</Label>
               <Input
@@ -600,7 +690,8 @@ export function UnifiedAccountStatement({
                 onChange={(e) => setEditInvoiceFormData({ ...editInvoiceFormData, work_type: e.target.value })}
               />
             </div>
-            <div className="flex justify-end gap-3 pt-2">
+
+            <div className="flex justify-end gap-3 pt-1">
               <Button
                 type="button"
                 variant="ghost"

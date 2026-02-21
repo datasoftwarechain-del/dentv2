@@ -1,10 +1,7 @@
 "use client";
 
 import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Building2, User, Calendar, FileText, Package } from "lucide-react";
+import { Building2, User, Calendar, Package, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Organization {
@@ -19,6 +16,7 @@ interface InvoiceDetailProps {
     total: number;
     subtotal: number;
     tax_amount: number;
+    tax_rate?: number;
     status: string;
     due_date: string | null;
     created_at: string;
@@ -31,178 +29,202 @@ interface InvoiceDetailProps {
   };
   isDentist: boolean;
   className?: string;
+  /** Saldo de la cuenta ANTES de emitir esta factura */
+  balanceBefore?: number;
+  /** Saldo de la cuenta DESPUÉS de emitir esta factura */
+  balanceAfter?: number;
 }
 
-const statusLabels: Record<string, string> = {
-  pending: "Pendiente",
-  paid: "Pagada",
-  overdue: "Vencida",
-  cancelled: "Cancelada",
+const statusConfig: Record<string, { label: string; icon: any; bg: string; text: string; border: string }> = {
+  pending:   { label: "Pendiente",  icon: Clock,        bg: "bg-[#e0f4f6]",  text: "text-[#09919b]",  border: "border-[#b0dde0]"  },
+  paid:      { label: "Pagada",     icon: CheckCircle2, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  overdue:   { label: "Vencida",    icon: XCircle,      bg: "bg-rose-50",    text: "text-rose-600",    border: "border-rose-200"   },
+  cancelled: { label: "Cancelada",  icon: XCircle,      bg: "bg-slate-100",  text: "text-slate-500",   border: "border-slate-200"  },
 };
 
-const statusColors: Record<string, string> = {
-  pending:   "bg-[#d2f2f3] text-[#4b8899] border-[#a8d8dc]",
-  paid:      "bg-emerald-50 text-emerald-700 border-emerald-200",
-  overdue:   "bg-rose-50 text-rose-600 border-rose-200",
-  cancelled: "bg-slate-100 text-slate-500 border-slate-200",
-};
+export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, balanceAfter }: InvoiceDetailProps) {
+  const status = statusConfig[invoice.status] || statusConfig["pending"];
+  const StatusIcon = status.icon;
+  const hasTax = invoice.tax_amount > 0;
+  const showBalance = balanceBefore !== undefined && balanceAfter !== undefined;
 
-export function InvoiceDetail({ invoice, isDentist, className }: InvoiceDetailProps) {
   return (
-    <Card className={cn("border-2 shadow-lg bg-white", className)}>
-      <CardContent className="p-8 space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-bold text-foreground">FACTURA</h2>
+    <div className={cn("rounded-2xl overflow-hidden shadow-xl border border-[#b0dde0]/40 bg-white", className)}>
+
+      {/* ── Branded header ─────────────────────────────────────── */}
+      <div className="bg-[#044c64] px-8 py-6 flex items-start justify-between relative overflow-hidden">
+        {/* Decorative circles */}
+        <div className="absolute top-[-30px] right-[-30px] h-44 w-44 rounded-full bg-[#43eada]/8 pointer-events-none" />
+        <div className="absolute bottom-[-40px] right-20 h-28 w-28 rounded-full bg-[#43eada]/5 pointer-events-none" />
+
+        <div className="relative">
+          {/* Brand row: logo + name */}
+          <div className="flex items-center gap-2.5 mb-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="DigitalDent" className="h-8 w-8 rounded-lg object-cover" />
+            <div className="flex items-center gap-1.5">
+              <div className="h-5 w-0.5 rounded-full bg-[#43eada]" />
+              <span className="text-white/90 font-bold text-sm tracking-widest uppercase leading-none">
+                Digital<span className="text-[#43eada]">Dent</span>
+              </span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Número de Factura: <span className="font-mono font-bold text-foreground">#{invoice.invoice_number}</span>
+          </div>
+          {/* Invoice label */}
+          <h2 className="text-4xl font-black text-white tracking-tight leading-none">FACTURA</h2>
+          <p className="text-[#43eada] font-mono font-semibold text-sm mt-1.5 tracking-wider">
+            #{invoice.invoice_number}
+          </p>
+        </div>
+
+        {/* Status badge */}
+        <div className={cn(
+          "relative flex items-center gap-1.5 rounded-full px-3 py-1.5 border text-xs font-bold uppercase tracking-wider mt-1",
+          status.bg, status.text, status.border
+        )}>
+          <StatusIcon className="h-3.5 w-3.5" />
+          {status.label}
+        </div>
+      </div>
+
+      {/* ── Teal accent strip ──────────────────────────────────── */}
+      <div className="h-1 bg-gradient-to-r from-[#09919b] via-[#43eada] to-[#09919b]" />
+
+      {/* ── Body ───────────────────────────────────────────────── */}
+      <div className="px-8 py-7 space-y-7">
+
+        {/* From / To */}
+        <div className="grid grid-cols-2 gap-0 rounded-xl overflow-hidden border border-[#b0dde0]/50">
+          <div className="bg-[#f0fafb] px-6 py-5 border-r border-[#b0dde0]/50">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#09919b] mb-2">
+              {isDentist ? "Laboratorio" : "De"}
+            </p>
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-[#09919b] shrink-0" />
+              <span className="font-bold text-[#044c64] text-base">{invoice.lab_org?.name || "—"}</span>
+            </div>
+          </div>
+          <div className="bg-white px-6 py-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#09919b] mb-2">
+              {isDentist ? "Clínica" : "Para"}
+            </p>
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-[#09919b] shrink-0" />
+              <span className="font-bold text-[#044c64] text-base">{invoice.dentist_org?.name || "—"}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Work details */}
+        <div className="border border-[#b0dde0]/50 rounded-xl overflow-hidden">
+          <div className="bg-slate-600 px-5 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-200">
+              Detalles del Trabajo
             </p>
           </div>
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-xs font-bold uppercase tracking-wider px-3 py-1",
-              statusColors[invoice.status] || ""
-            )}
-          >
-            {statusLabels[invoice.status] || invoice.status}
-          </Badge>
-        </div>
-
-        <Separator />
-
-        {/* Organizations Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              <Building2 className="h-4 w-4" />
-              {isDentist ? "Laboratorio" : "De"}
-            </div>
-            <div className="pl-6">
-              <p className="font-bold text-lg">{invoice.lab_org?.name || "N/A"}</p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-              <Building2 className="h-4 w-4" />
-              {isDentist ? "Clínica" : "Para"}
-            </div>
-            <div className="pl-6">
-              <p className="font-bold text-lg">{invoice.dentist_org?.name || "N/A"}</p>
-            </div>
-          </div>
-        </div>
-
-        <Separator />
-
-        {/* Order Details */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Detalles del Trabajo
-          </h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Patient Name */}
+          <div className="grid grid-cols-2 gap-px bg-[#b0dde0]/30">
             {invoice.patient_name && (
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-                <User className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                <div className="space-y-0.5">
-                  <p className="text-xs font-medium text-muted-foreground">Paciente</p>
-                  <p className="font-semibold text-foreground">{invoice.patient_name}</p>
+              <div className="bg-white px-5 py-4">
+                <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Paciente</p>
+                <div className="flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5 text-[#09919b]" />
+                  <span className="font-bold text-[#044c64] text-sm">{invoice.patient_name}</span>
                 </div>
               </div>
             )}
-
-            {/* Work Type */}
             {invoice.work_type && (
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-                <Package className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                <div className="space-y-0.5">
-                  <p className="text-xs font-medium text-muted-foreground">Tipo de Trabajo</p>
-                  <p className="font-semibold text-foreground">{invoice.work_type}</p>
+              <div className="bg-white px-5 py-4">
+                <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Tipo de Trabajo</p>
+                <div className="flex items-center gap-1.5">
+                  <Package className="h-3.5 w-3.5 text-[#09919b]" />
+                  <span className="font-bold text-[#044c64] text-sm">{invoice.work_type}</span>
                 </div>
               </div>
             )}
-
-            {/* Delivery Date */}
             {invoice.delivery_date && (
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-                <Calendar className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                <div className="space-y-0.5">
-                  <p className="text-xs font-medium text-muted-foreground">Fecha de Entrega</p>
-                  <p className="font-semibold text-foreground">
-                    {formatSimpleDate(invoice.delivery_date)}
-                  </p>
+              <div className="bg-white px-5 py-4">
+                <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Fecha de Entrega</p>
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-[#09919b]" />
+                  <span className="font-bold text-[#044c64] text-sm">{formatSimpleDate(invoice.delivery_date)}</span>
                 </div>
               </div>
             )}
-
-            {/* Invoice Date */}
-            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-              <Calendar className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-              <div className="space-y-0.5">
-                <p className="text-xs font-medium text-muted-foreground">Fecha de Emisión</p>
-                <p className="font-semibold text-foreground">
-                  {formatSimpleDate(invoice.created_at)}
-                </p>
+            <div className="bg-white px-5 py-4">
+              <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Fecha de Emisión</p>
+              <div className="flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-[#09919b]" />
+                <span className="font-bold text-[#044c64] text-sm">{formatSimpleDate(invoice.created_at)}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <Separator />
-
-        {/* Amounts */}
-        <div className="space-y-3">
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-muted-foreground">Subtotal</span>
-            <span className="font-semibold">${formatNumber(invoice.subtotal)}</span>
+        {/* Amount breakdown */}
+        <div className="border border-[#b0dde0]/50 rounded-xl overflow-hidden">
+          <div className="flex justify-between items-center px-6 py-3.5 bg-white border-b border-[#b0dde0]/30">
+            <span className="text-sm text-slate-500 font-medium">Subtotal</span>
+            <span className="text-sm font-semibold text-slate-700">${formatNumber(invoice.subtotal || invoice.total)}</span>
           </div>
-
-          {invoice.tax_amount > 0 && (
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">IVA</span>
-              <span className="font-semibold">${formatNumber(invoice.tax_amount)}</span>
+          {hasTax && (
+            <div className="flex justify-between items-center px-6 py-3.5 bg-white border-b border-[#b0dde0]/30">
+              <span className="text-sm text-slate-500 font-medium">
+                IVA{invoice.tax_rate ? ` (${invoice.tax_rate}%)` : ""}
+              </span>
+              <span className="text-sm font-semibold text-slate-700">${formatNumber(invoice.tax_amount)}</span>
             </div>
           )}
-
-          <Separator />
-
-          <div className="flex justify-between items-center">
-            <span className="text-lg font-bold">TOTAL</span>
-            <span className="text-2xl font-bold text-primary">
+          {/* Total row — white text on dark teal */}
+          <div className="flex justify-between items-center px-6 py-4 bg-[#044c64]">
+            <span className="text-sm font-bold text-white/70 uppercase tracking-widest">Total</span>
+            <span className="text-2xl font-black text-white tabular-nums tracking-tight">
               ${formatNumber(invoice.total)}
             </span>
           </div>
         </div>
 
-        {/* Due Date */}
-        {invoice.due_date && invoice.status === "pending" && (
-          <div className="mt-6 p-4 rounded-lg bg-[#e0f4f6] border border-[#b0dde0]">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-[#09919b]" />
-              <span className="text-sm font-semibold text-[#0d687d]">
-                Vence el: {formatSimpleDate(invoice.due_date)}
-              </span>
+        {/* Balance before / after — only when provided */}
+        {showBalance && (
+          <div className="border border-[#b0dde0]/50 rounded-xl overflow-hidden">
+            <div className="bg-[#f0fafb] px-5 py-2.5 border-b border-[#b0dde0]/30">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#09919b]">
+                Estado de Cuenta
+              </p>
+            </div>
+            <div className="divide-y divide-[#b0dde0]/30">
+              <div className="flex justify-between items-center px-6 py-3.5 bg-white">
+                <span className="text-sm text-slate-500 font-medium">Saldo anterior</span>
+                <span className="text-sm font-semibold text-slate-700">${formatNumber(balanceBefore!)}</span>
+              </div>
+              <div className="flex justify-between items-center px-6 py-3.5 bg-white">
+                <span className="text-sm text-slate-500 font-medium">Este cargo (+)</span>
+                <span className="text-sm font-semibold text-[#09919b]">+${formatNumber(invoice.total)}</span>
+              </div>
+              <div className="flex justify-between items-center px-6 py-3.5 bg-[#044c64]">
+                <span className="text-sm font-bold text-white/70 uppercase tracking-widest">Saldo Total</span>
+                <span className="text-lg font-black text-white tabular-nums">${formatNumber(balanceAfter!)}</span>
+              </div>
             </div>
           </div>
         )}
 
         {/* Notes */}
         {invoice.notes && (
-          <div className="mt-4 p-4 rounded-lg bg-muted/20 border border-border/50">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-              Notas
-            </p>
-            <p className="text-sm text-foreground">{invoice.notes}</p>
+          <div className="px-5 py-4 rounded-xl bg-slate-50 border-l-4 border-[#09919b]">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#09919b] mb-1.5">Notas</p>
+            <p className="text-sm text-slate-600 leading-relaxed">{invoice.notes}</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* ── Footer ─────────────────────────────────────────────── */}
+      <div className="px-8 py-4 bg-[#f0fafb] border-t border-[#b0dde0]/40 flex items-center justify-between">
+        <span className="text-[10px] text-[#09919b] font-semibold tracking-wider uppercase">
+          DigitalDent · Plataforma de Gestión Dental
+        </span>
+        <span className="text-[10px] text-slate-400 font-mono">
+          {new Date().toLocaleDateString("es-ES")}
+        </span>
+      </div>
+    </div>
   );
 }

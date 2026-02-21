@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   Menu,
   CalendarClock,
+  Scan,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback } from "react";
@@ -32,6 +33,7 @@ const dentistNav = [
   { href: "/dashboard/patients", label: "Pacientes", icon: Users },
   { href: "/dashboard/appointments", label: "Citas", icon: Calendar },
   { href: "/dashboard/orders", label: "Órdenes", icon: FileText },
+  { href: "/dashboard/cases", label: "Casos Digitales", icon: Scan },
   { href: "/dashboard/schedule", label: "Agenda Semanal", icon: CalendarClock },
   { href: "/dashboard/billing", label: "Facturacion", icon: CreditCard },
   { href: "/dashboard/settings", label: "Configuracion", icon: Settings },
@@ -40,6 +42,7 @@ const dentistNav = [
 const labNav = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/dashboard/orders", label: "Órdenes", icon: FileText },
+  { href: "/dashboard/cases", label: "Casos Digitales", icon: Scan },
   { href: "/dashboard/kanban", label: "Produccion", icon: Package },
   { href: "/dashboard/schedule", label: "Agenda Semanal", icon: CalendarClock },
   { href: "/dashboard/clients", label: "Clinicas", icon: Building2 },
@@ -87,13 +90,13 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-200 bg-white transition-all duration-300 ease-in-out",
+          "fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/10 bg-[#044c64] transition-all duration-300 ease-in-out",
           collapsed ? "-translate-x-full lg:translate-x-0 lg:w-20" : "w-64 translate-x-0",
           "lg:relative"
         )}
       >
         {/* Header */}
-        <div className="flex h-16 items-center justify-between px-4 border-b border-slate-100">
+        <div className="flex h-16 items-center justify-between px-4 border-b border-white/10">
           {!collapsed && (
             <Link
               href="/dashboard"
@@ -108,8 +111,8 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
                 className="rounded-lg shrink-0"
               />
               <div className="leading-none">
-                <span className="text-[15px] font-bold text-[#044c64] tracking-tight">Digital</span>
-                <span className="text-[15px] font-bold text-[#09919b] tracking-tight">Dent</span>
+                <span className="text-[15px] font-bold text-white tracking-tight">Digital</span>
+                <span className="text-[15px] font-bold text-[#43eada] tracking-tight">Dent</span>
               </div>
             </Link>
           )}
@@ -129,8 +132,8 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
         {/* Organization type badge */}
         {!collapsed && (
           <div className="mx-4 mt-4 mb-3 flex">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#d2f2f3] px-3 py-1 text-[11px] font-semibold text-[#044c64] border border-[#b0dde0]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#09919b]" />
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white border border-white/20">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#43eada]" />
               {orgType === "dentist" ? "Clínica Dental" : "Laboratorio"}
             </span>
           </div>
@@ -149,41 +152,34 @@ export function Sidebar({ orgType, orgName }: SidebarProps) {
                 className={cn(
                   "group relative flex items-center gap-3.5 rounded-lg px-3 py-3 text-[13px] font-medium transition-all duration-200 ease-out",
                   isActive
-                    ? "bg-[#d2f2f3] text-[#044c64] shadow-sm"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                    ? "bg-white/15 text-white shadow-sm"
+                    : "text-white/70 hover:bg-white/10 hover:text-white",
                   collapsed && "justify-center px-2"
                 )}
               >
                 <Icon
                   className={cn(
                     "shrink-0 transition-all duration-200",
-                    isActive ? "text-[#044c64]" : "text-slate-500 group-hover:text-slate-700",
+                    isActive ? "text-white" : "text-white/60 group-hover:text-white",
                     collapsed ? "h-5 w-5" : "h-[18px] w-[18px]"
                   )}
                   strokeWidth={isActive ? 2.5 : 1.8}
                 />
                 {!collapsed && <span className="tracking-wide">{item.label}</span>}
                 {!collapsed && isActive && (
-                  <div className="ml-auto h-1 w-1 rounded-full bg-[#09919b]" />
+                  <div className="ml-auto h-1 w-1 rounded-full bg-[#43eada]" />
                 )}
               </Link>
             );
           })}
         </nav>
 
-        {/* Footer */}
+        {/* Footer - Simplificado */}
         {!collapsed && (
-          <div className="m-4 rounded-lg bg-slate-50 p-4 border border-slate-200/80">
-            <p className="text-[11px] font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Soporte disponible
+          <div className="m-4 rounded-lg bg-white/10 p-3 border border-white/15">
+            <p className="text-[10px] text-white/70 text-center">
+              ¿Necesitas ayuda? Usa el chat flotante
             </p>
-            <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
-              ¿Necesitas ayuda? Estamos aquí para ti.
-            </p>
-            <Button variant="outline" size="sm" className="w-full text-[11px] h-8 bg-white hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all border-slate-300">
-              Contactar soporte
-            </Button>
           </div>
         )}
       </aside>

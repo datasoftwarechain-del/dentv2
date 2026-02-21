@@ -126,14 +126,10 @@ export function OrdersList({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos los estados</SelectItem>
-              <SelectItem value="draft">Borrador</SelectItem>
               <SelectItem value="received">Recibido</SelectItem>
-              <SelectItem value="missing_info">Falta Info</SelectItem>
-              <SelectItem value="in_production">En Producción</SelectItem>
-              <SelectItem value="quality_check">Control Calidad</SelectItem>
+              <SelectItem value="in_progress">En Curso</SelectItem>
               <SelectItem value="ready">Listo</SelectItem>
               <SelectItem value="delivered">Entregado</SelectItem>
-              <SelectItem value="cancelled">Cancelado</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -223,13 +219,10 @@ export function OrdersList({
                               <span>{statusLabels[order.status] || order.status}</span>
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="missing_info">Falta Info</SelectItem>
                               <SelectItem value="received">Recibido</SelectItem>
-                              <SelectItem value="in_production">En Producción</SelectItem>
-                              <SelectItem value="quality_check">Control Calidad</SelectItem>
+                              <SelectItem value="in_progress">En Curso</SelectItem>
                               <SelectItem value="ready">Listo</SelectItem>
                               <SelectItem value="delivered">Entregado</SelectItem>
-                              <SelectItem value="cancelled">Cancelado</SelectItem>
                             </SelectContent>
                           </Select>
                         ) : (

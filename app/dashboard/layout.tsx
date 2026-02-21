@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/dashboard/sidebar";
+import { SupportWidget } from "@/components/support/support-widget";
 
 export default async function DashboardLayout({
   children,
@@ -43,6 +44,7 @@ export default async function DashboardLayout({
         orgName={org.name}
       />
       <main className="flex-1 overflow-auto lg:ml-0">{children}</main>
+      <SupportWidget />
     </div>
   );
 }

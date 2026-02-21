@@ -298,7 +298,7 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
                 description = `${created.join(' y ')} creado${created.length > 1 ? 's' : ''} automáticamente`;
             }
 
-            toast.success("Pedido creado exitosamente", {
+            toast.success("Orden creada exitosamente", {
                 description: description || undefined
             });
 
@@ -335,338 +335,286 @@ export function CreateOrderDialog({ organizationId, patients, labs, children, mo
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 {children || (
-                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-300">
+                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md transition-all duration-200">
                         <Plus className="mr-2 h-4 w-4" />
-                        Nueva Orden
+                        Crear Orden
                     </Button>
                 )}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] border-border bg-background/95 backdrop-blur-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
-                        {mode === 'lab' ? 'Registrar Orden Manual' : 'Crear Orden de Laboratorio'}
-                    </DialogTitle>
-                    <DialogDescription className="text-muted-foreground">
-                        {mode === 'lab'
-                            ? 'Ingresa una orden recibida en papel o por teléfono'
-                            : 'Envía una nueva orden de trabajo a tu laboratorio dental'}
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleCreateOrder} className="space-y-6 mt-4">
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="patientId" className="text-foreground">
-                                Paciente {mode === 'lab' && <span className="text-xs text-muted-foreground">(opcional)</span>}
-                            </Label>
+            <DialogContent className="sm:max-w-[660px] p-0 border-border bg-background shadow-2xl max-h-[92vh] overflow-hidden flex flex-col">
 
-                            {/* Manual patient entry option for both lab and dentist mode */}
-                            <div className="flex items-center gap-2 mb-2">
-                                <input
-                                    type="checkbox"
-                                    id="manualPatient"
-                                    checked={useManualPatient}
-                                    onChange={(e) => {
-                                        setUseManualPatient(e.target.checked);
-                                        if (e.target.checked) {
-                                            setFormData({ ...formData, patientId: '' });
-                                        }
-                                    }}
-                                    className="h-4 w-4 rounded border-gray-300"
-                                />
-                                <Label htmlFor="manualPatient" className="text-xs text-muted-foreground cursor-pointer">
-                                    Crear nuevo paciente
-                                </Label>
+                {/* ── Brand header ── */}
+                <div className="relative overflow-hidden bg-gradient-to-br from-[#044c64] via-[#0d687d] to-[#09919b] px-6 py-5 shrink-0">
+                    {/* Elegant radial glow — subtle, no grid pattern */}
+                    <div className="absolute -top-12 -right-12 h-48 w-48 rounded-full bg-white/5 blur-2xl" />
+                    <div className="absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-[#43eada]/10 blur-xl" />
+                    {/* Thin accent line at bottom */}
+                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                    <div className="relative z-10 flex items-start justify-between">
+                        <div>
+                            <div className="flex items-center gap-2 mb-2.5">
+                                <img src="/logo.png" alt="DigitalDent" className="h-5 w-5 rounded" />
+                                <span className="text-[10px] font-bold text-white/45 uppercase tracking-[0.2em]">DigitalDent · Lab</span>
+                            </div>
+                            <h2 className="text-[19px] font-bold text-white leading-tight">
+                                {mode === 'lab' ? 'Registrar Orden Manual' : 'Nueva Orden de Laboratorio'}
+                            </h2>
+                        </div>
+                        <div className="text-right shrink-0 ml-4 mt-0.5">
+                            <p className="text-[9px] text-white/35 uppercase tracking-widest mb-1">N° Orden</p>
+                            <div className="h-7 w-16 rounded-md border border-white/15 bg-white/8 flex items-center justify-center">
+                                <span className="text-[11px] font-mono font-bold text-white/35">AUTO</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Form body ── */}
+                <form onSubmit={handleCreateOrder} className="flex-1 overflow-y-auto">
+                    <div className="px-6 py-5 space-y-5">
+
+                        {/* Section 01 · Dr / Clínica + Paciente */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <span className="text-[9px] font-black text-[#09919b] uppercase tracking-[0.15em]">01</span>
+                                <div className="h-px flex-1 bg-[#d2f2f3]" />
+                                <span className="text-[9px] font-bold text-[#09919b]/60 uppercase tracking-widest">Partes</span>
                             </div>
 
-                            {useManualPatient ? (
-                                <div className="relative">
-                                    <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Nombre completo del paciente"
-                                        value={manualPatientName}
-                                        onChange={(e) => setManualPatientName(e.target.value)}
-                                        className="pl-9 bg-background border-input text-foreground"
-                                        required={useManualPatient}
-                                    />
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* Paciente */}
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
+                                            Paciente {mode === 'lab' && <span className="text-[10px] font-normal text-muted-foreground normal-case tracking-normal">(opcional)</span>}
+                                        </Label>
+                                        <label htmlFor="manualPatient" className="flex items-center gap-1.5 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                id="manualPatient"
+                                                checked={useManualPatient}
+                                                onChange={(e) => {
+                                                    setUseManualPatient(e.target.checked);
+                                                    if (e.target.checked) setFormData({ ...formData, patientId: '' });
+                                                }}
+                                                className="h-3 w-3 rounded border-[#b0dde0] accent-[#09919b]"
+                                            />
+                                            <span className="text-[10px] text-[#09919b]">Nuevo</span>
+                                        </label>
+                                    </div>
+                                    {useManualPatient ? (
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b]" />
+                                            <Input placeholder="Nombre completo" value={manualPatientName}
+                                                onChange={(e) => setManualPatientName(e.target.value)}
+                                                className="pl-8 h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
+                                                required={useManualPatient} />
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <User className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b] z-10" />
+                                            <Select value={formData.patientId}
+                                                onValueChange={(v) => setFormData({ ...formData, patientId: v })}
+                                                required={!useManualPatient && mode !== 'lab'}>
+                                                <SelectTrigger className="pl-8 h-9 text-sm border-[#b0dde0] focus:border-[#09919b]">
+                                                    <SelectValue placeholder="Seleccionar paciente" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {patients.length > 0 ? patients.map(p => (
+                                                        <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name}</SelectItem>
+                                                    )) : <div className="px-2 py-4 text-center text-xs text-muted-foreground">Sin pacientes</div>}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
                                 </div>
-                            ) : (
+
+                                {/* Clínica / Laboratorio */}
+                                <div className="space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
+                                            {mode === "dentist" ? "Laboratorio" : "Dr / Clínica"}
+                                        </Label>
+                                        {mode === 'lab' && (
+                                            <label htmlFor="manualClinic" className="flex items-center gap-1.5 cursor-pointer">
+                                                <input type="checkbox" id="manualClinic" checked={useManualClinic}
+                                                    onChange={(e) => {
+                                                        setUseManualClinic(e.target.checked);
+                                                        if (e.target.checked) setFormData({ ...formData, targetOrgId: '' });
+                                                    }}
+                                                    className="h-3 w-3 rounded border-[#b0dde0] accent-[#09919b]" />
+                                                <span className="text-[10px] text-[#09919b]">Nuevo</span>
+                                            </label>
+                                        )}
+                                        {mode === 'dentist' && <div className="h-4" />}
+                                    </div>
+                                    {useManualClinic ? (
+                                        <div className="relative">
+                                            <Building2 className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b]" />
+                                            <Input placeholder="Nombre clínica o dentista" value={manualClinicName}
+                                                onChange={(e) => setManualClinicName(e.target.value)}
+                                                className="pl-8 h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
+                                                required={useManualClinic} />
+                                        </div>
+                                    ) : (
+                                        <div className="relative">
+                                            <Building2 className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b] z-10" />
+                                            <Select value={formData.targetOrgId}
+                                                onValueChange={(v) => setFormData({ ...formData, targetOrgId: v })}
+                                                required={!useManualClinic}>
+                                                <SelectTrigger className="pl-8 h-9 text-sm border-[#b0dde0] focus:border-[#09919b]">
+                                                    <SelectValue placeholder={mode === "dentist" ? "Seleccionar Lab" : "Seleccionar Clínica"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {labs.length > 0 ? labs.map(l => (
+                                                        <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>
+                                                    )) : <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+                                                        {mode === "dentist" ? "Sin laboratorios" : "Sin clínicas"}
+                                                    </div>}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Section 02 · Trabajo */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <span className="text-[9px] font-black text-[#09919b] uppercase tracking-[0.15em]">02</span>
+                                <div className="h-px flex-1 bg-[#d2f2f3]" />
+                                <span className="text-[9px] font-bold text-[#09919b]/60 uppercase tracking-widest">Trabajo</span>
+                            </div>
+
+                            {/* Tipo de trabajo — full width */}
+                            <div className="space-y-1.5 mb-4">
+                                <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">Tipo de Trabajo</Label>
                                 <div className="relative">
-                                    <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground z-10" />
-                                    <Select
-                                        value={formData.patientId}
-                                        onValueChange={(value) =>
-                                            setFormData({ ...formData, patientId: value })
-                                        }
-                                        required={!useManualPatient && mode !== 'lab'}
-                                    >
-                                        <SelectTrigger className="pl-9 bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all">
-                                            {formData.patientId ? (
-                                                <span className="text-left">
-                                                    {(() => {
-                                                        const selectedPatient = patients.find(p => p.id === formData.patientId);
-                                                        return selectedPatient
-                                                            ? `${selectedPatient.first_name} ${selectedPatient.last_name}`
-                                                            : "Seleccionar";
-                                                    })()}
-                                                </span>
-                                            ) : (
-                                                <span className="text-muted-foreground">Seleccionar</span>
-                                            )}
+                                    <Ticket className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b] z-10" />
+                                    <Select value={formData.workType}
+                                        onValueChange={(v) => setFormData({ ...formData, workType: v })} required>
+                                        <SelectTrigger className="pl-8 h-9 text-sm border-[#b0dde0] focus:border-[#09919b]">
+                                            <SelectValue placeholder="Selecciona el tipo de trabajo" />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-background border-border text-foreground">
-                                            {patients.length > 0 ? (
-                                                patients.map((patient) => (
-                                                    <SelectItem key={patient.id} value={patient.id} className="focus:bg-muted focus:text-foreground">
-                                                        {patient.first_name} {patient.last_name}
-                                                    </SelectItem>
-                                                ))
-                                            ) : (
-                                                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                                                    No hay pacientes registrados
-                                                </div>
-                                            )}
+                                        <SelectContent className="max-h-[260px]">
+                                            {workTypes.map(t => (
+                                                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            )}
+                            </div>
+
+                            {/* Piezas + Color */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">Piezas Dentales</Label>
+                                    <div className="relative">
+                                        <Info className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b]" />
+                                        <Input id="toothNumbers" placeholder="Ej: 11, 21, 22"
+                                            className="pl-8 h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
+                                            value={formData.toothNumbers}
+                                            onChange={(e) => setFormData({ ...formData, toothNumbers: e.target.value })} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">Color / Tono</Label>
+                                    <Input id="shade" placeholder="Ej: A2, Bleach, OM2"
+                                        className="h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
+                                        value={formData.shade}
+                                        onChange={(e) => setFormData({ ...formData, shade: e.target.value })} />
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="targetOrgId" className="text-foreground">
-                                {mode === "dentist" ? "Laboratorio" : "Clínica / Dentista"}
-                            </Label>
+                        {/* Section 03 · Fecha de Entrega */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <span className="text-[9px] font-black text-[#09919b] uppercase tracking-[0.15em]">03</span>
+                                <div className="h-px flex-1 bg-[#d2f2f3]" />
+                                <span className="text-[9px] font-bold text-[#09919b]/60 uppercase tracking-widest">Fecha de Entrega</span>
+                            </div>
 
-                            {/* Spacer to match the patient checkbox row height in dentist mode */}
-                            {mode === 'dentist' && <div className="h-4 mb-2" />}
-
-                            {/* Manual clinic entry option for lab mode */}
-                            {mode === 'lab' && (
-                                <div className="flex items-center gap-2 mb-2">
-                                    <input
-                                        type="checkbox"
-                                        id="manualClinic"
-                                        checked={useManualClinic}
-                                        onChange={(e) => {
-                                            setUseManualClinic(e.target.checked);
-                                            if (e.target.checked) {
-                                                setFormData({ ...formData, targetOrgId: '' });
-                                            }
-                                        }}
-                                        className="h-4 w-4 rounded border-gray-300"
-                                    />
-                                    <Label htmlFor="manualClinic" className="text-xs text-muted-foreground cursor-pointer">
-                                        Clínica no está en el sistema
-                                    </Label>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="col-span-1 space-y-1.5">
+                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">Fecha</Label>
+                                    <div className="relative">
+                                        <Calendar className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b]" />
+                                        <Input id="dueDate" type="date"
+                                            className="pl-8 h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
+                                            value={formData.dueDate}
+                                            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} />
+                                    </div>
                                 </div>
-                            )}
-
-                            {useManualClinic ? (
-                                <div className="relative">
-                                    <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="Nombre de la clínica o dentista"
-                                        value={manualClinicName}
-                                        onChange={(e) => setManualClinicName(e.target.value)}
-                                        className="pl-9 bg-background border-input text-foreground"
-                                        required={useManualClinic}
-                                    />
+                                <div className="col-span-1 space-y-1.5">
+                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">Hora</Label>
+                                    <div className="relative">
+                                        <Clock className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b]" />
+                                        <Input id="dueTime" type="time"
+                                            className="pl-8 h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
+                                            value={formData.dueTime}
+                                            onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })} />
+                                    </div>
                                 </div>
-                            ) : (
-                                <div className="relative">
-                                    <Building2 className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground z-10" />
-                                    <Select
-                                        value={formData.targetOrgId}
-                                        onValueChange={(value) =>
-                                            setFormData({ ...formData, targetOrgId: value })
-                                        }
-                                        required={!useManualClinic}
-                                    >
-                                        <SelectTrigger className="pl-9 bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all">
-                                            {formData.targetOrgId ? (
-                                                <span className="text-left">
-                                                    {(() => {
-                                                        const selectedLab = labs.find(l => l.id === formData.targetOrgId);
-                                                        return selectedLab
-                                                            ? selectedLab.name
-                                                            : (mode === "dentist" ? "Seleccionar Lab" : "Seleccionar Clínica");
-                                                    })()}
-                                                </span>
-                                            ) : (
-                                                <span className="text-muted-foreground">
-                                                    {mode === "dentist" ? "Seleccionar Lab" : "Seleccionar Clínica"}
-                                                </span>
-                                            )}
+                                <div className="col-span-1 space-y-1.5">
+                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">Prioridad</Label>
+                                    <Select value={formData.priority}
+                                        onValueChange={(v: any) => setFormData({ ...formData, priority: v })}>
+                                        <SelectTrigger className="h-9 text-sm border-[#b0dde0] focus:border-[#09919b]">
+                                            <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent className="bg-background border-border text-foreground">
-                                            {labs.length > 0 ? (
-                                                labs.map((lab) => (
-                                                    <SelectItem key={lab.id} value={lab.id} className="focus:bg-muted focus:text-foreground">
-                                                        {lab.name}
-                                                    </SelectItem>
-                                                ))
-                                            ) : (
-                                                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                                                    {mode === "dentist" ? "No hay laboratorios registrados" : "No hay clínicas registradas"}
-                                                </div>
-                                            )}
+                                        <SelectContent>
+                                            <SelectItem value="low">Baja</SelectItem>
+                                            <SelectItem value="normal">Normal</SelectItem>
+                                            <SelectItem value="high">Alta</SelectItem>
+                                            <SelectItem value="urgent">Urgente</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="workType" className="text-foreground">Tipo de Trabajo</Label>
-                        <div className="relative">
-                            <Ticket className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground z-10" />
-                            <Select
-                                value={formData.workType}
-                                onValueChange={(value) =>
-                                    setFormData({ ...formData, workType: value })
-                                }
-                                required
-                            >
-                                <SelectTrigger className="pl-9 bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all">
-                                    <SelectValue placeholder="Selecciona el tipo de trabajo" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-background border-border text-foreground max-h-[300px]">
-                                    {workTypes.map((type) => (
-                                        <SelectItem key={type.value} value={type.value} className="focus:bg-muted focus:text-foreground">
-                                            {type.label}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="toothNumbers" className="text-foreground">Piezas Dentales</Label>
-                            <div className="relative">
-                                <Info className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="toothNumbers"
-                                    placeholder="Ej: 11, 21"
-                                    className="pl-9 bg-background border-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 transition-all"
-                                    value={formData.toothNumbers}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, toothNumbers: e.target.value })
-                                    }
-                                />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="shade" className="text-foreground">Color / Tono</Label>
-                            <Input
-                                id="shade"
-                                placeholder="Ej: A2, Bleach"
-                                className="bg-background border-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 transition-all"
-                                value={formData.shade}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, shade: e.target.value })
-                                }
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="dueDate" className="text-foreground">Fecha de Entrega</Label>
-                            <div className="relative">
-                                <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="dueDate"
-                                    type="date"
-                                    className="pl-9 bg-background border-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 transition-all"
-                                    value={formData.dueDate}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, dueDate: e.target.value })
-                                    }
-                                />
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="dueTime" className="text-foreground">Hora de Entrega</Label>
-                            <div className="relative">
-                                <Clock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="dueTime"
-                                    type="time"
-                                    className="pl-9 bg-background border-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 transition-all"
-                                    value={formData.dueTime}
-                                    onChange={(e) =>
-                                        setFormData({ ...formData, dueTime: e.target.value })
-                                    }
+                        {/* Section 04 · Descripción */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-4">
+                                <span className="text-[9px] font-black text-[#09919b] uppercase tracking-[0.15em]">04</span>
+                                <div className="h-px flex-1 bg-[#d2f2f3]" />
+                                <span className="text-[9px] font-bold text-[#09919b]/60 uppercase tracking-widest">Descripción</span>
+                            </div>
+                            <div className="relative rounded-xl border border-[#b0dde0] bg-[#f5fbfc] overflow-hidden">
+                                <FileText className="absolute left-3 top-3 h-3.5 w-3.5 text-[#09919b]/50" />
+                                <Textarea
+                                    id="notes"
+                                    className="pl-8 min-h-[110px] bg-transparent border-0 text-sm text-foreground placeholder:text-[#09919b]/30 focus-visible:ring-0 resize-none"
+                                    value={formData.notes}
+                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                    placeholder="Diseño, materiales, instrucciones especiales..."
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="priority" className="text-foreground">Prioridad</Label>
-                        <Select
-                            value={formData.priority}
-                            onValueChange={(value: any) =>
-                                setFormData({ ...formData, priority: value })
-                            }
-                        >
-                            <SelectTrigger className="bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="bg-background border-border text-foreground">
-                                <SelectItem value="low" className="focus:bg-muted focus:text-foreground">
-                                    Baja
-                                </SelectItem>
-                                <SelectItem value="normal" className="focus:bg-muted focus:text-foreground">
-                                    Normal
-                                </SelectItem>
-                                <SelectItem value="high" className="focus:bg-muted focus:text-foreground">
-                                    Alta
-                                </SelectItem>
-                                <SelectItem value="urgent" className="focus:bg-muted focus:text-foreground">
-                                    Urgente
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="notes" className="text-foreground">Instrucciones Adicionales</Label>
-                        <div className="relative">
-                            <FileText className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Textarea
-                                id="notes"
-                                className="pl-9 min-h-[100px] bg-background border-input text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary/20 transition-all resize-none"
-                                value={formData.notes}
-                                onChange={(e) =>
-                                    setFormData({ ...formData, notes: e.target.value })
+                    {/* ── Footer actions ── */}
+                    <div className="px-6 py-4 border-t border-[#d2f2f3] bg-[#f5fbfc] flex items-center justify-between shrink-0">
+                        <p className="text-[10px] text-[#09919b]/50 font-medium">
+                            El número de orden se asigna automáticamente
+                        </p>
+                        <div className="flex items-center gap-3">
+                            <Button type="button" variant="ghost" size="sm"
+                                onClick={() => setOpen(false)}
+                                className="text-sm text-muted-foreground hover:text-foreground h-9">
+                                Cancelar
+                            </Button>
+                            <Button type="submit" disabled={loading} size="sm"
+                                className="h-9 px-5 bg-[#044c64] hover:bg-[#0d687d] text-white text-sm font-semibold shadow-md shadow-[#044c64]/20 transition-all">
+                                {loading
+                                    ? <><Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />Creando...</>
+                                    : <><Plus className="mr-1.5 h-3.5 w-3.5" />Crear Orden</>
                                 }
-                                placeholder="Detalles sobre diseño, materiales, etc..."
-                            />
+                            </Button>
                         </div>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-2">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => setOpen(false)}
-                            className="hover:bg-muted"
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            type="submit"
-                            disabled={loading}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-                        >
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Crear Pedido
-                        </Button>
                     </div>
                 </form>
             </DialogContent>

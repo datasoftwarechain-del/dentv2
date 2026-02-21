@@ -54,6 +54,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -127,14 +128,20 @@ export function ClientAccountStatement({
   const { csrfToken } = useCSRF();
   const [activeTab, setActiveTab] = useState<"account" | "invoices" | "movements">("account");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [adjustDialogOpen, setAdjustDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [adjustLoading, setAdjustLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<"invoice_number" | "patient_name" | "work_type" | "delivery_date" | null>(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [formData, setFormData] = useState({
     amount: "",
     description: "",
-    date: new Date().toISOString().split('T')[0], // Fecha actual por defecto
+    date: new Date().toISOString().split('T')[0],
+  });
+  const [adjustFormData, setAdjustFormData] = useState({
+    targetBalance: "",
+    description: "",
   });
 
   // Función para ordenar
@@ -244,6 +251,38 @@ export function ClientAccountStatement({
     }
   }
 
+  async function handleAdjustBalance(e: React.FormEvent) {
+    e.preventDefault();
+    setAdjustLoading(true);
+    try {
+      const response = await fetch("/api/billing/adjust-balance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
+        body: JSON.stringify({
+          organizationId,
+          clientId: client.id,
+          targetBalance: adjustFormData.targetBalance,
+          description: adjustFormData.description || "Ajuste manual de saldo",
+          isDentist,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Error al ajustar saldo");
+      setAdjustDialogOpen(false);
+      setAdjustFormData({ targetBalance: "", description: "" });
+      toast.success("Saldo ajustado correctamente");
+      router.refresh();
+      setTimeout(() => window.location.reload(), 500);
+    } catch (err: any) {
+      toast.error(err.message || "Error al ajustar saldo");
+    } finally {
+      setAdjustLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Back Button */}
@@ -329,8 +368,20 @@ export function ClientAccountStatement({
             <p className="text-[10px] font-bold uppercase tracking-wider text-primary/80">
               Saldo Actual
             </p>
-            <div className="p-2 rounded-xl bg-primary/20">
-              <Clock className="h-4 w-4 text-primary" />
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  setAdjustFormData({ targetBalance: String(balance), description: "" });
+                  setAdjustDialogOpen(true);
+                }}
+                className="p-1.5 rounded-lg hover:bg-primary/15 transition-colors group"
+                title="Ajustar saldo manualmente"
+              >
+                <Pencil className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary transition-colors" />
+              </button>
+              <div className="p-2 rounded-xl bg-primary/20">
+                <Clock className="h-4 w-4 text-primary" />
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -352,6 +403,81 @@ export function ClientAccountStatement({
           </CardContent>
         </Card>
       </div>
+
+      {/* Adjust Balance Dialog */}
+      <Dialog open={adjustDialogOpen} onOpenChange={setAdjustDialogOpen}>
+        <DialogContent className="sm:max-w-[400px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
+                Ajustar Saldo
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Saldo actual: <span className="font-bold text-foreground">${formatNumber(Math.abs(balance))}</span>
+                {balance > 0 ? " (a cobrar)" : balance < 0 ? " (a favor)" : ""}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleAdjustBalance} className="space-y-5 mt-4">
+              <div className="space-y-2">
+                <Label htmlFor="adjust-target">Nuevo saldo</Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="adjust-target"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    className="pl-9 bg-background focus:border-primary font-bold"
+                    value={adjustFormData.targetBalance}
+                    onChange={(e) => setAdjustFormData({ ...adjustFormData, targetBalance: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="adjust-desc">Motivo</Label>
+                <Input
+                  id="adjust-desc"
+                  placeholder="Ej: Saldo inicial, corrección contable..."
+                  className="bg-background focus:border-primary"
+                  value={adjustFormData.description}
+                  onChange={(e) => setAdjustFormData({ ...adjustFormData, description: e.target.value })}
+                />
+              </div>
+              {adjustFormData.targetBalance && !isNaN(parseFloat(adjustFormData.targetBalance)) && (
+                <div className="rounded-lg bg-muted/50 border border-border/60 px-4 py-3 text-sm space-y-1">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Saldo actual</span>
+                    <span className="font-semibold text-foreground">${formatNumber(Math.abs(balance))}</span>
+                  </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Ajuste</span>
+                    <span className={cn(
+                      "font-semibold",
+                      parseFloat(adjustFormData.targetBalance) > balance ? "text-red-600" : "text-emerald-600"
+                    )}>
+                      {parseFloat(adjustFormData.targetBalance) >= balance ? "+" : ""}
+                      ${formatNumber(Math.abs(parseFloat(adjustFormData.targetBalance) - balance))}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t border-border/60 pt-1 mt-1">
+                    <span>Nuevo saldo</span>
+                    <span className="text-primary">${formatNumber(parseFloat(adjustFormData.targetBalance))}</span>
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end gap-3 pt-1">
+                <Button type="button" variant="ghost" onClick={() => setAdjustDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={adjustLoading} className="bg-primary hover:bg-primary/90">
+                  {adjustLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Ajustar Saldo
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
       {/* Tabs with Register Payment Button */}
       <div className="flex justify-between items-center border-b">
@@ -619,7 +745,12 @@ export function ClientAccountStatement({
                           ${formatNumber(invoice.total)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <InvoiceActions invoice={invoice} isDentist={isDentist} />
+                          <InvoiceActions
+                            invoice={invoice}
+                            isDentist={isDentist}
+                            balanceBefore={Math.max(0, balance - invoice.total)}
+                            balanceAfter={balance}
+                          />
                         </TableCell>
                       </TableRow>
                     ))}

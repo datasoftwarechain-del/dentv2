@@ -1,6 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { ChevronDown, Check } from "lucide-react"
+import { createPortal } from "react-dom"
 
 type SelectContextValue = {
   open: boolean
@@ -9,6 +10,7 @@ type SelectContextValue = {
   setValue: (value: string) => void
   registerItem: (value: string, label: string) => void
   getLabel: (value: string) => string | undefined
+  triggerRef: React.RefObject<HTMLButtonElement>
 }
 
 const SelectContext = React.createContext<SelectContextValue | null>(null)
@@ -32,6 +34,7 @@ const Select = ({
     defaultValue
   )
   const containerRef = React.useRef<HTMLDivElement>(null)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
   const isControlled = value !== undefined
   const finalValue = isControlled ? value : internalValue
   const itemsRef = React.useRef(new Map<string, string>())
@@ -79,6 +82,7 @@ const Select = ({
         setValue,
         registerItem,
         getLabel,
+        triggerRef,
       }}
     >
       <div ref={containerRef} className="relative w-full">
@@ -94,9 +98,19 @@ const SelectTrigger = React.forwardRef<
 >(({ className, children, ...props }, ref) => {
   const context = React.useContext(SelectContext)
   if (!context) return null
+
+  const mergedRef = React.useCallback(
+    (node: HTMLButtonElement) => {
+      (context.triggerRef as React.MutableRefObject<HTMLButtonElement | null>).current = node
+      if (typeof ref === 'function') ref(node)
+      else if (ref) (ref as React.MutableRefObject<HTMLButtonElement | null>).current = node
+    },
+    [ref, context.triggerRef]
+  )
+
   return (
     <button
-      ref={ref}
+      ref={mergedRef}
       type="button"
       className={cn(
         "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
@@ -120,17 +134,39 @@ const SelectContent = React.forwardRef<
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => {
   const context = React.useContext(SelectContext)
+  const [position, setPosition] = React.useState({ top: 0, left: 0, width: 0 })
+
+  React.useEffect(() => {
+    if (context?.open && context.triggerRef.current) {
+      const rect = context.triggerRef.current.getBoundingClientRect()
+      setPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      })
+    }
+  }, [context?.open, context?.triggerRef])
+
   if (!context || !context.open) return null
-  return (
+  if (typeof window === 'undefined') return null
+
+  const content = (
     <div
       ref={ref}
       className={cn(
-        "absolute left-0 top-full z-50 mt-2 min-w-[8rem] w-full overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95",
+        "fixed z-[9999] min-w-[8rem] overflow-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 max-h-[300px]",
         className
       )}
+      style={{
+        top: `${position.top}px`,
+        left: `${position.left}px`,
+        width: `${position.width}px`,
+      }}
       {...props}
     />
   )
+
+  return createPortal(content, document.body)
 })
 SelectContent.displayName = "SelectContent"
 
