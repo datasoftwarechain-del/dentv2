@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog";
@@ -16,9 +16,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, FileText, Building2, User, Calendar } from "lucide-react";
+import { Search, FileText, Building2, User, Calendar, ChevronDown, Loader2 } from "lucide-react";
 import { formatDueTime, formatDueDate, formatShortDate, isOverdue, isUrgent } from "@/lib/date-utils";
 import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
+import { toast } from "sonner";
 
 interface Patient { id: string; first_name: string; last_name: string; }
 interface Organization { id: string; name: string; }
@@ -26,7 +27,7 @@ interface Order {
   id: string;
   order_number: string;
   status: string;
-  items?: { work_type: string | null }[];
+  items?: { work_type: string | null; catalog_item?: { name: string } | null }[];
   created_at: string;
   due_date: string | null;
   patient: Patient | null;
@@ -61,14 +62,126 @@ const workTypes = [
   { value: "otro",                  label: "Otro" },
 ];
 
+const statusOptions = [
+  { value: "received",     label: "Recibido" },
+  { value: "in_production", label: "En Curso" },
+  { value: "ready",        label: "Listo" },
+  { value: "delivered",    label: "Entregado" },
+];
+
+// ──────────────────────────────────────────────
+// Inline status picker — no portal, funciona dentro de tablas
+// ──────────────────────────────────────────────
+function StatusPicker({
+  orderId,
+  currentStatus,
+  onChanged,
+}: {
+  orderId: string;
+  currentStatus: string;
+  onChanged: (newStatus: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [localStatus, setLocalStatus] = useState(currentStatus);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync if parent re-renders with new status
+  useEffect(() => { setLocalStatus(currentStatus); }, [currentStatus]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  async function handleSelect(newStatus: string) {
+    if (newStatus === localStatus) { setOpen(false); return; }
+    setOpen(false);
+    setLoading(true);
+    const prev = localStatus;
+    setLocalStatus(newStatus); // optimistic
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("lab_orders")
+      .update({ status: newStatus })
+      .eq("id", orderId);
+
+    setLoading(false);
+
+    if (error) {
+      setLocalStatus(prev); // revert
+      toast.error("No se pudo actualizar el estado", { description: error.message });
+    } else {
+      toast.success(`Estado actualizado: ${statusLabels[newStatus] || newStatus}`);
+      onChanged(newStatus);
+    }
+  }
+
+  const colorClass = statusColors[localStatus] || "bg-slate-100 text-slate-600 border-slate-200";
+
+  return (
+    <div ref={containerRef} className="relative inline-block">
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => setOpen((p) => !p)}
+        className={cn(
+          "h-7 flex items-center gap-1.5 min-w-[128px] text-[11px] font-semibold border rounded-full px-3 transition-opacity",
+          colorClass,
+          loading && "opacity-60 cursor-not-allowed"
+        )}
+      >
+        {loading
+          ? <Loader2 className="h-3 w-3 animate-spin shrink-0" />
+          : null}
+        <span className="flex-1">{statusLabels[localStatus] || localStatus}</span>
+        <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-50 min-w-[140px] rounded-md border border-border bg-popover shadow-lg overflow-hidden">
+          {statusOptions.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => handleSelect(opt.value)}
+              className={cn(
+                "w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors flex items-center justify-between",
+                localStatus === opt.value && "font-semibold"
+              )}
+            >
+              {opt.label}
+              {localStatus === opt.value && <span className="text-xs">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function OrdersList({
-  orders, isDentist, organizationId, patients = [], labs = [], defaultLabId,
+  orders: initialOrders, isDentist, organizationId, patients = [], labs = [], defaultLabId,
 }: OrdersListProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  // Track status changes locally (optimistic)
+  const [statusMap, setStatusMap] = useState<Record<string, string>>({});
 
-  const filteredOrders = orders.filter((order) => {
+  const ordersWithStatus = initialOrders.map((o) => ({
+    ...o,
+    status: statusMap[o.id] ?? o.status,
+  }));
+
+  const filteredOrders = ordersWithStatus.filter((order) => {
     const patientFirst = order.patient?.first_name?.toLowerCase() ?? "";
     const patientLast  = order.patient?.last_name?.toLowerCase()  ?? "";
     const matchesSearch =
@@ -78,12 +191,6 @@ export function OrdersList({
     const matchesStatus = statusFilter === "all" || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-
-  async function handleStatusChange(orderId: string, newStatus: string) {
-    const supabase = createClient();
-    await supabase.from("lab_orders").update({ status: newStatus }).eq("id", orderId);
-    router.refresh();
-  }
 
   return (
     <Card className="border border-border shadow-sm bg-card">
@@ -127,7 +234,7 @@ export function OrdersList({
             <SelectContent>
               <SelectItem value="all">Todos los estados</SelectItem>
               <SelectItem value="received">Recibido</SelectItem>
-              <SelectItem value="in_progress">En Curso</SelectItem>
+              <SelectItem value="in_production">En Curso</SelectItem>
               <SelectItem value="ready">Listo</SelectItem>
               <SelectItem value="delivered">Entregado</SelectItem>
             </SelectContent>
@@ -135,9 +242,10 @@ export function OrdersList({
         </div>
 
         {filteredOrders.length > 0 ? (
-          <div className="overflow-x-auto">
+          <>
+          {/* ── Desktop table ── */}
+          <div className="hidden sm:block overflow-x-auto">
             <Table>
-              {/* Column headers — neutral, not brand color */}
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-border bg-muted/40">
                   {["Orden", "Paciente", isDentist ? "Laboratorio" : "Clínica", "Trabajo", "Estado", "Creación", "Entrega"].map(h => (
@@ -150,11 +258,14 @@ export function OrdersList({
 
               <TableBody>
                 {filteredOrders.map((order) => {
+                  // Prefer catalog item name over enum label
+                  const catalogName = order.items?.[0]?.catalog_item?.name ?? null;
                   const workLabel =
+                    catalogName ||
                     workTypes.find(t => t.value === order.items?.[0]?.work_type)?.label ||
-                    order.items?.[0]?.work_type?.replace(/_/g, " ") || null;
+                    order.items?.[0]?.work_type?.replace(/_/g, " ") ||
+                    null;
 
-                  // Only flag overdue/urgent for orders still in progress
                   const isActive = !["delivered", "cancelled"].includes(order.status);
                   const overdue = isActive && order.due_date ? isOverdue(order.due_date) : false;
                   const urgent  = isActive && order.due_date ? isUrgent(order.due_date)  : false;
@@ -206,25 +317,14 @@ export function OrdersList({
                       {/* Status */}
                       <TableCell className="py-3.5" onClick={e => e.stopPropagation()}>
                         {!isDentist ? (
-                          <Select
-                            value={order.status}
-                            onValueChange={v => handleStatusChange(order.id, v)}
-                          >
-                            <SelectTrigger
-                              className={cn(
-                                "h-7 w-auto min-w-[128px] text-[11px] font-semibold border rounded-full px-3 shadow-none focus:ring-0 focus:ring-offset-0",
-                                statusColors[order.status] || "bg-slate-100 text-slate-600 border-slate-200"
-                              )}
-                            >
-                              <span>{statusLabels[order.status] || order.status}</span>
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="received">Recibido</SelectItem>
-                              <SelectItem value="in_progress">En Curso</SelectItem>
-                              <SelectItem value="ready">Listo</SelectItem>
-                              <SelectItem value="delivered">Entregado</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <StatusPicker
+                            orderId={order.id}
+                            currentStatus={order.status}
+                            onChanged={(newStatus) => {
+                              setStatusMap((prev) => ({ ...prev, [order.id]: newStatus }));
+                              router.refresh();
+                            }}
+                          />
                         ) : (
                           <Badge
                             variant="outline"
@@ -270,6 +370,101 @@ export function OrdersList({
               </TableBody>
             </Table>
           </div>
+
+          {/* ── Mobile card list ── */}
+          <div className="sm:hidden divide-y divide-border/60">
+            {filteredOrders.map((order) => {
+              const catalogName = order.items?.[0]?.catalog_item?.name ?? null;
+              const workLabel =
+                catalogName ||
+                workTypes.find(t => t.value === order.items?.[0]?.work_type)?.label ||
+                order.items?.[0]?.work_type?.replace(/_/g, " ") ||
+                null;
+              const isActive = !["delivered", "cancelled"].includes(order.status);
+              const overdue = isActive && order.due_date ? isOverdue(order.due_date) : false;
+              const urgent  = isActive && order.due_date ? isUrgent(order.due_date) : false;
+
+              return (
+                <div
+                  key={`m-${order.id}`}
+                  className="px-4 py-3.5 hover:bg-muted/20 active:bg-muted/40 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/dashboard/orders/${order.id}`)}
+                >
+                  {/* Fila 1: Número + Estado */}
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="font-mono text-[12px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                      {order.order_number}
+                    </span>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      {!isDentist ? (
+                        <StatusPicker
+                          orderId={order.id}
+                          currentStatus={order.status}
+                          onChanged={(newStatus) => {
+                            setStatusMap((prev) => ({ ...prev, [order.id]: newStatus }));
+                            router.refresh();
+                          }}
+                        />
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-semibold uppercase tracking-wide rounded-full px-2.5",
+                            statusColors[order.status] || "bg-slate-100 text-slate-600 border-slate-200"
+                          )}
+                        >
+                          {statusLabels[order.status] || order.status}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Fila 2: Tipo de trabajo */}
+                  {workLabel && (
+                    <p className="text-[13px] font-semibold text-foreground mb-2 leading-snug">{workLabel}</p>
+                  )}
+
+                  {/* Fila 3: Paciente + Organización */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
+                    {order.patient && (
+                      <div className="flex items-center gap-1.5">
+                        <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                        <span className="text-[12px] text-slate-600">
+                          {order.patient.first_name} {order.patient.last_name}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                      <span className="text-[12px] text-slate-500 truncate max-w-[140px]">
+                        {isDentist ? order.lab_org?.name || "Sin asignar" : order.dentist_org?.name || "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Fila 4: Fechas */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3 shrink-0" />
+                      <span>{formatShortDate(order.created_at)}</span>
+                    </div>
+                    {order.due_date && (
+                      <>
+                        <span className="text-muted-foreground/40">·</span>
+                        <span className={cn(
+                          "font-semibold",
+                          overdue ? "text-red-600" : urgent ? "text-amber-500" : "text-muted-foreground"
+                        )}>
+                          Entrega: {formatDueDate(order.due_date)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          </>
         ) : (
           <div className="py-16 text-center">
             <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/50 border border-border mb-4">

@@ -2,8 +2,24 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserOwnsOrganization } from "@/lib/auth-utils";
+import { logger } from "@/lib/logger";
+import { z } from "zod";
+import { validateBody } from "@/lib/api-validation";
+import { validateCSRF } from "@/lib/csrf";
+
+const RecordPaymentSchema = z.object({
+  organizationId: z.string().uuid("organizationId debe ser un UUID válido"),
+  clientId: z.string().uuid("clientId debe ser un UUID válido"),
+  amount: z.coerce.number().positive("El monto debe ser un número positivo"),
+  description: z.string().max(500).optional(),
+  date: z.string().optional(),
+  isDentist: z.boolean(),
+});
 
 export async function POST(request: NextRequest) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -12,20 +28,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { organizationId, clientId, amount, description, date, isDentist } = body;
-
-    if (!organizationId || !clientId || !amount) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
-    }
+    const validation = await validateBody(request, RecordPaymentSchema);
+    if (validation.error) return validation.error;
+    const { organizationId, clientId, amount, description, date, isDentist } = validation.data;
 
     // SECURITY: Verificar que el usuario pertenece a la organización
     const authorized = await verifyUserOwnsOrganization(user.id, organizationId);
     if (!authorized) {
-      console.warn(`[SECURITY] User ${user.id} attempted to record payment for org ${organizationId}`);
+      logger.security(`User ${user.id} attempted to record payment for org ${organizationId}`);
       return NextResponse.json(
         { error: "No autorizado para registrar pagos en esta organización" },
         { status: 403 }
@@ -43,7 +53,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     const currentBalance = lastMovement?.balance || 0;
-    const parsedAmount = parseFloat(amount);
+    const parsedAmount = Number(amount);
     // Los cobros/pagos SIEMPRE reducen la deuda (son abonos)
     const newBalance = currentBalance - parsedAmount;
 
@@ -63,7 +73,7 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (error) {
-      console.error("Error al insertar:", error);
+      logger.error("Error al insertar:", error);
       return NextResponse.json(
         { error: error.message || "Error al insertar movimiento" },
         { status: 500 }
@@ -80,7 +90,7 @@ export async function POST(request: NextRequest) {
       message: "Cobro registrado correctamente",
     });
   } catch (error: any) {
-    console.error("Error completo:", error);
+    logger.error("Error completo:", error);
     return NextResponse.json(
       { error: error.message || "Internal server error" },
       { status: 500 }

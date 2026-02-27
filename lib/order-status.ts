@@ -38,10 +38,10 @@ export const ORDER_STATUS_ACTIVE = [
 ] as const;
 
 export const ORDER_STATUS_KANBAN_COLUMNS = [
-  { id: "received",    title: "Recibido",  color: "bg-[#4b8899]" },
-  { id: "in_progress", title: "En Curso",  color: "bg-[#09919b]" },
-  { id: "ready",       title: "Listo",     color: "bg-[#044c64]" },
-  { id: "delivered",   title: "Entregado", color: "bg-emerald-600" },
+  { id: "received",      title: "Recibido",  color: "bg-[#4b8899]" },
+  { id: "in_production", title: "En Curso",  color: "bg-[#09919b]" },
+  { id: "ready",         title: "Listo",     color: "bg-[#044c64]" },
+  { id: "delivered",     title: "Entregado", color: "bg-emerald-600" },
 ] as const;
 
 export const ORDER_STATUS_GROUPS = {
@@ -50,3 +50,17 @@ export const ORDER_STATUS_GROUPS = {
   delivered: ["delivered"],
   cancelled: ["cancelled"],
 } as const;
+
+// Pie chart segment colors — DigitalDent brand palette
+export const STATUS_PIE_COLORS: Record<string, string> = {
+  received:      "#d2f2f3",
+  in_progress:   "#09919b",
+  ready:         "#b0dde0",
+  delivered:     "#43eada",
+  // Legacy DB values
+  draft:         "#d2f2f3",
+  missing_info:  "#09919b",
+  in_production: "#09919b",
+  quality_check: "#09919b",
+  cancelled:     "#94a3b8",
+};

@@ -36,6 +36,15 @@ interface Organization {
   name: string;
 }
 
+interface OrderItem {
+  id: string;
+  work_type: string;
+  unit_price: number | null;
+  quantity: number;
+  selected_extras: { name: string; price: number; qty?: number }[];
+  catalog_item: { name: string; base_price: number } | null;
+}
+
 interface Invoice {
   id: string;
   invoice_number: string;
@@ -52,6 +61,7 @@ interface Invoice {
   notes?: string | null;
   dentist_org: Organization | null;
   lab_org: Organization | null;
+  order_items?: OrderItem[];
 }
 
 interface InvoiceActionsProps {

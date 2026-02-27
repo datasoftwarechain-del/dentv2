@@ -23,6 +23,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Plus, Loader2, Calendar, Clock, User, FileText, UserPlus } from "lucide-react";
+import { toast } from "sonner";
 
 interface Patient {
     id: string;
@@ -91,9 +92,11 @@ export function CreateAppointmentDialog({ organizationId, patients, children }: 
             setFormData({ patientId: "", date: "", time: "", duration: "30", notes: "", status: "scheduled" });
             setNewPatient({ first_name: "", last_name: "" });
             setUseManualPatient(false);
+            toast.success("Cita agendada correctamente");
             router.refresh();
 
-        } catch (error) {
+        } catch (error: any) {
+            toast.error(error.message || "Error al crear la cita");
             console.error("Error creating appointment:", error);
         } finally {
             setLoading(false);

@@ -1,17 +1,20 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
+import { motion } from "framer-motion";
 
 const plans = [
   {
     name: "Starter",
     price: "Gratis",
-    description: "Perfecto para comenzar",
+    description: "Perfecto para empezar a digitalizar tu consultorio",
     features: [
       "Hasta 50 pedidos/mes",
       "1 usuario",
-      "Gestion basica de pacientes",
+      "Gestión básica de pacientes",
       "Soporte por email",
     ],
     cta: "Comenzar Gratis",
@@ -21,22 +24,22 @@ const plans = [
     name: "Profesional",
     price: "$49",
     period: "/mes",
-    description: "Para clinicas en crecimiento",
+    description: "Para clínicas en crecimiento que buscan control total",
     features: [
       "Pedidos ilimitados",
       "Hasta 5 usuarios",
       "Tablero Kanban completo",
-      "Facturacion automatica",
+      "Facturación automática",
       "Reportes avanzados",
       "Soporte prioritario",
     ],
-    cta: "Iniciar Prueba",
+    cta: "Iniciar Prueba Gratis",
     highlighted: true,
   },
   {
     name: "Empresa",
     price: "Personalizado",
-    description: "Para laboratorios grandes",
+    description: "Infraestructura personalizada para laboratorios y grandes equipos",
     features: [
       "Todo en Profesional",
       "Usuarios ilimitados",
@@ -55,57 +58,71 @@ export function Pricing() {
     <section id="pricing" className="py-20 sm:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
+          <p className="section-label mb-3">Elige tu plan</p>
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Planes para cada necesidad
+            Sin contratos. Sin sorpresas.
           </h2>
-          <p className="mt-4 text-pretty text-lg text-muted-foreground">
-            Elige el plan que mejor se adapte a tu clinica o laboratorio
+          <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
+            Cancela cuando quieras. Cambia de plan en cualquier momento.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-8 lg:grid-cols-3">
-          {plans.map((plan) => (
-            <Card
+        <p className="mt-6 text-center text-sm text-muted-foreground/70">
+          ✓ Cancela cuando quieras &nbsp;·&nbsp; ✓ Sin contratos largos &nbsp;·&nbsp; ✓ Soporte incluido en todos los planes
+        </p>
+
+        <div className="mt-10 grid gap-8 lg:grid-cols-3">
+          {plans.map((plan, index) => (
+            <motion.div
               key={plan.name}
-              className={`glass-card relative border-none ${plan.highlighted
-                  ? "ring-2 ring-accent shadow-2xl shadow-accent/10 scale-105"
-                  : "bg-card/40"
-                }`}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ delay: index * 0.1, duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
+              whileHover={{ y: -4 }}
             >
-              {plan.highlighted && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                  Mas Popular
-                </div>
-              )}
-              <CardHeader>
-                <CardTitle>{plan.name}</CardTitle>
-                <CardDescription>{plan.description}</CardDescription>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold">{plan.price}</span>
-                  {plan.period && (
-                    <span className="text-muted-foreground">{plan.period}</span>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-6">
-                <ul className="space-y-3">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-accent" />
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/auth/sign-up" className="mt-auto">
-                  <Button
-                    className="w-full"
-                    variant={plan.highlighted ? "default" : "outline"}
-                  >
-                    {plan.cta}
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
+              <Card
+                className={`glass-card relative h-full border-none ${
+                  plan.highlighted
+                    ? "ring-2 ring-accent/60 shadow-2xl shadow-accent/15"
+                    : "bg-card/40"
+                }`}
+              >
+                {plan.highlighted && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
+                    Más Popular
+                  </div>
+                )}
+                <CardHeader>
+                  <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
+                  <CardDescription className="text-sm leading-snug">{plan.description}</CardDescription>
+                  <div className="mt-4 flex items-baseline gap-1">
+                    <span className="text-4xl font-bold tracking-tight">{plan.price}</span>
+                    {plan.period && (
+                      <span className="text-base text-muted-foreground">{plan.period}</span>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-6">
+                  <ul className="space-y-3">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-center gap-2.5 text-sm">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href="/auth/sign-up" className="mt-auto">
+                    <Button
+                      className="w-full"
+                      variant={plan.highlighted ? "default" : "outline"}
+                    >
+                      {plan.cta}
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))}
         </div>
       </div>

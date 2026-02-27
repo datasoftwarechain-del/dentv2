@@ -78,68 +78,115 @@ export function PatientsList({ patients, organizationId }: PatientsListProps) {
         </div>
 
         {filteredPatients.length > 0 ? (
-          <div className="relative w-full">
-            <Table>
-              <TableHeader className="bg-muted/30">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold text-primary">Paciente</TableHead>
-                  <TableHead className="font-semibold text-primary">Contacto</TableHead>
-                  <TableHead className="font-semibold text-primary">Nacimiento</TableHead>
-                  <TableHead className="font-semibold text-primary">Registro</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPatients.map((patient) => (
-                  <TableRow
-                    key={patient.id}
-                    className="hover:bg-muted/30 transition-colors cursor-pointer group"
-                    onClick={() => router.push(`/dashboard/patients/${patient.id}`)}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5 group-hover:from-accent/10 group-hover:to-accent/5 transition-all shadow-sm border border-primary/10">
-                          <User className="h-5 w-5 text-primary group-hover:text-accent transition-colors" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {patient.first_name} {patient.last_name}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        {patient.email ? (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                            <Mail className="h-3.5 w-3.5" />
-                            {patient.email}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground/50 italic">Sin correo</div>
-                        )}
-                        {patient.phone ? (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-                            <Phone className="h-3.5 w-3.5" />
-                            {patient.phone}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground/50 italic">Sin teléfono</div>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {patient.date_of_birth
-                        ? formatSimpleDate(patient.date_of_birth)
-                        : "-"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatShortDate(patient.created_at)}
-                    </TableCell>
+          <>
+            {/* Desktop table */}
+            <div className="hidden sm:block relative w-full overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="font-semibold text-primary">Paciente</TableHead>
+                    <TableHead className="font-semibold text-primary">Contacto</TableHead>
+                    <TableHead className="font-semibold text-primary">Nacimiento</TableHead>
+                    <TableHead className="font-semibold text-primary">Registro</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredPatients.map((patient) => (
+                    <TableRow
+                      key={patient.id}
+                      className="hover:bg-muted/30 transition-colors cursor-pointer group"
+                      onClick={() => router.push(`/dashboard/patients/${patient.id}`)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5 group-hover:from-accent/10 group-hover:to-accent/5 transition-all shadow-sm border border-primary/10">
+                            <User className="h-5 w-5 text-primary group-hover:text-accent transition-colors" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {patient.first_name} {patient.last_name}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {patient.email ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                              <Mail className="h-3.5 w-3.5" />
+                              {patient.email}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground/50 italic">Sin correo</div>
+                          )}
+                          {patient.phone ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+                              <Phone className="h-3.5 w-3.5" />
+                              {patient.phone}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground/50 italic">Sin teléfono</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {patient.date_of_birth
+                          ? formatSimpleDate(patient.date_of_birth)
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatShortDate(patient.created_at)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="sm:hidden divide-y divide-border/60">
+              {filteredPatients.map((patient) => (
+                <div
+                  key={`m-${patient.id}`}
+                  className="px-4 py-3.5 hover:bg-muted/20 active:bg-muted/40 transition-colors cursor-pointer"
+                  onClick={() => router.push(`/dashboard/patients/${patient.id}`)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-[14px] text-foreground truncate">
+                        {patient.first_name} {patient.last_name}
+                      </p>
+                      <div className="mt-1 space-y-0.5">
+                        {patient.phone ? (
+                          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                            <Phone className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{patient.phone}</span>
+                          </div>
+                        ) : null}
+                        {patient.email ? (
+                          <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
+                            <Mail className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{patient.email}</span>
+                          </div>
+                        ) : null}
+                        {!patient.phone && !patient.email ? (
+                          <span className="text-[12px] text-muted-foreground/50 italic">Sin contacto</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <span className="text-[11px] text-muted-foreground/60">
+                        {formatShortDate(patient.created_at)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         ) : (
           <div className="py-16 text-center bg-muted/5">
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted shadow-sm mb-4">

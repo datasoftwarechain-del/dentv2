@@ -36,8 +36,17 @@ interface Order {
   }>;
 }
 
+interface Appointment {
+  id: string;
+  scheduled_at: string;
+  notes: string | null;
+  status: string;
+  patient: { id: string; first_name: string; last_name: string } | null;
+}
+
 interface WeeklyScheduleProps {
   orders: Order[];
+  appointments?: Appointment[];
   isDentist: boolean;
   weekStartStr: string; // YYYY-MM-DD — string to avoid RSC Date serialization issues
 }
@@ -52,7 +61,7 @@ const DAYS_OF_WEEK = [
   { name: "Domingo", short: "Dom" },
 ];
 
-export function WeeklySchedule({ orders, isDentist, weekStartStr }: WeeklyScheduleProps) {
+export function WeeklySchedule({ orders, appointments = [], isDentist, weekStartStr }: WeeklyScheduleProps) {
 
   // ── Parse YYYY-MM-DD as local Date (no UTC offset) ────────────────────────
   const parseLocalDate = (str: string): Date => {
@@ -108,13 +117,49 @@ export function WeeklySchedule({ orders, isDentist, weekStartStr }: WeeklySchedu
     return grouped;
   }, [orders, currentWeekStart]);
 
+  // Group appointments by day
+  const appointmentsByDay = useMemo(() => {
+    const grouped: Record<number, Appointment[]> = {
+      0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [],
+    };
+
+    appointments.forEach((appointment) => {
+      const scheduledDate = new Date(appointment.scheduled_at);
+      const dayDiff = Math.floor(
+        (scheduledDate.getTime() - currentWeekStart.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      if (dayDiff >= 0 && dayDiff < 7) {
+        grouped[dayDiff].push(appointment);
+      }
+    });
+
+    // Sort appointments by time within each day
+    Object.keys(grouped).forEach((key) => {
+      grouped[Number(key)].sort((a, b) =>
+        new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+      );
+    });
+
+    return grouped;
+  }, [appointments, currentWeekStart]);
+
   // Calculate stats
   const totalOrders = orders.length;
+  const totalAppointments = appointments.length;
   const urgentOrders = orders.filter((order) => {
     const daysUntilDue = Math.ceil(
       (new Date(order.due_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
     );
     return daysUntilDue <= 2 && daysUntilDue >= 0;
+  }).length;
+  const todayAppointments = appointments.filter((apt) => {
+    const aptDate = new Date(apt.scheduled_at);
+    const today = new Date();
+    return (
+      aptDate.getDate() === today.getDate() &&
+      aptDate.getMonth() === today.getMonth() &&
+      aptDate.getFullYear() === today.getFullYear()
+    );
   }).length;
 
   const statusLabels = ORDER_STATUS_LABELS;
@@ -125,6 +170,13 @@ export function WeeklySchedule({ orders, isDentist, weekStartStr }: WeeklySchedu
     const day = date.getDate().toString().padStart(2, '0');
     const month = months[date.getMonth()];
     return `${day} ${month}`;
+  };
+
+  const formatAppointmentTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
   };
 
   const isToday = (dayIndex: number) => {
@@ -171,13 +223,19 @@ export function WeeklySchedule({ orders, isDentist, weekStartStr }: WeeklySchedu
         <Card className="border border-border/50 shadow-premium bg-background/50 backdrop-blur-sm">
           <CardHeader className="pb-2">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-              Total Entregas
+              {isDentist ? "Citas Esta Semana" : "Total Entregas"}
             </p>
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
-              <div className="text-3xl font-bold">{totalOrders}</div>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <div className="text-3xl font-bold">
+                {isDentist ? totalAppointments : totalOrders}
+              </div>
+              {isDentist ? (
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -185,20 +243,24 @@ export function WeeklySchedule({ orders, isDentist, weekStartStr }: WeeklySchedu
         <Card className="border border-border/50 shadow-premium bg-background/50 backdrop-blur-sm">
           <CardHeader className="pb-2">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-              Urgentes (48h)
+              {isDentist ? "Citas Hoy" : "Urgentes (48h)"}
             </p>
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
               <div className={cn(
                 "text-3xl font-bold",
-                urgentOrders > 0 ? "text-indigo-600" : "text-emerald-600"
+                isDentist
+                  ? (todayAppointments > 0 ? "text-[#09919b]" : "text-slate-600")
+                  : (urgentOrders > 0 ? "text-indigo-600" : "text-emerald-600")
               )}>
-                {urgentOrders}
+                {isDentist ? todayAppointments : urgentOrders}
               </div>
               <Clock className={cn(
                 "h-4 w-4",
-                urgentOrders > 0 ? "text-indigo-600" : "text-emerald-600"
+                isDentist
+                  ? (todayAppointments > 0 ? "text-[#09919b]" : "text-slate-600")
+                  : (urgentOrders > 0 ? "text-indigo-600" : "text-emerald-600")
               )} />
             </div>
           </CardContent>
@@ -207,15 +269,19 @@ export function WeeklySchedule({ orders, isDentist, weekStartStr }: WeeklySchedu
         <Card className="border border-border/50 shadow-premium bg-background/50 backdrop-blur-sm">
           <CardHeader className="pb-2">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-              Promedio Diario
+              {isDentist ? "Entregas Pendientes" : "Promedio Diario"}
             </p>
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2">
               <div className="text-3xl font-bold">
-                {(totalOrders / 7).toFixed(1)}
+                {isDentist ? totalOrders : (totalOrders / 7).toFixed(1)}
               </div>
-              <span className="text-xs text-muted-foreground">trabajos/día</span>
+              {isDentist ? (
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <span className="text-xs text-muted-foreground">trabajos/día</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -260,6 +326,8 @@ export function WeeklySchedule({ orders, isDentist, weekStartStr }: WeeklySchedu
               const date = new Date(currentWeekStart);
               date.setDate(currentWeekStart.getDate() + index);
               const dayOrders = ordersByDay[index] || [];
+              const dayAppointments = appointmentsByDay[index] || [];
+              const totalItems = dayOrders.length + dayAppointments.length;
               const today = isToday(index);
               const past = isPast(index);
 
@@ -292,100 +360,174 @@ export function WeeklySchedule({ orders, isDentist, weekStartStr }: WeeklySchedu
                           {date.getDate()}
                         </p>
                       </div>
-                      {dayOrders.length > 0 && (
-                        <Badge variant="secondary" className="text-[10px] font-bold">
-                          {dayOrders.length}
-                        </Badge>
+                      {totalItems > 0 && (
+                        <div className="flex items-center gap-1">
+                          {isDentist && dayAppointments.length > 0 && (
+                            <Badge variant="secondary" className="text-[10px] font-bold bg-[#e0f4f6] text-[#09919b] border-[#b0dde0]">
+                              {dayAppointments.length} <Calendar className="h-3 w-3 ml-0.5 inline" />
+                            </Badge>
+                          )}
+                          {dayOrders.length > 0 && (
+                            <Badge variant="secondary" className="text-[10px] font-bold">
+                              {dayOrders.length} <FileText className="h-3 w-3 ml-0.5 inline" />
+                            </Badge>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
 
                   {/* Day Content */}
                   <div className="p-3 space-y-2">
-                    {dayOrders.length > 0 ? (
-                      dayOrders.map((order) => {
-                        const patientData = order.patient;
-                        const patient = Array.isArray(patientData) ? patientData[0] : patientData;
-                        const orgData = isDentist ? order.lab_org : order.dentist_org;
-                        const org = Array.isArray(orgData) ? orgData[0] : orgData;
+                    {/* Appointments (Dentist only) */}
+                    {isDentist && dayAppointments.length > 0 && (
+                      <>
+                        {dayAppointments.map((appointment) => {
+                          const patientData = appointment.patient;
+                          const patient = Array.isArray(patientData) ? patientData[0] : patientData;
 
-                        return (
-                          <Link
-                            key={order.id}
-                            href={`/dashboard/orders/${order.id}`}
-                            className="block"
-                          >
-                            <Card className="group cursor-pointer border border-border/40 hover:border-primary/40 hover:shadow-md transition-all duration-200 bg-card overflow-hidden">
-                              <CardContent className="p-2.5 space-y-1.5">
-                                {/* Order number — full, never truncated */}
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="font-mono text-[11px] font-bold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md leading-none">
-                                    {order.order_number}
-                                  </span>
-                                  <Badge
-                                    variant="outline"
-                                    className={cn(
-                                      "text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0 leading-none shrink-0",
-                                      statusColors[order.status]
-                                    )}
-                                  >
-                                    {statusLabels[order.status] || order.status}
-                                  </Badge>
-                                </div>
-
-                                {/* Time */}
-                                <div className="flex items-center gap-1 text-[10px] font-semibold text-[#09919b]">
-                                  <Clock className="h-3 w-3 shrink-0" />
-                                  {formatDueTime(order.due_date)}
-                                </div>
-
-                                {/* Patient */}
-                                {patient && (
-                                  <p className="text-[10px] text-foreground/70 truncate flex items-center gap-1 font-medium">
-                                    <User className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                    {patient.first_name} {patient.last_name}
-                                  </p>
-                                )}
-
-                                {/* Org */}
-                                {org && (
-                                  <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-                                    <Building2 className="h-3 w-3 shrink-0" />
-                                    {org.name}
-                                  </p>
-                                )}
-
-                                {/* Work types */}
-                                {order.items && order.items.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 pt-0.5">
-                                    {order.items.slice(0, 1).map((item, idx) => (
-                                      <Badge
-                                        key={idx}
-                                        variant="secondary"
-                                        className="text-[9px] px-1.5 py-0 font-medium max-w-full truncate"
-                                      >
-                                        {item.work_type.replace(/_/g, " ")}
-                                      </Badge>
-                                    ))}
-                                    {order.items.length > 1 && (
-                                      <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">
-                                        +{order.items.length - 1}
-                                      </Badge>
-                                    )}
+                          return (
+                            <Link
+                              key={appointment.id}
+                              href={`/dashboard/appointments/${appointment.id}`}
+                              className="block"
+                            >
+                              <Card className="group cursor-pointer border-2 border-[#b0dde0] hover:border-[#09919b] hover:shadow-md transition-all duration-200 bg-gradient-to-br from-[#f0fafb] to-white overflow-hidden">
+                                <CardContent className="p-2.5 space-y-1.5">
+                                  {/* Header with time and type badge */}
+                                  <div className="flex items-center justify-between gap-1">
+                                    <div className="flex items-center gap-1 font-mono text-[11px] font-bold text-[#09919b] bg-[#e0f4f6] border border-[#b0dde0] px-1.5 py-0.5 rounded-md leading-none">
+                                      <Calendar className="h-3 w-3 shrink-0" />
+                                      {formatAppointmentTime(appointment.scheduled_at)}
+                                    </div>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0 leading-none shrink-0",
+                                        appointment.status === "confirmed"
+                                          ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                          : appointment.status === "cancelled"
+                                          ? "bg-rose-50 text-rose-700 border-rose-300"
+                                          : "bg-amber-50 text-amber-700 border-amber-300"
+                                      )}
+                                    >
+                                      {appointment.status === "confirmed" ? "Confirmada" :
+                                       appointment.status === "cancelled" ? "Cancelada" : "Pendiente"}
+                                    </Badge>
                                   </div>
-                                )}
-                              </CardContent>
-                            </Card>
-                          </Link>
-                        );
-                      })
-                    ) : (
+
+                                  {/* Patient */}
+                                  {patient && (
+                                    <p className="text-[10px] text-[#044c64] truncate flex items-center gap-1 font-semibold">
+                                      <User className="h-3 w-3 shrink-0 text-[#09919b]" />
+                                      {patient.first_name} {patient.last_name}
+                                    </p>
+                                  )}
+
+                                  {/* Notes (if any) */}
+                                  {appointment.notes && (
+                                    <p className="text-[9px] text-slate-600 truncate italic">
+                                      {appointment.notes}
+                                    </p>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </Link>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* Orders */}
+                    {dayOrders.length > 0 && (
+                      <>
+                        {dayOrders.map((order) => {
+                          const patientData = order.patient;
+                          const patient = Array.isArray(patientData) ? patientData[0] : patientData;
+                          const orgData = isDentist ? order.lab_org : order.dentist_org;
+                          const org = Array.isArray(orgData) ? orgData[0] : orgData;
+
+                          return (
+                            <Link
+                              key={order.id}
+                              href={`/dashboard/orders/${order.id}`}
+                              className="block"
+                            >
+                              <Card className="group cursor-pointer border border-border/40 hover:border-primary/40 hover:shadow-md transition-all duration-200 bg-card overflow-hidden">
+                                <CardContent className="p-2.5 space-y-1.5">
+                                  {/* Order number — full, never truncated */}
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-mono text-[11px] font-bold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md leading-none">
+                                      {order.order_number}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className={cn(
+                                        "text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0 leading-none shrink-0",
+                                        statusColors[order.status]
+                                      )}
+                                    >
+                                      {statusLabels[order.status] || order.status}
+                                    </Badge>
+                                  </div>
+
+                                  {/* Time */}
+                                  <div className="flex items-center gap-1 text-[10px] font-semibold text-[#09919b]">
+                                    <Clock className="h-3 w-3 shrink-0" />
+                                    {formatDueTime(order.due_date)}
+                                  </div>
+
+                                  {/* Patient */}
+                                  {patient && (
+                                    <p className="text-[10px] text-foreground/70 truncate flex items-center gap-1 font-medium">
+                                      <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                      {patient.first_name} {patient.last_name}
+                                    </p>
+                                  )}
+
+                                  {/* Org */}
+                                  {org && (
+                                    <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+                                      <Building2 className="h-3 w-3 shrink-0" />
+                                      {org.name}
+                                    </p>
+                                  )}
+
+                                  {/* Work types */}
+                                  {order.items && order.items.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 pt-0.5">
+                                      {order.items.slice(0, 1).map((item, idx) => (
+                                        <Badge
+                                          key={idx}
+                                          variant="secondary"
+                                          className="text-[9px] px-1.5 py-0 font-medium max-w-full truncate"
+                                        >
+                                          {item.work_type.replace(/_/g, " ")}
+                                        </Badge>
+                                      ))}
+                                      {order.items.length > 1 && (
+                                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">
+                                          +{order.items.length - 1}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </Link>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* Empty state */}
+                    {totalItems === 0 && (
                       <div className="flex flex-col items-center justify-center py-8 text-center">
                         <div className="h-10 w-10 rounded-xl bg-muted/30 flex items-center justify-center mb-2">
                           <Calendar className="h-5 w-5 text-muted-foreground/50" />
                         </div>
                         <p className="text-[10px] text-muted-foreground font-medium">
-                          Sin entregas
+                          {isDentist ? "Sin citas ni entregas" : "Sin entregas"}
                         </p>
                       </div>
                     )}

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatShortDate } from "@/lib/date-utils";
-import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
+import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS, STATUS_PIE_COLORS } from "@/lib/order-status";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -76,20 +76,6 @@ function SparkBars({ data, color, height = 36 }: { data: number[]; color: string
     </div>
   );
 }
-
-// Status → pie segment color (brand palette)
-const STATUS_PIE_COLORS: Record<string, string> = {
-  received:      "#d2f2f3",
-  in_progress:   "#09919b",
-  ready:         "#b0dde0",
-  delivered:     "#43eada",
-  // Legacy DB values
-  draft:         "#d2f2f3",
-  missing_info:  "#09919b",
-  in_production: "#09919b",
-  quality_check: "#09919b",
-  cancelled:     "#94a3b8",
-};
 
 function shortDay(d: Date) {
   return d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });

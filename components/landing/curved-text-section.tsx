@@ -6,17 +6,18 @@ export function CurvedTextSection() {
   return (
     <section className="relative w-full py-20 overflow-hidden bg-gradient-to-b from-background to-primary/5">
       <div className="container mx-auto px-4 mb-8">
-        <h2 className="text-3xl md:text-4xl font-bold text-center">
-          Nuestra Misión
+        <h2 className="text-3xl md:text-4xl sm:text-5xl font-bold text-center">
+          No vendemos software. Vendemos tranquilidad operativa.
         </h2>
         <p className="text-center text-muted-foreground mt-4 max-w-2xl mx-auto">
-          Transformando la gestión dental con tecnología innovadora
+          DigitalDent es la infraestructura digital que ordena tu clínica, conecta a tu equipo y elimina el caos del día a día.
         </p>
       </div>
 
-      <div className="h-[400px] flex items-center">
+      <div className="h-[220px] sm:h-[320px] lg:h-[400px] flex items-center" aria-hidden="true">
+        <span className="sr-only">Conectamos Clínicas Con Laboratorios Dentales</span>
         <CurvedLoop
-          marqueeText="Conectamos ✦ Clínicas ✦ Con ✦ Laboratorios ✦ Dentales ✦"
+          marqueeText="ODONTOLOGÍA ✦ ÓRDENES DIGITALES ✦ FACTURACIÓN AUTOMATIZADA ✦ AGENDA TURNOS ✦ CALENDARIO ✦ ALERTAS ✦"
           speed={2}
           curveAmount={400}
           direction="left"

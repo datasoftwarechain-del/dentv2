@@ -4,9 +4,20 @@ import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
 import { Building2, User, Calendar, Package, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { formatWorkType } from "@/lib/work-types";
+
 interface Organization {
   id: string;
   name: string;
+}
+
+interface OrderItem {
+  id: string;
+  work_type: string;
+  unit_price: number | null;
+  quantity: number;
+  selected_extras: { name: string; price: number; qty?: number }[];
+  catalog_item: { name: string; base_price: number } | null;
 }
 
 interface InvoiceDetailProps {
@@ -26,6 +37,7 @@ interface InvoiceDetailProps {
     notes?: string | null;
     dentist_org: Organization | null;
     lab_org: Organization | null;
+    order_items?: OrderItem[];
   };
   isDentist: boolean;
   className?: string;
@@ -131,12 +143,14 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
                 </div>
               </div>
             )}
-            {invoice.work_type && (
+            {(invoice.order_items?.[0]?.catalog_item?.name || invoice.work_type) && (
               <div className="bg-white px-5 py-4">
                 <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Tipo de Trabajo</p>
                 <div className="flex items-center gap-1.5">
                   <Package className="h-3.5 w-3.5 text-[#09919b]" />
-                  <span className="font-bold text-[#044c64] text-sm">{invoice.work_type}</span>
+                  <span className="font-bold text-[#044c64] text-sm">
+                    {invoice.order_items?.[0]?.catalog_item?.name || formatWorkType(invoice.work_type)}
+                  </span>
                 </div>
               </div>
             )}
@@ -158,6 +172,52 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
             </div>
           </div>
         </div>
+
+        {/* Line items breakdown */}
+        {invoice.order_items && invoice.order_items.length > 0 && (
+          <div className="border border-[#b0dde0]/50 rounded-xl overflow-hidden">
+            <div className="bg-slate-600 px-5 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-200">
+                Detalle de Trabajos
+              </p>
+            </div>
+            <div className="divide-y divide-[#b0dde0]/20">
+              {invoice.order_items.map((item) => {
+                const itemName = item.catalog_item?.name || formatWorkType(item.work_type);
+                const basePrice = item.catalog_item?.base_price ?? 0;
+                const extras: { name: string; price: number; qty?: number }[] =
+                  Array.isArray(item.selected_extras) ? item.selected_extras : [];
+                const qty = item.quantity > 1 ? item.quantity : null;
+                return (
+                  <div key={item.id} className="bg-white px-5 py-4">
+                    <div className="flex justify-between items-baseline gap-4">
+                      <span className="font-bold text-[#044c64] text-sm">
+                        {itemName}{qty ? ` ×${qty}` : ""}
+                      </span>
+                      <span className="font-semibold text-[#044c64] text-sm tabular-nums shrink-0">
+                        ${formatNumber(basePrice)}
+                      </span>
+                    </div>
+                    {extras.map((extra, i) => {
+                      const extraQty = extra.qty ?? 1;
+                      const extraTotal = extra.price * extraQty;
+                      return (
+                        <div key={i} className="flex justify-between items-baseline mt-1.5 gap-4">
+                          <span className="text-xs text-slate-500 pl-3">
+                            + {extra.name}{extraQty > 1 ? ` ×${extraQty}` : ""}
+                          </span>
+                          <span className="text-xs text-slate-500 tabular-nums shrink-0">
+                            ${formatNumber(extraTotal)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Amount breakdown */}
         <div className="border border-[#b0dde0]/50 rounded-xl overflow-hidden">

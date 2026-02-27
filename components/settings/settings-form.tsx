@@ -16,6 +16,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, User, Building2, Shield, Search, Link2 } from "lucide-react";
+import { toast } from "sonner";
+import { PriceCatalogSection } from "@/components/settings/price-catalog";
 
 interface SettingsFormProps {
   user: {
@@ -210,6 +212,7 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
       setError(error.message);
     } else {
       setSuccess("Perfil actualizado correctamente");
+      toast.success("Perfil actualizado correctamente");
       router.refresh();
     }
 
@@ -236,6 +239,7 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
       setError(error.message);
     } else {
       setSuccess("Organizacion actualizada correctamente");
+      toast.success("Organización actualizada correctamente");
       router.refresh();
     }
 
@@ -269,6 +273,7 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
       setError(error.message);
     } else {
       setSuccess("Contrasena actualizada correctamente");
+      toast.success("Contraseña actualizada correctamente");
       setPasswordData({
         currentPassword: "",
         newPassword: "",
@@ -393,6 +398,12 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Arancel / Servicios — visible para todos los miembros */}
+      <PriceCatalogSection
+        orgId={organization.id}
+        orgType={organization.type}
+      />
 
       {/* Lab Connections */}
       {role === "admin" && organization.type === "dentist" && (
@@ -533,20 +544,20 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
       <Separator />
 
       {/* Danger Zone */}
-      <Card className="border-destructive/50">
+      <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-destructive">Zona de Peligro</CardTitle>
+          <CardTitle className="text-muted-foreground">Eliminar cuenta</CardTitle>
           <CardDescription>
-            Acciones irreversibles para tu cuenta
+            Para eliminar tu cuenta contacta a soporte
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button variant="destructive" disabled>
-            Eliminar Cuenta
+          <Button
+            variant="outline"
+            onClick={() => window.dispatchEvent(new CustomEvent("open-support-chat"))}
+          >
+            Contactar soporte
           </Button>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Contacta a soporte para eliminar tu cuenta
-          </p>
         </CardContent>
       </Card>
     </div>

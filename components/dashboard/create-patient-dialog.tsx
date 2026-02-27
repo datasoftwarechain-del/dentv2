@@ -15,6 +15,7 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import { Plus, Loader2, User, Mail, Phone, Calendar } from "lucide-react";
+import { toast } from "sonner";
 
 
 interface CreatePatientDialogProps {
@@ -59,13 +60,11 @@ export function CreatePatientDialog({ organizationId, children }: CreatePatientD
                 phone: "",
                 dateOfBirth: "",
             });
+            toast.success("Paciente creado correctamente");
             router.refresh();
-            // Assuming a toast library is installed or will be used. 
-            // If not, we can remove or replace with simple alert, but user asked for premium.
-            // I see 'sonner' isn't explicitly in package.json, but 'lucide-react' matches.
-            // I'll stick to a clean UI state update for now if toast isn't available.
 
-        } catch (error) {
+        } catch (error: any) {
+            toast.error(error.message || "Error al crear el paciente");
             console.error("Error creating patient:", error);
         } finally {
             setLoading(false);

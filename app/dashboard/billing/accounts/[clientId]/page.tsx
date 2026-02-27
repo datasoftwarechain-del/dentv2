@@ -37,14 +37,14 @@ export default async function ClientAccountPage({ params }: PageProps) {
   // Get client organization details
   const { data: clientOrg } = await supabase
     .from("organizations")
-    .select("*")
+    .select("id, name, type, email, phone")
     .eq("id", resolvedParams.clientId)
     .single();
 
   if (!clientOrg) redirect("/dashboard/billing");
 
   // Get all invoices for this client
-  const { data: invoices } = await supabase
+  const { data: invoicesRaw } = await supabase
     .from("invoices")
     .select(`
       *,
@@ -54,6 +54,26 @@ export default async function ClientAccountPage({ params }: PageProps) {
     .eq(isDentist ? "lab_org_id" : "dentist_org_id", resolvedParams.clientId)
     .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
     .order("created_at", { ascending: false });
+
+  // Fetch order items (with catalog name & extras) for all invoiced orders
+  const orderIds = (invoicesRaw || []).map((inv: any) => inv.order_id).filter(Boolean);
+  let orderItemsByOrderId: Record<string, any[]> = {};
+  if (orderIds.length > 0) {
+    const { data: itemsData } = await supabase
+      .from("lab_order_items")
+      .select("id, order_id, work_type, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price)")
+      .in("order_id", orderIds);
+    for (const item of (itemsData || [])) {
+      if (!orderItemsByOrderId[item.order_id]) orderItemsByOrderId[item.order_id] = [];
+      orderItemsByOrderId[item.order_id].push(item);
+    }
+  }
+
+  // Merge order items into each invoice
+  const invoices = (invoicesRaw || []).map((inv: any) => ({
+    ...inv,
+    order_items: orderItemsByOrderId[inv.order_id] || [],
+  }));
 
   // Get ledger movements for this client
   const { data: movements } = await supabase

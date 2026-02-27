@@ -1,49 +1,35 @@
-import { cookies } from 'next/headers';
-import { randomBytes } from 'crypto';
-
-const CSRF_COOKIE_NAME = 'csrf_token';
-const CSRF_TOKEN_LENGTH = 32;
+import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Genera un nuevo token CSRF y lo almacena en una cookie httpOnly
- * @returns El token CSRF generado
+ * Validates CSRF token using the double-submit cookie pattern.
+ * The token must appear both in the request cookie AND the x-csrf-token header.
+ * Returns null if valid, or a 403 NextResponse if invalid.
  */
-export async function generateCSRFToken(): Promise<string> {
-  const token = randomBytes(CSRF_TOKEN_LENGTH).toString('hex');
-  const cookieStore = await cookies();
+export function validateCSRF(request: NextRequest): NextResponse | null {
+  // Skip safe methods
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return null;
 
-  cookieStore.set(CSRF_COOKIE_NAME, token, {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    path: '/',
-    maxAge: 60 * 60 * 24 // 24 horas
-  });
+  const headerToken = request.headers.get("x-csrf-token");
+  const cookieToken = request.cookies.get("csrf_token")?.value;
 
-  return token;
+  if (!headerToken || !cookieToken || !timingSafeEqual(headerToken, cookieToken)) {
+    return NextResponse.json(
+      { error: "Token CSRF inválido" },
+      { status: 403 }
+    );
+  }
+
+  return null;
 }
 
 /**
- * Obtiene el token CSRF actual de las cookies
- * @returns El token CSRF si existe
+ * Constant-time string comparison to prevent timing attacks.
  */
-export async function getCSRFToken(): Promise<string | undefined> {
-  const cookieStore = await cookies();
-  return cookieStore.get(CSRF_COOKIE_NAME)?.value;
-}
-
-/**
- * Valida un token CSRF contra el token almacenado en cookies
- * @param token - Token a validar
- * @returns true si el token es válido
- */
-export async function validateCSRFToken(token: string | null): Promise<boolean> {
-  if (!token) return false;
-
-  const cookieToken = await getCSRFToken();
-  if (!cookieToken) return false;
-
-  // Comparación de tiempo constante para prevenir timing attacks
-  // En producción, considera usar crypto.timingSafeEqual
-  return token === cookieToken;
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
 }

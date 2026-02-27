@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo, useId, FC, PointerEvent } from 'react';
+import { useRef, useEffect, useState, useMemo, FC, PointerEvent } from 'react';
 
 interface CurvedLoopProps {
   marqueeText?: string;
@@ -27,10 +27,13 @@ const CurvedLoop: FC<CurvedLoopProps> = ({
   const measureRef = useRef<SVGTextElement | null>(null);
   const textPathRef = useRef<SVGTextPathElement | null>(null);
   const pathRef = useRef<SVGPathElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const isVisibleRef = useRef(false);
   const [spacing, setSpacing] = useState(0);
   const [offset, setOffset] = useState(0);
-  const uid = useId();
-  const pathId = `curve-${uid}`;
+  // Static ID — avoids hydration mismatch caused by useId() shifting
+  // when dynamic() imports change the component tree structure
+  const pathId = "curved-loop-path";
   const pathD = `M-100,40 Q500,${40 + curveAmount} 1540,40`;
 
   const dragRef = useRef(false);
@@ -45,6 +48,18 @@ const CurvedLoop: FC<CurvedLoopProps> = ({
         .join('')
     : text;
   const ready = spacing > 0;
+
+  // Pause RAF loop when element is off-screen
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { isVisibleRef.current = entry.isIntersecting; },
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (measureRef.current) setSpacing(measureRef.current.getComputedTextLength());
@@ -63,7 +78,7 @@ const CurvedLoop: FC<CurvedLoopProps> = ({
     if (!spacing || !ready) return;
     let frame = 0;
     const step = () => {
-      if (!dragRef.current && textPathRef.current) {
+      if (!dragRef.current && textPathRef.current && isVisibleRef.current) {
         const delta = dirRef.current === 'right' ? speed : -speed;
         const currentOffset = parseFloat(textPathRef.current.getAttribute('startOffset') || '0');
         let newOffset = currentOffset + delta;
@@ -111,6 +126,7 @@ const CurvedLoop: FC<CurvedLoopProps> = ({
 
   return (
     <div
+      ref={containerRef}
       className="min-h-screen flex items-center justify-center w-full"
       style={{ visibility: ready ? 'visible' : 'hidden', cursor: cursorStyle }}
       onPointerDown={onPointerDown}

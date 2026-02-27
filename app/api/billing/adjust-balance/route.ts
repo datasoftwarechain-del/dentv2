@@ -2,8 +2,23 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { verifyUserOwnsOrganization } from "@/lib/auth-utils";
+import { recalculateBalances } from "@/lib/balance-utils";
+import { z } from "zod";
+import { validateBody } from "@/lib/api-validation";
+import { validateCSRF } from "@/lib/csrf";
+
+const AdjustBalanceSchema = z.object({
+  organizationId: z.string().uuid("organizationId debe ser un UUID válido"),
+  clientId: z.string().uuid("clientId debe ser un UUID válido"),
+  targetBalance: z.coerce.number(),
+  description: z.string().max(500).optional(),
+  isDentist: z.boolean(),
+});
 
 export async function POST(request: NextRequest) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -12,12 +27,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { organizationId, clientId, targetBalance, description, isDentist } = body;
-
-    if (!organizationId || !clientId || targetBalance === undefined || targetBalance === null) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
+    const validation = await validateBody(request, AdjustBalanceSchema);
+    if (validation.error) return validation.error;
+    const { organizationId, clientId, targetBalance, description, isDentist } = validation.data;
 
     const authorized = await verifyUserOwnsOrganization(user.id, organizationId);
     if (!authorized) {
@@ -45,7 +57,7 @@ export async function POST(request: NextRequest) {
     const totalCharges  = movements?.filter(m => m.type === "charge").reduce((s, m) => s + Number(m.amount), 0) || 0;
     const currentBalance = totalInvoiced + totalCharges - totalPayments;
 
-    const parsedTarget = parseFloat(targetBalance);
+    const parsedTarget = Number(targetBalance);
     const diff = parsedTarget - currentBalance;
 
     if (Math.abs(diff) < 0.01) {
@@ -82,44 +94,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, message: "Saldo ajustado correctamente" });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
-  }
-}
-
-async function recalculateBalances(
-  supabase: any,
-  organizationId: string,
-  clientId: string,
-  isDentist: boolean
-) {
-  const { data: invoices } = await supabase
-    .from("invoices")
-    .select("total")
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", organizationId)
-    .eq(isDentist ? "lab_org_id" : "dentist_org_id", clientId);
-
-  const totalInvoiced = invoices?.reduce((s: number, inv: any) => s + Number(inv.total), 0) || 0;
-
-  const { data: movements } = await supabase
-    .from("ledger_movements")
-    .select("*")
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", organizationId)
-    .eq(isDentist ? "lab_org_id" : "dentist_org_id", clientId)
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true });
-
-  let runningBalance = totalInvoiced;
-
-  if (movements) {
-    for (const mov of movements) {
-      if (mov.type === "payment") {
-        runningBalance -= Number(mov.amount);
-      } else if (mov.type === "charge") {
-        runningBalance += Number(mov.amount);
-      }
-      await supabase
-        .from("ledger_movements")
-        .update({ balance: runningBalance })
-        .eq("id", mov.id);
-    }
   }
 }

@@ -58,10 +58,22 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { formatWorkType } from "@/lib/work-types";
+import { logger } from "@/lib/logger";
+
 interface Organization {
   id: string;
   name: string;
   email?: string;
+}
+
+interface OrderItem {
+  id: string;
+  work_type: string;
+  unit_price: number | null;
+  quantity: number;
+  selected_extras: { name: string; price: number; qty?: number }[];
+  catalog_item: { name: string; base_price: number } | null;
 }
 
 interface Invoice {
@@ -79,6 +91,7 @@ interface Invoice {
   notes?: string | null;
   dentist_org: Organization | null;
   lab_org: Organization | null;
+  order_items?: OrderItem[];
 }
 
 interface LedgerMovement {
@@ -226,7 +239,7 @@ export function ClientAccountStatement({
         throw new Error(data.error || "Error al registrar cobro");
       }
 
-      console.log("Cobro registrado:", data);
+      logger.log("Cobro registrado:", data);
 
       setDialogOpen(false);
       setFormData({
@@ -244,7 +257,7 @@ export function ClientAccountStatement({
         window.location.reload();
       }, 500);
     } catch (err: any) {
-      console.error("Error completo:", err);
+      logger.error("Error completo:", err);
       toast.error(err.message || "Error al registrar cobro");
     } finally {
       setLoading(false);
@@ -614,6 +627,7 @@ export function ClientAccountStatement({
           initialBalance={0}
           organizationId={organizationId}
           clientId={client.id}
+          clientName={client.name}
         />
       )}
 
@@ -641,7 +655,9 @@ export function ClientAccountStatement({
           </CardHeader>
           <CardContent>
             {invoices.length > 0 ? (
-              <div className="rounded-2xl border border-border/40 overflow-hidden bg-background/30">
+              <>
+              {/* ── Desktop table ── */}
+              <div className="hidden sm:block rounded-2xl border border-border/40 overflow-hidden bg-background/30">
                 <Table>
                   <TableHeader className="bg-muted/50">
                     <TableRow className="hover:bg-transparent">
@@ -719,16 +735,18 @@ export function ClientAccountStatement({
                           )}
                         </TableCell>
                         <TableCell className="max-w-[180px]">
-                          {invoice.work_type ? (
-                            <div className="flex items-center gap-2">
-                              <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                              <span className="text-sm truncate" title={invoice.work_type}>
-                                {invoice.work_type}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-xs italic">-</span>
-                          )}
+                          {(() => {
+                            const catalogName = invoice.order_items?.[0]?.catalog_item?.name;
+                            const label = catalogName || (invoice.work_type ? formatWorkType(invoice.work_type) : null);
+                            return label ? (
+                              <div className="flex items-center gap-2">
+                                <Package className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                <span className="text-sm truncate" title={label}>{label}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-xs italic">-</span>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="text-sm">
                           {invoice.delivery_date ? formatSimpleDate(invoice.delivery_date) : "-"}
@@ -769,6 +787,85 @@ export function ClientAccountStatement({
                   </TableFooter>
                 </Table>
               </div>
+
+              {/* ── Mobile card list ── */}
+              <div className="sm:hidden divide-y divide-border/40 rounded-2xl border border-border/40 overflow-hidden">
+                {filteredAndSortedInvoices.map((invoice) => {
+                  const catalogName = invoice.order_items?.[0]?.catalog_item?.name;
+                  const workLabel = catalogName || (invoice.work_type ? formatWorkType(invoice.work_type) : null);
+                  return (
+                    <div key={invoice.id} className="px-4 py-3.5 bg-background hover:bg-muted/10 transition-colors">
+                      {/* Row 1: Invoice # + Amount */}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-mono text-[12px] font-bold text-[#0d687d] bg-[#d2f2f3] border border-[#b0dde0] px-2 py-0.5 rounded-md">
+                          {invoice.invoice_number}
+                        </span>
+                        <span className="text-[15px] font-bold text-slate-800 tabular-nums">
+                          ${formatNumber(invoice.total)}
+                        </span>
+                      </div>
+                      {/* Row 2: Work type + Status */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-2">
+                          {workLabel ? (
+                            <>
+                              <Package className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="text-[12px] text-slate-600 truncate">{workLabel}</span>
+                            </>
+                          ) : (
+                            <span className="text-[12px] text-muted-foreground italic">Sin tipo</span>
+                          )}
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn("text-[9px] font-bold uppercase tracking-widest shrink-0", statusColors[invoice.status] || "")}
+                        >
+                          {statusLabels[invoice.status] || invoice.status}
+                        </Badge>
+                      </div>
+                      {/* Row 3: Patient + Date + Actions */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {invoice.patient_name && (
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="text-[11px] text-slate-500 truncate">{invoice.patient_name}</span>
+                            </div>
+                          )}
+                          {invoice.delivery_date && (
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="text-[11px] text-slate-400">{formatSimpleDate(invoice.delivery_date)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <InvoiceActions
+                          invoice={invoice}
+                          isDentist={isDentist}
+                          balanceBefore={Math.max(0, balance - invoice.total)}
+                          balanceAfter={balance}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Mobile totals */}
+                <div className="px-4 py-3 bg-muted/30 flex items-center justify-between border-t-2 border-border/40">
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pagado</p>
+                    <p className="text-[13px] font-bold text-slate-700 tabular-nums">${formatNumber(totalPaid)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Total</p>
+                    <p className="text-[18px] font-extrabold tabular-nums">${formatNumber(totalInvoiced)}</p>
+                  </div>
+                  <div className="text-right space-y-0.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pendiente</p>
+                    <p className="text-[13px] font-bold text-slate-700 tabular-nums">${formatNumber(balance)}</p>
+                  </div>
+                </div>
+              </div>
+              </>
             ) : (
               <div className="py-12 text-center">
                 <FileText className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />

@@ -30,11 +30,11 @@ export function Footer() {
             <Link href="/" className="flex items-center gap-2.5">
               <Image src="/logo.png" alt="DigitalDent" width={32} height={32} className="rounded-lg" />
               <span className="text-lg font-bold">
-                <span className="text-[#044c64]">Digital</span><span className="text-[#09919b]">Dent</span>
+                <span className="text-primary">Digital</span><span className="text-secondary">Dent</span>
               </span>
             </Link>
             <p className="mt-4 text-sm text-muted-foreground">
-              La plataforma lider para conectar clinicas dentales con laboratorios.
+              La plataforma líder para conectar clínicas dentales con laboratorios.
             </p>
           </div>
 
@@ -45,7 +45,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
                   >
                     {link.label}
                   </Link>
@@ -61,7 +61,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
                   >
                     {link.label}
                   </Link>
@@ -77,7 +77,7 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
                   >
                     {link.label}
                   </Link>

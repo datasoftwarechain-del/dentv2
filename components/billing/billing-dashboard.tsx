@@ -51,31 +51,12 @@ import {
   Check,
 } from "lucide-react";
 
-const WORK_TYPE_LABELS: Record<string, string> = {
-  corona_metal_ceramica: "Corona Metal-Cerámica",
-  corona_zirconia:       "Corona Zirconia",
-  corona_emax:           "Corona Emax",
-  puente_fijo:           "Puente Fijo",
-  protesis_removible:    "Prótesis Removible",
-  protesis_total:        "Prótesis Total",
-  implante_corona:       "Corona s/ Implante",
-  carilla:               "Carilla",
-  incrustacion:          "Incrustación",
-  ferula:                "Férula",
-  retenedor:             "Retenedor",
-  reparacion:            "Reparación",
-  otro:                  "Otro",
-};
-
-function formatWorkType(wt: string | null | undefined): string {
-  if (!wt) return "—";
-  return WORK_TYPE_LABELS[wt] || wt.replace(/_/g, " ");
-}
+import { WORK_TYPE_LABELS, formatWorkType } from "@/lib/work-types";
 
 function shortInvoiceNumber(num: string): string {
-  // Keep proper invoice numbers (INV-000001), truncate UUIDs/order refs
+  // FAC-YYMM-NNNN is always ≤16 chars; fallback truncation for legacy data
   if (num.length <= 16) return num;
-  return num.slice(0, 14) + "…";
+  return num.slice(0, 13) + "…";
 }
 import { InvoiceActions } from "./invoice-actions";
 import Link from "next/link";

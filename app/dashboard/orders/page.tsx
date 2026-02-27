@@ -1,45 +1,27 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { OrdersList } from "@/components/orders/orders-list";
+import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function OrdersPage() {
+  const { user, org } = await getUserOrg();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/auth/login");
-
-  // Get user's organizations (handle multiple orgs like layout does)
-  const { data: memberships } = await supabase
-    .from("org_members")
-    .select("organization:org_id(id, name, type, is_system_account)")
-    .eq("user_id", user.id);
-
-  // Filter for system accounts only and get the first one
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  const org = orgs[0] || null;
-  if (!org) redirect("/dashboard");
 
   const isDentist = org.type === "dentist";
 
-  // Get orders based on org type
+  // Get orders based on org type — limit prevents unbounded result sets
   const { data: orders } = await supabase
     .from("lab_orders")
     .select(`
       *,
-      items:lab_order_items(work_type),
+      items:lab_order_items(work_type, catalog_item:price_catalog(name)),
       patient:patients(id, first_name, last_name),
       dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
       lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
     `)
     .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   // For dentists, get patients and available labs
   let patients: { id: string; first_name: string; last_name: string }[] = [];
@@ -47,20 +29,24 @@ export default async function OrdersPage() {
   let defaultLabId: string | null = null;
 
   if (isDentist) {
-    const { data: patientsData } = await supabase
-      .from("patients")
-      .select("id, first_name, last_name")
-      .eq("dentist_org_id", org.id)
-      .order("first_name");
-    patients = patientsData || [];
-
     type LabOrg = { id: string; name: string };
     type LabRelation = { lab_org: LabOrg | LabOrg[] | null };
-    const { data: labRelationsRaw } = await supabase
-      .from("lab_dentist_relations")
-      .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
-      .eq("dentist_org_id", org.id)
-      .eq("status", "active");
+
+    // Both queries are independent — run in parallel
+    const [{ data: patientsData }, { data: labRelationsRaw }] = await Promise.all([
+      supabase
+        .from("patients")
+        .select("id, first_name, last_name")
+        .eq("dentist_org_id", org.id)
+        .order("first_name"),
+      supabase
+        .from("lab_dentist_relations")
+        .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
+        .eq("dentist_org_id", org.id)
+        .eq("status", "active"),
+    ]);
+
+    patients = patientsData || [];
     const labRelations = (labRelationsRaw || []) as LabRelation[];
     labs = labRelations
       .flatMap((rel) => {
@@ -142,7 +128,7 @@ export default async function OrdersPage() {
           lastName: user.user_metadata?.last_name,
         }}
       />
-      <div className="flex-1 p-6">
+      <div className="flex-1 px-4 py-4 sm:p-6">
         <OrdersList
           orders={orders || []}
           isDentist={isDentist}

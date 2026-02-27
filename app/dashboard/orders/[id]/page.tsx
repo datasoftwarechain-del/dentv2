@@ -62,7 +62,7 @@ export default async function OrderDetailsPage({
       patient:patients(first_name, last_name, id),
       dentist_org:organizations!lab_orders_dentist_org_id_fkey(name),
       lab_org:organizations!lab_orders_lab_org_id_fkey(name),
-      items:lab_order_items(*)
+      items:lab_order_items(*, catalog_item:price_catalog(name))
     `)
         .eq("id", id)
         .single();
@@ -76,6 +76,22 @@ export default async function OrderDetailsPage({
 
     const statusLabels = ORDER_STATUS_LABELS;
     const statusColors = ORDER_STATUS_BADGE_CLASSES;
+
+    const workTypeLabels: Record<string, string> = {
+        corona_metal_ceramica: "Corona Metal-Cerámica",
+        corona_zirconia:       "Corona Zirconia",
+        corona_emax:           "Corona Emax",
+        puente_fijo:           "Puente Fijo",
+        protesis_removible:    "Prótesis Removible",
+        protesis_total:        "Prótesis Total",
+        implante_corona:       "Corona sobre Implante",
+        carilla:               "Carilla",
+        incrustacion:          "Incrustación",
+        ferula:                "Férula",
+        retenedor:             "Retenedor",
+        reparacion:            "Reparación",
+        otro:                  "Otro",
+    };
 
     return (
         <div className="flex flex-col min-h-screen bg-background/50">
@@ -169,15 +185,35 @@ export default async function OrderDetailsPage({
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-border/40">
-                                                    {order.items.map((item: any) => (
-                                                        <tr key={item.id} className="hover:bg-muted/30 transition-colors">
-                                                            <td className="px-4 py-4 font-bold">{item.work_type.replace(/_/g, " ")}</td>
-                                                            <td className="px-4 py-4">{item.tooth_positions || "Varias"}</td>
-                                                            <td className="px-4 py-4">
-                                                                <Badge variant="secondary" className="font-bold">{item.shade || "N/A"}</Badge>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
+                                                    {order.items.map((item: any) => {
+                                                        const workLabel =
+                                                            item.catalog_item?.name ||
+                                                            workTypeLabels[item.work_type] ||
+                                                            item.work_type?.replace(/_/g, " ") ||
+                                                            "—";
+                                                        const extras: { name: string; qty: number }[] =
+                                                            Array.isArray(item.selected_extras) ? item.selected_extras : [];
+                                                        return (
+                                                            <tr key={item.id} className="hover:bg-muted/30 transition-colors">
+                                                                <td className="px-4 py-4 font-bold">
+                                                                    {workLabel}
+                                                                    {extras.length > 0 && (
+                                                                        <div className="mt-1 space-y-0.5">
+                                                                            {extras.map((e, i) => (
+                                                                                <p key={i} className="text-xs text-muted-foreground font-normal">
+                                                                                    + {e.name}{e.qty > 1 ? ` ×${e.qty}` : ""}
+                                                                                </p>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-4 py-4">{item.tooth_positions || "Varias"}</td>
+                                                                <td className="px-4 py-4">
+                                                                    <Badge variant="secondary" className="font-bold">{item.shade || "N/A"}</Badge>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>

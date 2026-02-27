@@ -1,8 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import { validateBody } from "@/lib/api-validation";
+import { validateCSRF } from "@/lib/csrf";
+
+const UpdateDueDateSchema = z.object({
+  orderId: z.string().uuid("orderId debe ser un UUID válido"),
+  dueDate: z.string().nullable().optional(),
+  dueTime: z.string().regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:MM)").optional(),
+});
 
 export async function PUT(request: NextRequest) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -11,12 +23,9 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { orderId, dueDate, dueTime } = body;
-
-    if (!orderId) {
-      return NextResponse.json({ error: "Missing orderId" }, { status: 400 });
-    }
+    const validation = await validateBody(request, UpdateDueDateSchema);
+    if (validation.error) return validation.error;
+    const { orderId, dueDate, dueTime } = validation.data;
 
     // Get user's org to verify ownership
     const { data: memberships } = await supabase

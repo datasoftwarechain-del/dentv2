@@ -42,12 +42,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, TrendingUp, TrendingDown, Calendar, Edit2, Trash2, DollarSign, Loader2, User, Percent } from "lucide-react";
+import { FileText, TrendingUp, TrendingDown, Calendar, Edit2, Trash2, DollarSign, Loader2, User, Percent, Download, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
+
+import { formatWorkType } from "@/lib/work-types";
 
 interface Organization {
   id: string;
   name: string;
+}
+
+interface OrderItem {
+  catalog_item: { name: string } | null;
+  work_type: string;
 }
 
 interface Invoice {
@@ -58,6 +65,7 @@ interface Invoice {
   created_at: string;
   patient_name?: string | null;
   work_type?: string | null;
+  order_items?: OrderItem[];
 }
 
 interface LedgerMovement {
@@ -87,6 +95,7 @@ interface UnifiedAccountStatementProps {
   initialBalance?: number;
   organizationId: string;
   clientId: string;
+  clientName?: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -101,9 +110,14 @@ export function UnifiedAccountStatement({
   initialBalance = 0,
   organizationId,
   clientId,
+  clientName = "Cliente",
 }: UnifiedAccountStatementProps) {
   const router = useRouter();
   const { csrfToken } = useCSRF();
+  const [sortAsc, setSortAsc] = useState(false); // false = más reciente primero
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editInvoiceDialogOpen, setEditInvoiceDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -132,7 +146,11 @@ export function UnifiedAccountStatement({
       id: inv.id,
       date: inv.created_at,
       type: "invoice",
-      description: `Factura ${inv.invoice_number}${inv.work_type ? ` (${inv.work_type})` : ""}`,
+      description: `Factura ${inv.invoice_number}${
+        inv.order_items?.[0]?.catalog_item?.name
+          ? ` (${inv.order_items[0].catalog_item.name})`
+          : inv.work_type ? ` (${formatWorkType(inv.work_type)})` : ""
+      }`,
       patient_name: inv.patient_name,
       debit: Number(inv.total), // Cargo
       credit: 0,
@@ -184,10 +202,17 @@ export function UnifiedAccountStatement({
     t.balance = runningBalance;
   });
 
-  // PASO 3: Invertir el orden para mostrar las más recientes arriba
-  transactions.reverse();
-
   const finalBalance = runningBalance;
+
+  // PASO 3: Aplicar orden elegido por el usuario (no mutamos — spread)
+  const sortedTransactions = sortAsc ? [...transactions] : [...transactions].reverse();
+
+  // PASO 4: Filtrar por rango de fechas
+  const filteredTransactions = sortedTransactions.filter((t) => {
+    if (dateFrom && new Date(t.date) < new Date(dateFrom + "T00:00:00")) return false;
+    if (dateTo   && new Date(t.date) > new Date(dateTo   + "T23:59:59")) return false;
+    return true;
+  });
 
   // Funciones para editar/eliminar movimientos
   function handleEditClick(movement: LedgerMovement) {
@@ -332,21 +357,103 @@ export function UnifiedAccountStatement({
     }
   }
 
+  async function handleExportPDF() {
+    setIsExporting(true);
+    try {
+      const { exportAccountStatementToPDF } = await import("@/lib/account-statement-export");
+      await exportAccountStatementToPDF({
+        transactions: filteredTransactions,
+        clientName,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        finalBalance,
+      });
+      toast.success("PDF descargado correctamente");
+    } catch {
+      toast.error("Error al generar el PDF");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   return (
     <Card className="border border-slate-200 shadow-sm bg-white">
-      <CardHeader className="border-b border-slate-100 pb-4">
-        <CardTitle className="text-[17px] font-bold text-slate-900">Estado de Cuenta Unificado</CardTitle>
-        <CardDescription className="text-[12px] font-medium text-slate-500 mt-1">
-          Historial completo de facturas y pagos en orden cronológico
-        </CardDescription>
+      <CardHeader className="border-b border-slate-100 pb-4 space-y-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="text-[17px] font-bold text-slate-900">Estado de Cuenta Unificado</CardTitle>
+            <CardDescription className="text-[12px] font-medium text-slate-500 mt-1">
+              Historial completo de facturas y pagos en orden cronológico
+            </CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={isExporting || filteredTransactions.length === 0}
+            className="shrink-0 h-9 gap-1.5 font-semibold text-xs"
+          >
+            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Exportar PDF
+          </Button>
+        </div>
+
+        {/* Date range filter */}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Desde</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="h-8 w-full sm:w-auto rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">Hasta</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="h-8 w-full sm:w-auto rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+          </div>
+          {(dateFrom || dateTo) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setDateFrom(""); setDateTo(""); }}
+              className="h-8 text-xs text-slate-500 hover:text-slate-700"
+            >
+              Limpiar filtro
+            </Button>
+          )}
+          {(dateFrom || dateTo) && (
+            <span className="text-[11px] text-slate-400">
+              {filteredTransactions.length} de {sortedTransactions.length} movimientos
+            </span>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="p-0">
-        {transactions.length > 0 ? (
-          <div className="overflow-hidden">
+        {sortedTransactions.length > 0 ? (
+          <>
+          {/* ── Desktop table — oculta en móvil ─────────────────────────────── */}
+          <div className="hidden sm:block overflow-hidden">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Fecha</TableHead>
+                  <TableHead
+                    className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 cursor-pointer select-none hover:text-slate-900 transition-colors"
+                    onClick={() => setSortAsc((v) => !v)}
+                  >
+                    <div className="flex items-center gap-1">
+                      Fecha
+                      {sortAsc
+                        ? <ArrowUp className="h-3 w-3 text-primary" />
+                        : <ArrowDown className="h-3 w-3 text-primary" />}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Descripción</TableHead>
                   <TableHead className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Paciente</TableHead>
                   <TableHead className="text-right text-[11px] font-semibold uppercase tracking-wide text-slate-600">Cargo</TableHead>
@@ -356,7 +463,14 @@ export function UnifiedAccountStatement({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.map((transaction, index) => (
+                {filteredTransactions.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-12 text-center text-sm text-slate-400">
+                      No hay movimientos en el período seleccionado
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+                {filteredTransactions.map((transaction, index) => (
                   <TableRow
                     key={`${transaction.type}-${transaction.id}-${index}`}
                     className="border-border/40 hover:bg-slate-50/80 transition-all duration-150"
@@ -466,10 +580,10 @@ export function UnifiedAccountStatement({
                     Totales
                   </TableCell>
                   <TableCell className="text-right text-[14px] font-bold text-slate-800 tabular-nums py-4">
-                    ${formatNumber(transactions.reduce((sum, t) => sum + t.debit, 0))}
+                    ${formatNumber(filteredTransactions.reduce((sum, t) => sum + t.debit, 0))}
                   </TableCell>
                   <TableCell className="text-right text-[14px] font-bold text-emerald-700 tabular-nums py-4">
-                    ${formatNumber(transactions.reduce((sum, t) => sum + t.credit, 0))}
+                    ${formatNumber(filteredTransactions.reduce((sum, t) => sum + t.credit, 0))}
                   </TableCell>
                   <TableCell className="text-right py-4">
                     <div className="flex items-center justify-end gap-2">
@@ -492,6 +606,133 @@ export function UnifiedAccountStatement({
               </TableFooter>
             </Table>
           </div>
+
+          {/* ── Mobile card list — oculta en desktop ─────────────────────────── */}
+          <div className="sm:hidden divide-y divide-slate-100">
+            {filteredTransactions.length === 0 ? (
+              <p className="py-10 text-center text-sm text-slate-400">No hay movimientos en el período seleccionado</p>
+            ) : filteredTransactions.map((transaction, index) => (
+              <div key={`m-${transaction.type}-${transaction.id}-${index}`} className="px-4 py-4">
+
+                {/* Fila 1: Fecha + Monto */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
+                    <span className="text-[12px] font-medium text-slate-500">{formatSimpleDate(transaction.date)}</span>
+                  </div>
+                  <div>
+                    {transaction.debit > 0 ? (
+                      <span className="text-[15px] font-bold text-slate-800 tabular-nums">+${formatNumber(transaction.debit)}</span>
+                    ) : (
+                      <span className="text-[15px] font-bold text-emerald-700 tabular-nums">−${formatNumber(transaction.credit)}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Fila 2: Descripción */}
+                <div className="flex items-start gap-2 mb-3">
+                  {transaction.type === "invoice" ? (
+                    <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-[1px]" />
+                  ) : transaction.debit > 0 ? (
+                    <TrendingUp className="h-3.5 w-3.5 text-slate-500 shrink-0 mt-[1px]" />
+                  ) : (
+                    <TrendingDown className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-[1px]" />
+                  )}
+                  <span className="text-[13px] font-semibold text-slate-700 leading-snug">{transaction.description}</span>
+                </div>
+
+                {/* Fila 3: Paciente + Saldo + Acciones */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {transaction.patient_name ? (
+                      <>
+                        <User className="h-3 w-3 text-slate-400 shrink-0" />
+                        <span className="text-[11px] text-slate-500 truncate">{transaction.patient_name}</span>
+                      </>
+                    ) : (
+                      <span className="text-[11px] text-slate-300">Sin paciente</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className={cn(
+                      "text-[11px] font-bold tabular-nums mr-1",
+                      transaction.balance > 0 ? "text-slate-600" : transaction.balance < 0 ? "text-emerald-700" : "text-slate-400"
+                    )}>
+                      Saldo: ${formatNumber(Math.abs(transaction.balance))}
+                    </span>
+                    {transaction.type === "invoice" ? (
+                      <button
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                        onClick={() => {
+                          const invoice = invoices.find(inv => inv.id === transaction.id);
+                          if (invoice) handleEditInvoiceClick(invoice);
+                        }}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          onClick={() => {
+                            const movement = movements.find(m => m.id === transaction.id);
+                            if (movement) handleEditClick(movement);
+                          }}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                          onClick={() => {
+                            const movement = movements.find(m => m.id === transaction.id);
+                            if (movement) handleDeleteClick(movement);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Mobile totals footer ─────────────────────────────────────────── */}
+          {filteredTransactions.length > 0 && (
+            <div className="sm:hidden border-t-2 border-slate-200 bg-slate-50/60 px-4 py-4 flex items-center justify-between">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="font-medium text-slate-500">Total Cargos:</span>
+                  <span className="font-bold text-slate-800 tabular-nums">
+                    ${formatNumber(filteredTransactions.reduce((s, t) => s + t.debit, 0))}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="font-medium text-slate-500">Total Abonos:</span>
+                  <span className="font-bold text-emerald-700 tabular-nums">
+                    ${formatNumber(filteredTransactions.reduce((s, t) => s + t.credit, 0))}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Balance Final</p>
+                <p className={cn(
+                  "text-[22px] font-extrabold tabular-nums tracking-tight leading-none mb-1",
+                  finalBalance > 0 ? "text-slate-900" : finalBalance < 0 ? "text-emerald-800" : "text-slate-500"
+                )}>
+                  ${formatNumber(Math.abs(finalBalance))}
+                </p>
+                <Badge variant="outline" className={cn(
+                  "text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md",
+                  finalBalance > 0 ? "bg-blue-50/80 text-blue-700 border-blue-300/60" : "bg-emerald-50/80 text-emerald-700 border-emerald-300/60"
+                )}>
+                  {finalBalance > 0 ? "A Cobrar" : finalBalance < 0 ? "A Favor" : "Saldado"}
+                </Badge>
+              </div>
+            </div>
+          )}
+          </>
         ) : (
           <div className="py-16 text-center">
             <FileText className="h-14 w-14 text-slate-300 mx-auto mb-4" />
@@ -499,6 +740,7 @@ export function UnifiedAccountStatement({
             <p className="text-[11px] text-slate-400 mt-1">Las facturas y pagos aparecerán aquí</p>
           </div>
         )}
+
       </CardContent>
 
       {/* Edit Movement Dialog */}

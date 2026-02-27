@@ -75,36 +75,34 @@ export function AppointmentsList({
     const month = months[date.getUTCMonth()];
 
     return (
-      <div className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-4 hover:bg-white/10 transition-all hover:shadow-lg hover:border-white/10">
-        <div className="flex items-center gap-4">
-          <div className="flex h-14 w-14 flex-col items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary border border-primary/10 group-hover:from-accent/20 group-hover:to-accent/5 group-hover:text-accent transition-all">
-            <span className="text-xs font-medium uppercase tracking-wider">
+      <div className="group flex items-center justify-between rounded-xl border border-white/5 bg-white/5 p-3 sm:p-4 hover:bg-white/10 transition-all hover:shadow-lg hover:border-white/10">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary border border-primary/10 group-hover:from-accent/20 group-hover:to-accent/5 group-hover:text-accent transition-all">
+            <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wider">
               {month}
             </span>
-            <span className="text-xl font-bold">{day}</span>
+            <span className="text-lg sm:text-xl font-bold">{day}</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-              <p className="font-medium text-lg leading-none">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <User className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
+              <p className="font-medium text-sm sm:text-base leading-none truncate">
                 {appointment.patient.first_name} {appointment.patient.last_name}
               </p>
             </div>
-            <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground group-hover:text-muted-foreground/80 transition-colors">
-              <div className="flex items-center gap-1.5 bg-background/50 px-2 py-0.5 rounded-md border border-border/50">
-                <Clock className="h-3.5 w-3.5" />
-                <span>
-                  {formatTime(appointment.scheduled_at)}
-                </span>
+            <div className="flex items-center gap-2 sm:gap-3 mt-1.5 sm:mt-2 text-xs sm:text-sm text-muted-foreground group-hover:text-muted-foreground/80 transition-colors">
+              <div className="flex items-center gap-1 sm:gap-1.5 bg-background/50 px-1.5 sm:px-2 py-0.5 rounded-md border border-border/50">
+                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+                <span>{formatTime(appointment.scheduled_at)}</span>
               </div>
               <span className="text-muted-foreground/40">•</span>
               <span>{appointment.duration_minutes} min</span>
             </div>
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-col items-end gap-2 shrink-0 ml-2">
           <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold border ${statusStyles[appointment.status] || "bg-muted text-muted-foreground border-muted"}`}
+            className={`rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[11px] sm:text-xs font-semibold border ${statusStyles[appointment.status] || "bg-muted text-muted-foreground border-muted"}`}
           >
             {statusLabels[appointment.status] || appointment.status}
           </span>
