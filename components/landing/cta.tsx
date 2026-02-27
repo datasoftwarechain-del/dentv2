@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 
 export function Cta() {
   return (
-    <section className="relative overflow-hidden py-20 sm:py-32">
-      <div className="absolute inset-x-0 -z-10 h-full bg-gradient-to-b from-primary/5 to-accent/10" />
+    <section className="relative overflow-hidden py-32 sm:py-44">
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-primary/5 to-accent/10" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-[#044c64] text-balance text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
