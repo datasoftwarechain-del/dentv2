@@ -44,7 +44,7 @@ export function Features() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">Todo en un solo lugar</p>
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Diseñada para la odontología que no para.
+            Diseñada para la odontología digital que no para.
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
             Cada módulo resuelve un problema real de tu flujo de trabajo, con la precisión y simplicidad que tu equipo necesita desde el primer día.
