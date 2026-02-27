@@ -32,7 +32,7 @@ export function Hero() {
 
           <motion.h1
             {...fadeUp(0.1)}
-            className="text-primary text-balance text-4xl font-bold tracking-tight leading-[1.1] sm:text-5xl lg:text-6xl"
+            className="text-[#044c64] text-balance text-4xl font-bold tracking-tight leading-[1.1] sm:text-5xl lg:text-6xl"
           >
             Tu clínica dental, digitalizada de verdad.
           </motion.h1>

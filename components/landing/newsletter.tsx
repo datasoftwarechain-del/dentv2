@@ -84,7 +84,7 @@ export function Newsletter() {
             transition={{ duration: 0.65, ease: [0.25, 0.46, 0.45, 0.94] }}
           >
             <p className="section-label mb-3">Newsletter</p>
-            <h2 className="text-primary text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
+            <h2 className="text-[#044c64] text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
               Lo más relevante del sector dental,{" "}
               <span className="text-primary">directo a tu bandeja de entrada.</span>
             </h2>

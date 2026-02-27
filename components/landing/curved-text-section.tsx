@@ -6,7 +6,7 @@ export function CurvedTextSection() {
   return (
     <section className="relative w-full py-20 overflow-hidden bg-gradient-to-b from-background to-primary/5">
       <div className="container mx-auto px-4 mb-8">
-        <h2 className="text-primary text-3xl md:text-4xl sm:text-5xl font-bold text-center">
+        <h2 className="text-[#044c64] text-3xl md:text-4xl sm:text-5xl font-bold text-center">
           La infraestructura digital detrás de clínicas que operan mejor.
         </h2>
         <p className="text-center text-muted-foreground mt-4 max-w-2xl mx-auto">

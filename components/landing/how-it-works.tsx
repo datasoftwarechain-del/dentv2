@@ -31,7 +31,7 @@ export function HowItWorks() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">Simple desde el día 1</p>
-          <h2 className="text-primary text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="text-[#044c64] text-balance text-3xl font-bold tracking-tight sm:text-4xl">
             Empezá en menos de 10 minutos.
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
