@@ -10,12 +10,12 @@ const plans = [
   {
     name: "Starter",
     price: "Gratis",
-    description: "Perfecto para empezar a digitalizar tu consultorio",
+    description: "Para comenzar a digitalizar tu consultorio sin riesgo.",
     features: [
-      "Hasta 50 pedidos/mes",
+      "Hasta 20 pedidos/mes",
       "1 usuario",
       "Gestión básica de pacientes",
-      "Soporte por email",
+      "Soporte dentro de la plataforma",
     ],
     cta: "Comenzar Gratis",
     highlighted: false,
@@ -24,7 +24,7 @@ const plans = [
     name: "Profesional",
     price: "$49",
     period: "/mes",
-    description: "Para clínicas en crecimiento que buscan control total",
+    description: "Para clínicas en crecimiento que necesitan control total de su operación.",
     features: [
       "Pedidos ilimitados",
       "Hasta 5 usuarios",
@@ -39,7 +39,7 @@ const plans = [
   {
     name: "Empresa",
     price: "Personalizado",
-    description: "Infraestructura personalizada para laboratorios y grandes equipos",
+    description: "Infraestructura a medida para laboratorios y equipos de alto volumen.",
     features: [
       "Todo en Profesional",
       "Usuarios ilimitados",
@@ -60,11 +60,8 @@ export function Pricing() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">Elige tu plan</p>
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Sin contratos. Sin sorpresas.
+            Sin contratos. Sin letras chicas. Cambiá de plan cuando quieras.
           </h2>
-          <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
-            Cancela cuando quieras. Cambia de plan en cualquier momento.
-          </p>
         </div>
 
         <p className="mt-6 text-center text-sm text-muted-foreground/70">

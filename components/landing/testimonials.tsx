@@ -26,7 +26,7 @@ const testimonials = [
   {
     stars: 5,
     quote:
-      "Enviaba órdenes por foto y rezaba para que llegaran bien. Hoy cargo la especificación completa en 2 minutos y sé exactamente cuándo estará lista. DigitalDent es lo que la odontología necesitaba.",
+      "Enviaba órdenes por foto y rezaba para que llegaran bien. Hoy cargo la especificación completa en minutos y sé exactamente cuándo estará lista. DigitalDent es lo que la odontología digital necesitaba.",
     name: "Dr. Martín García",
     role: "Odontólogo Estético",
     company: "Consultorio Privado",
@@ -56,10 +56,10 @@ export function Testimonials() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">Lo que dicen nuestros usuarios</p>
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Resultados reales. Clínicas reales.
+            Resultados reales. Historias reales.
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
-            Profesionales que ya dejaron el caos atrás y no volvieron.
+            Profesionales que dejaron el caos operativo atrás — y no tienen ningún motivo para volver.
           </p>
         </div>
 

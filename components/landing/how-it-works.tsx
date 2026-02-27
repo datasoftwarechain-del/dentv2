@@ -6,22 +6,22 @@ const steps = [
   {
     number: "01",
     title: "Crea tu cuenta",
-    description: "Regístrate en minutos, sin tarjeta de crédito. Configura tu perfil y empieza a operar el mismo día.",
+    description: "Registro en minutos, sin tarjeta de crédito. Configurá tu perfil y comenzá a operar el mismo día.",
   },
   {
     number: "02",
     title: "Conecta con socios",
-    description: "Clínicas se conectan con sus laboratorios de confianza. Los laboratorios reciben solicitudes automáticamente.",
+    description: "Vinculá tu clínica con los laboratorios que ya conocés o descubrí nuevos socios. Las solicitudes fluyen automáticamente, sin intermediarios.",
   },
   {
     number: "03",
     title: "Gestiona pedidos",
-    description: "Envía órdenes con especificaciones detalladas, archivos STL y fechas de entrega. Todo en un solo lugar.",
+    description: "Enviá órdenes completas con especificaciones, archivos STL y fechas de entrega. Seguí cada trabajo en tiempo real desde el primer clic.",
   },
   {
     number: "04",
     title: "Factura y cobra",
-    description: "Genera facturas automáticas al cerrar trabajos. Controla pagos y mantén tu contabilidad al día.",
+    description: "Facturas generadas automáticamente al cerrar cada trabajo. Controlá cobros pendientes y mantené tu contabilidad siempre al día.",
   },
 ];
 
@@ -32,10 +32,10 @@ export function HowItWorks() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">Simple desde el día 1</p>
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Empieza en menos de 10 minutos
+            Empezá en menos de 10 minutos.
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
-            Sin instalaciones, sin capacitaciones largas. Solo entra, configura y opera desde el primer día.
+            Sin instalaciones ni capacitaciones largas. Entrá, configurá y operá desde el primer momento.
           </p>
         </div>
 

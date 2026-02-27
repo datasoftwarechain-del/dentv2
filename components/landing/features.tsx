@@ -8,32 +8,32 @@ const features = [
   {
     icon: CalendarDays,
     title: "Agenda Inteligente",
-    description: "Vista semanal optimizada, recordatorios automáticos y gestión completa de tu agenda desde cualquier dispositivo.",
+    description: "Organizá tu semana de un vistazo. Turnos, disponibilidad y recordatorios automáticos gestionados desde cualquier dispositivo, en cualquier momento.",
   },
   {
     icon: ClipboardList,
     title: "Historia Clínica Digital",
-    description: "Historial completo del paciente con radiografías, notas y evolución clínica siempre a mano.",
+    description: "Todo el historial de tu paciente en un solo lugar: radiografías, notas clínicas y evolución. Acceso inmediato cuando más lo necesitás.",
   },
   {
     icon: Package,
     title: "Órdenes Digitales a Laboratorio",
-    description: "Carga especificaciones completas, adjunta archivos STL y recibe actualizaciones de estado en tiempo real.",
+    description: "Enviá órdenes con especificaciones precisas y archivos .STL. Tu laboratorio las recibe al instante y seguís cada paso del proceso en tiempo real.",
   },
   {
     icon: Receipt,
     title: "Facturación Automática",
-    description: "Genera facturas automáticamente al cerrar cada trabajo y mantén el control de pagos pendientes.",
+    description: "Cada trabajo cerrado genera su factura automáticamente. Sin retrasos, sin olvidos. Control total de cobros y pagos pendientes en tiempo real.",
   },
   {
     icon: BarChart3,
     title: "Reportes y Analíticas",
-    description: "Dashboards con métricas clave: ingresos, tiempos de entrega, productividad y satisfacción del cliente.",
+    description: "Tomá decisiones con datos, no con intuición. Dashboards con ingresos, tiempos de entrega, productividad del equipo y satisfacción del paciente.",
   },
   {
     icon: ShieldCheck,
     title: "Seguridad y Privacidad",
-    description: "Datos encriptados, backups automáticos y cumplimiento con normativas de protección de datos de salud.",
+    description: "Tus datos protegidos con encriptación de nivel bancario y backups automáticos. Tu operación nunca se detiene, sin importar qué.",
   },
 ];
 
@@ -44,10 +44,10 @@ export function Features() {
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">Todo en un solo lugar</p>
           <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Una plataforma pensada para clínicas modernas
+            Diseñada para la odontología que no para.
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
-            Cada módulo diseñado para eliminar fricción y darte control total de tu flujo de trabajo
+            Cada módulo resuelve un problema real de tu flujo de trabajo, con la precisión y simplicidad que tu equipo necesita desde el primer día.
           </p>
         </div>
 

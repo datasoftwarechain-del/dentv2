@@ -34,12 +34,12 @@ export function Hero() {
             {...fadeUp(0.1)}
             className="text-premium-gradient text-balance text-4xl font-bold tracking-tight leading-[1.1] sm:text-5xl lg:text-6xl"
           >
-            Tu clínica dental merece dejar el caos atrás, hoy.
+            Tu clínica dental, digitalizada de verdad.
           </motion.h1>
 
           <motion.p {...fadeUp(0.2)} className="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-muted-foreground">
-            Gestiona turnos, historia clínica, pedidos digitales y facturación en una sola plataforma.
-            Conecta tu clínica con laboratorios y toma el control sin WhatsApp ni papeles.
+            Gestioná turnos, historia clínica, pedidos y facturación desde una sola plataforma.
+            Conectá tu clínica con laboratorios de confianza y recuperá el control de tu tiempo.
           </motion.p>
 
           <motion.div {...fadeUp(0.32)} className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">

@@ -17,8 +17,8 @@ const ROLES = [
 ];
 
 const perks = [
-  { icon: Zap, text: "Tendencias y novedades del sector" },
-  { icon: Users, text: "Tips de gestión clínica y laboratorio" },
+  { icon: Zap, text: "Contenido práctico. Tendencias y novedades del sector." },
+  { icon: Users, text: "Tips de gestión clínica y laboratorio." },
   { icon: ShieldCheck, text: "Sin spam. Cancelá cuando quieras." },
 ];
 
@@ -85,12 +85,11 @@ export function Newsletter() {
           >
             <p className="section-label mb-3">Newsletter</p>
             <h2 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
-              Lo mejor del sector dental,{" "}
-              <span className="text-primary">en tu bandeja de entrada.</span>
+              Lo más relevante del sector dental,{" "}
+              <span className="text-primary">directo a tu bandeja de entrada.</span>
             </h2>
             <p className="mt-4 text-muted-foreground">
               Únete a los profesionales que ya están un paso adelante.
-              Contenido práctico, sin ruido.
             </p>
 
             <ul className="mt-8 flex flex-col gap-4">

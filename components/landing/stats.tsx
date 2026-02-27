@@ -59,9 +59,9 @@ function AnimatedStat({ value, label }: { value: string; label: string }) {
 }
 
 const stats = [
-  { value: "40%", label: "Reducción en errores de pedidos" },
-  { value: "3x", label: "Más rápido en comunicación clínica-laboratorio" },
-  { value: "25%", label: "Ahorro en costos operativos" },
+  { value: "40%", label: "Reducción en errores operativos" },
+  { value: "x10", label: "Más rápida la comunicación clínica-laboratorio" },
+  { value: "25%", label: "Ahorro en costos de gestión" },
   { value: "99.9%", label: "Uptime garantizado" },
 ];
 
