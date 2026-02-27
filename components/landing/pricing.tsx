@@ -59,7 +59,7 @@ export function Pricing() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">Elige tu plan</p>
-          <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="text-primary text-balance text-3xl font-bold tracking-tight sm:text-4xl">
             Sin contratos. Sin letras chicas. Cambiá de plan cuando quieras.
           </h2>
         </div>

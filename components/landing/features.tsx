@@ -43,7 +43,7 @@ export function Features() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">Todo en un solo lugar</p>
-          <h2 className="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="text-primary text-balance text-3xl font-bold tracking-tight sm:text-4xl">
             Diseñada para la odontología digital que no para.
           </h2>
           <p className="mt-4 text-pretty text-lg leading-relaxed text-muted-foreground">
