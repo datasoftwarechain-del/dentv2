@@ -19,7 +19,7 @@ export function Cta() {
             </Link>
           </div>
           <p className="mt-6 text-sm text-muted-foreground/60">
-            Sin tarjeta de crédito · Funciona desde cualquier dispositivo · Soporte humano real
+            Funciona desde cualquier dispositivo · Soporte
           </p>
         </div>
       </div>
