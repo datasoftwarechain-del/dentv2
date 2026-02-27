@@ -7,10 +7,12 @@ export function CurvedTextSection() {
     <section className="relative w-full py-20 overflow-hidden bg-gradient-to-b from-background to-primary/5">
       <div className="container mx-auto px-4 mb-8">
         <h2 className="text-3xl md:text-4xl sm:text-5xl font-bold text-center">
-          No vendemos software. Vendemos tranquilidad operativa.
+          La infraestructura digital detrás de clínicas que operan mejor.
         </h2>
         <p className="text-center text-muted-foreground mt-4 max-w-2xl mx-auto">
-          DigitalDent es la infraestructura digital que ordena tu clínica, conecta a tu equipo y elimina el caos del día a día.
+          DigitalDent integra agenda, órdenes, alertas, horas, conecta turnos y facturación en un solo sistema que simplifica cada proceso.
+          <br className="hidden sm:block" />
+          Al formar parte de nuestro equipo digital, también puedes acceder a ventajas especiales y descuentos exclusivos en productos y servicios.
         </p>
       </div>
 
