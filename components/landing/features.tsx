@@ -33,7 +33,7 @@ const features = [
   {
     icon: ShieldCheck,
     title: "Seguridad y Privacidad",
-    description: "Tus datos protegidos con encriptación avanzada y backups automáticos. Tu operación nunca se detiene, sin importar qué.",
+    description: "Tus datos protegidos con backups automáticos. Tu operación nunca se detiene, sin importar qué.",
   },
 ];
 
