@@ -6,29 +6,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Building2, FileText, DollarSign, ChevronRight } from "lucide-react";
 import { formatNumber } from "@/lib/date-utils";
 import Link from "next/link";
+import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function ClientsPage() {
+  // Shares React.cache() with layout — no extra auth round-trip
+  const { user, org } = await getUserOrg();
+  if (org.type !== "lab") redirect("/dashboard");
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/auth/login");
-
-  // Get user's organizations (handle multiple orgs like layout does)
-  const { data: memberships } = await supabase
-    .from("org_members")
-    .select("organization:org_id(id, name, type, is_system_account)")
-    .eq("user_id", user.id);
-
-  // Filter for system accounts only and get the first one
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  const org = orgs[0] || null;
-  if (!org || org.type !== "lab") redirect("/dashboard");
 
   // Get unique dentist organizations that have sent orders
   const { data: orders } = await supabase

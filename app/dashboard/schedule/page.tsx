@@ -1,31 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { WeeklySchedule } from "@/components/schedule/weekly-schedule";
+import { getUserOrg } from "@/lib/get-user-org";
 
 export const dynamic = "force-dynamic";
 
 export default async function SchedulePage(props: any) {
+  // Shares React.cache() with layout — no extra auth round-trip
+  const { user, org } = await getUserOrg();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/auth/login");
-
-  // Get user's organizations
-  const { data: memberships } = await supabase
-    .from("org_members")
-    .select("organization:org_id(id, name, type, is_system_account)")
-    .eq("user_id", user.id);
-
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  const org = orgs[0] || null;
-  if (!org) redirect("/dashboard");
 
   const isDentist = org.type === "dentist";
 
@@ -59,21 +42,36 @@ export default async function SchedulePage(props: any) {
     String(weekStart.getDate()).padStart(2, "0"),
   ].join("-");
 
-  // ── Fetch orders for the selected week ────────────────────────────────────
-  const { data: orders } = await supabase
-    .from("lab_orders")
-    .select(`
-      *,
-      items:lab_order_items(work_type, tooth_positions, shade),
-      patient:patients(id, first_name, last_name),
-      dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
-      lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
-    `)
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
-    .not("due_date", "is", null)
-    .gte("due_date", weekStart.toISOString())
-    .lte("due_date", weekEnd.toISOString())
-    .order("due_date", { ascending: true });
+  // ── Fetch orders + appointments in parallel ────────────────────────────────
+  const [{ data: orders }, { data: appointmentsData }] = await Promise.all([
+    supabase
+      .from("lab_orders")
+      .select(`
+        *,
+        items:lab_order_items(work_type, tooth_positions, shade),
+        patient:patients(id, first_name, last_name),
+        dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
+        lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
+      `)
+      .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
+      .not("due_date", "is", null)
+      .gte("due_date", weekStart.toISOString())
+      .lte("due_date", weekEnd.toISOString())
+      .order("due_date", { ascending: true }),
+
+    // Always run this query; ignore result for lab users (avoids an if/await waterfall)
+    isDentist
+      ? supabase
+          .from("appointments")
+          .select(`id, scheduled_at, notes, status, patient:patients(id, first_name, last_name)`)
+          .eq("dentist_org_id", org.id)
+          .gte("scheduled_at", weekStart.toISOString())
+          .lte("scheduled_at", weekEnd.toISOString())
+          .order("scheduled_at", { ascending: true })
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+
+  const appointments = isDentist ? (appointmentsData ?? []) : [];
 
   return (
     <div className="flex flex-col">
@@ -88,6 +86,7 @@ export default async function SchedulePage(props: any) {
       <div className="flex-1 p-6">
         <WeeklySchedule
           orders={orders || []}
+          appointments={appointments}
           isDentist={isDentist}
           weekStartStr={weekStartStr}
         />

@@ -1,41 +1,17 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getUserOrg } from "@/lib/get-user-org";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { SupportWidget } from "@/components/support/support-widget";
+import { WhatsAppButton } from "@/components/support/whatsapp-button";
+import { PageTransition } from "@/components/dashboard/page-transition";
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/auth/login");
-  }
-
-  // Get user's organizations (only system accounts, not client records)
-  // Changed from .single() to handle users with multiple orgs
-  const { data: memberships } = await supabase
-    .from("org_members")
-    .select("organization:org_id(id, name, type, is_system_account)")
-    .eq("user_id", user.id);
-
-  // Filter for system accounts only and get the first one
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  const org = orgs[0] || null;
-
-  // If no valid organization, redirect to onboarding
-  if (!org) {
-    redirect("/onboarding");
-  }
+  // getUserOrg() redirects to /auth/login if !user and /onboarding if !org.
+  // React.cache() deduplicates this call when layout and page both invoke it.
+  const { org } = await getUserOrg();
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -43,8 +19,12 @@ export default async function DashboardLayout({
         orgType={org.type as "dentist" | "lab"}
         orgName={org.name}
       />
-      <main className="flex-1 overflow-auto lg:ml-0">{children}</main>
+      {/* pt-14 reserves space for the mobile sticky top bar (h-14). Removed on lg+ where the bar doesn't exist. */}
+      <main className="flex-1 overflow-auto pt-14 lg:pt-0 lg:ml-[80px]">
+        <PageTransition>{children}</PageTransition>
+      </main>
       <SupportWidget />
+      <WhatsAppButton />
     </div>
   );
 }

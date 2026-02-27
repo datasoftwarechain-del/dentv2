@@ -2,35 +2,21 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { PatientsList } from "@/components/patients/patients-list";
+import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function PatientsPage() {
+  // No-arg call shares React.cache() with layout — avoids duplicate auth round-trip
+  const { user, org } = await getUserOrg();
+  if (org.type !== "dentist") redirect("/dashboard");
+
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/auth/login");
-
-  // Get user's organizations (handle multiple orgs like layout does)
-  const { data: memberships } = await supabase
-    .from("org_members")
-    .select("organization:org_id(id, name, type, is_system_account)")
-    .eq("user_id", user.id);
-
-  // Filter for system accounts only and get the first one
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  const org = orgs[0] || null;
-  if (!org || org.type !== "dentist") redirect("/dashboard");
 
   const { data: patients } = await supabase
     .from("patients")
     .select("*")
     .eq("dentist_org_id", org.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(500); // Prevent unbounded result sets from degrading performance
 
   return (
     <div className="flex flex-col">
@@ -42,7 +28,7 @@ export default async function PatientsPage() {
           lastName: user.user_metadata?.last_name,
         }}
       />
-      <div className="flex-1 p-6">
+      <div className="flex-1 px-4 py-4 sm:p-6">
         <PatientsList patients={patients || []} organizationId={org.id} />
       </div>
     </div>

@@ -1,32 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { SettingsForm } from "@/components/settings/settings-form";
+import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function SettingsPage() {
+  // getUserOrg() shares React.cache() with layout — saves one auth round-trip.
+  // We still need the role field, so we run a focused query just for that.
+  const { user, org } = await getUserOrg();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/auth/login");
-
-  // Get user's organizations (handle multiple orgs like layout does)
-  const { data: memberships } = await supabase
+  const { data: membershipData } = await supabase
     .from("org_members")
-    .select("organization:org_id(*), role")
-    .eq("user_id", user.id);
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("org_id", org.id)
+    .single();
 
-  // Filter for system accounts only and get the first one
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  const org = orgs[0] || null;
-  const membership = memberships?.[0] || null;
-
-  if (!org) redirect("/dashboard");
+  const role = membershipData?.role ?? "member";
 
   return (
     <div className="flex flex-col">
@@ -47,7 +37,7 @@ export default async function SettingsPage() {
             lastName: user.user_metadata?.last_name || "",
           }}
           organization={org}
-          role={membership?.role || "member"}
+          role={role}
         />
       </div>
     </div>

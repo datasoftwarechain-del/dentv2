@@ -1,54 +1,33 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
-import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog"; // Absolute path to be safe, or relative
+import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog";
 import { TotalOrdersCard } from "./components/TotalOrdersCard";
 import { ActiveClientCard } from "./components/ActiveClientCard";
 import { SummaryReportCard } from "./components/SummaryReportCard";
 import { WorksInProgressList } from "./components/WorksInProgressList";
+import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function LaboratoryDashboardPage() {
+    // Shares React.cache() with layout — no extra auth round-trip
+    const { user, org } = await getUserOrg();
+    if (org.type !== "lab") redirect("/dashboard");
+
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) redirect("/auth/login");
+    // Both queries are independent — run in parallel
+    const [{ data: dentistOrgs }, { data: patients }] = await Promise.all([
+        supabase
+            .from("organizations")
+            .select("id, name")
+            .eq("type", "dentist")
+            .order("name"),
 
-    // Get user's organizations (handle multiple orgs like layout does)
-    const { data: memberships } = await supabase
-        .from("org_members")
-        .select("organization:org_id(id, name, type, is_system_account)")
-        .eq("user_id", user.id);
-
-    // Filter for system accounts only and get the first one
-    const orgs = (memberships || [])
-        .map((m: any) => {
-            const orgData = m.organization;
-            return Array.isArray(orgData) ? orgData[0] : orgData;
-        })
-        .filter((o: any) => o && o.is_system_account !== false);
-
-    const org = orgs[0] || null;
-
-    if (!org) redirect("/dashboard");
-
-    // Only allow lab organizations
-    if (org.type !== "lab") {
-        redirect("/dashboard");
-    }
-
-    // Fetch data for manual order entry
-    const { data: dentistOrgs } = await supabase
-        .from("organizations")
-        .select("id, name")
-        // .eq("type", "dentist") // Assuming 'dentist' type exists, strictly filtering might hide legacy data, but usually safe.
-        // Actually, let's just fetch all 'dentist' orgs.
-        .eq("type", "dentist")
-        .order("name");
-
-    const { data: patients } = await supabase
-        .from("patients")
-        .select("id, first_name, last_name")
-        .order("last_name");
+        supabase
+            .from("patients")
+            .select("id, first_name, last_name")
+            .order("last_name"),
+    ]);
 
 
     return (

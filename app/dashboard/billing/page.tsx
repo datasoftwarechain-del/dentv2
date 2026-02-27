@@ -1,58 +1,47 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { BillingDashboard } from "@/components/billing/billing-dashboard";
 import { DentistBillingDashboard } from "@/components/billing/dentist-billing-dashboard";
+import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function BillingPage() {
+  const { user, org } = await getUserOrg();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) redirect("/auth/login");
-
-  // Get user's organizations
-  const { data: memberships } = await supabase
-    .from("org_members")
-    .select("organization:org_id(id, name, type, is_system_account)")
-    .eq("user_id", user.id);
-
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  const org = orgs[0] || null;
-  if (!org) redirect("/dashboard");
 
   const isDentist = org.type === "dentist";
 
   // ─── DENTIST BILLING ───────────────────────────────────────
   if (isDentist) {
-    // Patient invoices (dentist → patient)
-    const { data: patientInvoices } = await supabase
-      .from("patient_invoices")
-      .select("*, patient:patients(id, first_name, last_name)")
-      .eq("dentist_org_id", org.id)
-      .order("created_at", { ascending: false });
+    // All three queries are independent — run in parallel to eliminate waterfall
+    const [
+      { data: patientInvoices },
+      { data: patients },
+      { data: labInvoices },
+    ] = await Promise.all([
+      // Patient invoices (dentist → patient)
+      supabase
+        .from("patient_invoices")
+        .select("*, patient:patients(id, first_name, last_name)")
+        .eq("dentist_org_id", org.id)
+        .order("created_at", { ascending: false }),
 
-    // Patients list for the create dialog
-    const { data: patients } = await supabase
-      .from("patients")
-      .select("id, first_name, last_name")
-      .eq("dentist_org_id", org.id)
-      .order("first_name");
+      // Patients list for the create dialog
+      supabase
+        .from("patients")
+        .select("id, first_name, last_name")
+        .eq("dentist_org_id", org.id)
+        .order("first_name"),
 
-    // Lab invoices (lab → dentist)
-    const { data: labInvoices } = await supabase
-      .from("invoices")
-      .select(`
-        *,
-        lab_org:organizations!invoices_lab_org_id_fkey(id, name)
-      `)
-      .eq("dentist_org_id", org.id)
-      .order("created_at", { ascending: false });
+      // Lab invoices (lab → dentist)
+      supabase
+        .from("invoices")
+        .select(`
+          *,
+          lab_org:organizations!invoices_lab_org_id_fkey(id, name)
+        `)
+        .eq("dentist_org_id", org.id)
+        .order("created_at", { ascending: false }),
+    ]);
 
     // Build lab clients summary
     const labClientsMap = new Map<string, any>();
@@ -96,44 +85,50 @@ export default async function BillingPage() {
     );
   }
 
-  // ─── LAB BILLING (unchanged) ──────────────────────────────
-  const { data: invoices } = await supabase
-    .from("invoices")
-    .select(`
-      *,
-      dentist_org:organizations!invoices_dentist_org_id_fkey(id, name),
-      lab_org:organizations!invoices_lab_org_id_fkey(id, name)
-    `)
-    .eq("lab_org_id", org.id)
-    .order("created_at", { ascending: false });
+  // ─── LAB BILLING ──────────────────────────────────────────
+  // Both queries are independent — run in parallel
+  const [{ data: invoices }, { data: movements }] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select(`
+        *,
+        dentist_org:organizations!invoices_dentist_org_id_fkey(id, name),
+        lab_org:organizations!invoices_lab_org_id_fkey(id, name)
+      `)
+      .eq("lab_org_id", org.id)
+      .order("created_at", { ascending: false }),
 
-  const { data: movements } = await supabase
-    .from("ledger_movements")
-    .select("*")
-    .eq("lab_org_id", org.id)
-    .order("created_at", { ascending: false })
-    .limit(20);
+    supabase
+      .from("ledger_movements")
+      .select("*")
+      .eq("lab_org_id", org.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
 
   const totalInvoiced = invoices?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
   const totalPaid = invoices?.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
   const totalPending = invoices?.filter((inv) => inv.status === "pending").reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
 
-  const clientsMap = new Map();
+  // Single-pass O(n) accumulation — avoids the previous O(n²) nested .filter()
+  const clientsMap = new Map<string, {
+    id: string; name: string; invoiceCount: number; totalAmount: number; paidAmount: number;
+  }>();
   invoices?.forEach((invoice) => {
-    const clientOrg = invoice.dentist_org;
-    if (clientOrg && !clientsMap.has(clientOrg.id)) {
-      const clientInvoices = invoices.filter(inv => inv.dentist_org?.id === clientOrg.id);
-      const clientTotal = clientInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
-      const clientPaid = clientInvoices.filter(inv => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total), 0);
-      clientsMap.set(clientOrg.id, {
-        ...clientOrg,
-        invoiceCount: clientInvoices.length,
-        totalAmount: clientTotal,
-        pendingAmount: clientTotal - clientPaid,
-      });
-    }
+    const clientOrg = invoice.dentist_org as { id: string; name: string } | null;
+    if (!clientOrg) return;
+    const entry = clientsMap.get(clientOrg.id) ?? {
+      id: clientOrg.id, name: clientOrg.name, invoiceCount: 0, totalAmount: 0, paidAmount: 0,
+    };
+    entry.invoiceCount++;
+    entry.totalAmount += Number(invoice.total);
+    if (invoice.status === "paid") entry.paidAmount += Number(invoice.total);
+    clientsMap.set(clientOrg.id, entry);
   });
-  const clients = Array.from(clientsMap.values());
+  const clients = Array.from(clientsMap.values()).map((c) => ({
+    ...c,
+    pendingAmount: c.totalAmount - c.paidAmount,
+  }));
 
   return (
     <div className="flex flex-col">
