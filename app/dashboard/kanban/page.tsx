@@ -7,8 +7,9 @@ import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function KanbanPage() {
   // No-arg call shares React.cache() with layout — avoids duplicate auth round-trip
-  const { user, org } = await getUserOrg();
+  const { user, org, isCollaborator, permissions } = await getUserOrg();
   if (org.type !== "lab") redirect("/dashboard");
+  if (isCollaborator && !permissions?.view_kanban) redirect("/dashboard");
   const supabase = await createClient();
 
   const { data: orders } = await supabase

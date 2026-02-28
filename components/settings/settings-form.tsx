@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2, User, Building2, Shield, Search, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { PriceCatalogSection } from "@/components/settings/price-catalog";
+import { CollaboratorsSection } from "@/components/settings/collaborators-section";
 
 interface SettingsFormProps {
   user: {
@@ -404,6 +405,14 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
         orgId={organization.id}
         orgType={organization.type}
       />
+
+      {/* Colaboradores — solo admins */}
+      {role === "admin" && (
+        <CollaboratorsSection
+          orgId={organization.id}
+          orgType={organization.type as "dentist" | "lab"}
+        />
+      )}
 
       {/* Lab Connections */}
       {role === "admin" && organization.type === "dentist" && (

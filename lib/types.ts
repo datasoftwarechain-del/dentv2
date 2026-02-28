@@ -18,6 +18,25 @@ export interface OrgMembership {
   user_id?: string;
 }
 
+/**
+ * A member of an organization.
+ * Admins have role='admin' and empty permissions ({}).
+ * Collaborators have role='collaborator' and explicit permissions.
+ */
+export interface OrgMember {
+  id: string;
+  user_id: string;
+  org_id: string;
+  role: "admin" | "member" | "collaborator";
+  permissions: Record<string, boolean>;
+  status: "active" | "suspended";
+  display_name: string | null;
+  invited_by: string | null;
+  created_at: string;
+  /** Joined from auth.users — only present when queried via admin API */
+  email?: string;
+}
+
 export interface Patient {
   id: string;
   first_name: string;

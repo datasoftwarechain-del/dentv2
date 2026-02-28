@@ -11,13 +11,15 @@ export default async function DashboardLayout({
 }) {
   // getUserOrg() redirects to /auth/login if !user and /onboarding if !org.
   // React.cache() deduplicates this call when layout and page both invoke it.
-  const { org } = await getUserOrg();
+  const { org, isCollaborator, permissions } = await getUserOrg();
 
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar
         orgType={org.type as "dentist" | "lab"}
         orgName={org.name}
+        isCollaborator={isCollaborator}
+        permissions={permissions}
       />
       {/* pt-14 reserves space for the mobile sticky top bar (h-14). Removed on lg+ where the bar doesn't exist. */}
       <main className="flex-1 overflow-auto pt-14 lg:pt-0 lg:ml-[80px]">

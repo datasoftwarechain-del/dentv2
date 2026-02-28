@@ -6,8 +6,9 @@ import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function PatientsPage() {
   // No-arg call shares React.cache() with layout — avoids duplicate auth round-trip
-  const { user, org } = await getUserOrg();
+  const { user, org, isCollaborator, permissions } = await getUserOrg();
   if (org.type !== "dentist") redirect("/dashboard");
+  if (isCollaborator && !permissions?.view_patients) redirect("/dashboard");
 
   const supabase = await createClient();
 

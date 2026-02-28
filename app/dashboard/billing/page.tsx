@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { BillingDashboard } from "@/components/billing/billing-dashboard";
@@ -5,7 +6,10 @@ import { DentistBillingDashboard } from "@/components/billing/dentist-billing-da
 import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function BillingPage() {
-  const { user, org } = await getUserOrg();
+  const { user, org, isCollaborator, permissions } = await getUserOrg();
+  if (isCollaborator && !permissions?.view_billing) redirect("/dashboard");
+
+  const showAmounts = !isCollaborator || !!permissions?.view_billing_amounts;
   const supabase = await createClient();
 
   const isDentist = org.type === "dentist";

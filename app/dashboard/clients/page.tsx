@@ -10,8 +10,9 @@ import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function ClientsPage() {
   // Shares React.cache() with layout — no extra auth round-trip
-  const { user, org } = await getUserOrg();
+  const { user, org, isCollaborator, permissions } = await getUserOrg();
   if (org.type !== "lab") redirect("/dashboard");
+  if (isCollaborator && !permissions?.view_clients) redirect("/dashboard");
 
   const supabase = await createClient();
 

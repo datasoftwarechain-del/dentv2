@@ -1,10 +1,12 @@
+import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { CasesView } from "@/components/cases/cases-view";
 import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function CasesPage() {
   // Shares React.cache() with layout — no extra auth round-trip
-  const { user, org } = await getUserOrg();
+  const { user, org, isCollaborator, permissions } = await getUserOrg();
+  if (isCollaborator && !permissions?.view_cases) redirect("/dashboard");
 
   const isDentist = org.type === "dentist";
 

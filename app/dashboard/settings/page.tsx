@@ -4,19 +4,9 @@ import { SettingsForm } from "@/components/settings/settings-form";
 import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function SettingsPage() {
-  // getUserOrg() shares React.cache() with layout — saves one auth round-trip.
-  // We still need the role field, so we run a focused query just for that.
-  const { user, org } = await getUserOrg();
-  const supabase = await createClient();
-
-  const { data: membershipData } = await supabase
-    .from("org_members")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("org_id", org.id)
-    .single();
-
-  const role = membershipData?.role ?? "member";
+  // getUserOrg() returns isCollaborator — more reliable than checking the role string value
+  // since the org_member_role enum may differ across projects (owner vs admin).
+  const { user, org, isCollaborator } = await getUserOrg();
 
   return (
     <div className="flex flex-col">
@@ -37,7 +27,7 @@ export default async function SettingsPage() {
             lastName: user.user_metadata?.last_name || "",
           }}
           organization={org}
-          role={role}
+          role={isCollaborator ? "collaborator" : "admin"}
         />
       </div>
     </div>

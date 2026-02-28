@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { WeeklySchedule } from "@/components/schedule/weekly-schedule";
@@ -7,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 export default async function SchedulePage(props: any) {
   // Shares React.cache() with layout — no extra auth round-trip
-  const { user, org } = await getUserOrg();
+  const { user, org, isCollaborator, permissions } = await getUserOrg();
+  if (isCollaborator && !permissions?.view_schedule) redirect("/dashboard");
   const supabase = await createClient();
 
   const isDentist = org.type === "dentist";

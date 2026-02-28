@@ -41,6 +41,12 @@ interface OrdersListProps {
   patients?: Patient[];
   labs?: Organization[];
   defaultLabId?: string | null;
+  /** Whether the user can create new orders (default: true) */
+  canCreate?: boolean;
+  /** Whether the user can change order status (default: true) */
+  canUpdateStatus?: boolean;
+  /** Whether the user can see prices (default: true) */
+  showPrices?: boolean;
 }
 
 const statusLabels = ORDER_STATUS_LABELS;
@@ -169,6 +175,7 @@ function StatusPicker({
 
 export function OrdersList({
   orders: initialOrders, isDentist, organizationId, patients = [], labs = [], defaultLabId,
+  canCreate = true, canUpdateStatus = true, showPrices = true,
 }: OrdersListProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -205,13 +212,15 @@ export function OrdersList({
                 : "Gestión de órdenes recibidas de clínicas"}
             </CardDescription>
           </div>
-          <CreateOrderDialog
-            organizationId={organizationId}
-            patients={patients}
-            labs={labs}
-            mode={isDentist ? "dentist" : "lab"}
-            defaultLabId={defaultLabId}
-          />
+          {canCreate && (
+            <CreateOrderDialog
+              organizationId={organizationId}
+              patients={patients}
+              labs={labs}
+              mode={isDentist ? "dentist" : "lab"}
+              defaultLabId={defaultLabId}
+            />
+          )}
         </div>
       </CardHeader>
 
@@ -316,7 +325,7 @@ export function OrdersList({
 
                       {/* Status */}
                       <TableCell className="py-3.5" onClick={e => e.stopPropagation()}>
-                        {!isDentist ? (
+                        {!isDentist && canUpdateStatus ? (
                           <StatusPicker
                             orderId={order.id}
                             currentStatus={order.status}

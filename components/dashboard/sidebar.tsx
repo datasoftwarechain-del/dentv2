@@ -5,17 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
   Home,
   Users,
   FileText,
   Calendar,
   CreditCard,
   Settings,
-  Kanban,
   Package,
   Building2,
-  ChevronLeft,
   Menu,
   CalendarClock,
   Scan,
@@ -24,11 +21,26 @@ import {
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback } from "react";
+import type { CollaboratorPermissions, PermissionKey } from "@/lib/permissions";
 
 interface SidebarProps {
   orgType: "dentist" | "lab";
   orgName: string;
+  isCollaborator?: boolean;
+  permissions?: CollaboratorPermissions | null;
 }
+
+/** Maps each nav path to the permission key required to see it */
+const NAV_PERMISSION_MAP: Record<string, PermissionKey> = {
+  "/dashboard/patients":     "view_patients",
+  "/dashboard/appointments": "view_appointments",
+  "/dashboard/orders":       "view_orders",
+  "/dashboard/cases":        "view_cases",
+  "/dashboard/schedule":     "view_schedule",
+  "/dashboard/kanban":       "view_kanban",
+  "/dashboard/billing":      "view_billing",
+  "/dashboard/clients":      "view_clients",
+};
 
 const dentistNav = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -52,12 +64,22 @@ const labNav = [
   { href: "/dashboard/settings", label: "Configuracion", icon: Settings },
 ];
 
-export function Sidebar({ orgType, orgName }: SidebarProps) {
+export function Sidebar({ orgType, orgName, isCollaborator = false, permissions = null }: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const navItems = orgType === "dentist" ? dentistNav : labNav;
+
+  const baseNav = orgType === "dentist" ? dentistNav : labNav;
+
+  // Filter nav items for collaborators — only show sections they have access to
+  const navItems = isCollaborator && permissions
+    ? baseNav.filter((item) => {
+        const requiredPerm = NAV_PERMISSION_MAP[item.href];
+        if (!requiredPerm) return true; // Dashboard and Settings are always visible
+        return !!permissions[requiredPerm];
+      })
+    : baseNav;
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);

@@ -1,10 +1,17 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { OrdersList } from "@/components/orders/orders-list";
 import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function OrdersPage() {
-  const { user, org } = await getUserOrg();
+  const { user, org, isCollaborator, permissions } = await getUserOrg();
+  if (isCollaborator && !permissions?.view_orders) redirect("/dashboard");
+
+  const canCreate = !isCollaborator || !!permissions?.create_orders;
+  const canUpdateStatus = !isCollaborator || !!permissions?.update_order_status;
+  const showPrices = !isCollaborator || !!permissions?.view_prices;
+
   const supabase = await createClient();
 
   const isDentist = org.type === "dentist";
@@ -136,6 +143,9 @@ export default async function OrdersPage() {
           patients={patients}
           labs={labs}
           defaultLabId={defaultLabId}
+          canCreate={canCreate}
+          canUpdateStatus={canUpdateStatus}
+          showPrices={showPrices}
         />
       </div>
     </div>

@@ -7,8 +7,9 @@ import { getUserOrg } from "@/lib/get-user-org";
 export default async function AppointmentsPage() {
   // Call getUserOrg() with no args so React.cache() shares the result with
   // the dashboard layout — eliminates one extra getUser() + org_members round-trip.
-  const { user, org } = await getUserOrg();
+  const { user, org, isCollaborator, permissions } = await getUserOrg();
   if (org.type !== "dentist") redirect("/dashboard");
+  if (isCollaborator && !permissions?.view_appointments) redirect("/dashboard");
 
   const supabase = await createClient();
 
