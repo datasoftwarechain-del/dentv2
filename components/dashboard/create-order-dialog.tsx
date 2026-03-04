@@ -211,11 +211,6 @@ function CatalogPicker({
             >
                 <span className={`flex items-center gap-2 min-w-0 ${selected ? "text-foreground" : "text-muted-foreground"}`}>
                     <span className="truncate">{selected ? selected.name : placeholder}</span>
-                    {showPrices && selected && selected.base_price > 0 && (
-                        <span className="text-[11px] text-[#09919b] shrink-0 font-medium">
-                            ${selected.base_price.toLocaleString("es-AR")}
-                        </span>
-                    )}
                 </span>
                 <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
@@ -234,11 +229,6 @@ function CatalogPicker({
                                     className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-3 hover:bg-accent hover:text-accent-foreground transition-colors ${value === item.id ? "bg-accent/50 font-medium" : ""}`}
                                 >
                                     <span>{item.name}</span>
-                                    {showPrices && item.base_price > 0 && (
-                                        <span className="text-[11px] text-muted-foreground shrink-0">
-                                            ${item.base_price.toLocaleString("es-AR")}
-                                        </span>
-                                    )}
                                 </button>
                             ))}
                         </React.Fragment>
@@ -820,11 +810,6 @@ export function CreateOrderDialog({
                                                             <div key={i} className="flex items-center justify-between py-1.5 px-1">
                                                                 <div>
                                                                     <span className="text-sm">{extra.name}</span>
-                                                                    {showPrices && (
-                                                                    <span className="ml-2 text-[11px] text-muted-foreground">
-                                                                        +${extra.price.toLocaleString("es-AR")} c/u
-                                                                    </span>
-                                                                    )}
                                                                 </div>
                                                                 <div className="flex items-center gap-1.5">
                                                                     <button
@@ -855,11 +840,6 @@ export function CreateOrderDialog({
                                                                     />
                                                                     <span className="text-sm">{extra.name}</span>
                                                                 </div>
-                                                                {showPrices && (
-                                                                <span className="text-[11px] text-muted-foreground">
-                                                                    +${extra.price.toLocaleString("es-AR")}
-                                                                </span>
-                                                                )}
                                                             </label>
                                                         );
                                                     }
@@ -868,15 +848,6 @@ export function CreateOrderDialog({
                                         </div>
                                     )}
 
-                                    {/* Total estimado */}
-                                    {showPrices && formData.unitPrice > 0 && (
-                                        <div className="mb-4 px-3 py-2 bg-[#f5fbfc] border border-[#d2f2f3] rounded-lg flex items-center justify-between">
-                                            <span className="text-[11px] text-[#044c64] font-medium">Total estimado</span>
-                                            <span className="text-sm font-bold text-[#044c64]">
-                                                ${formData.unitPrice.toLocaleString("es-AR")}
-                                            </span>
-                                        </div>
-                                    )}
                                 </>
                             )}
 

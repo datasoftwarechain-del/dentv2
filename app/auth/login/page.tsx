@@ -40,11 +40,10 @@ export default function LoginPage() {
       return;
     }
 
-    // Use replace instead of push to avoid back-nav to login after successful auth.
-    // Do NOT call router.refresh() here — it triggers a redundant re-render of the
-    // current page while simultaneously navigating away, causing a double server
-    // round-trip that adds 1–3 s of perceived latency.
-    router.replace("/dashboard");
+    // Hard redirect: ensures the new Supabase session cookie is sent with the
+    // first server request to /dashboard. SPA navigation (router.replace) can race
+    // with cookie propagation and cause a hang on the first login attempt.
+    window.location.replace("/dashboard");
   }
 
   return (
