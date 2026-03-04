@@ -132,8 +132,8 @@ function buildHTML(params: {
           </td>
           <td style="padding:13px 14px;text-align:right;font-size:14px;font-weight:800;color:#0f172a">$${fmtNum(totalDebit)}</td>
           <td style="padding:13px 14px;text-align:right;font-size:14px;font-weight:800;color:#059669">$${fmtNum(totalCredit)}</td>
-          <td style="padding:13px 14px;text-align:right">
-            <span style="display:inline-block;background:#044c64;color:white;padding:5px 14px;border-radius:6px;font-size:14px;font-weight:900">
+          <td style="padding:8px 14px;text-align:center;vertical-align:middle">
+            <span style="display:inline-block;background:#044c64;color:white;padding:7px 18px;border-radius:6px;font-size:14px;font-weight:900;white-space:nowrap">
               $${fmtNum(Math.abs(finalBalance))}
             </span>
           </td>

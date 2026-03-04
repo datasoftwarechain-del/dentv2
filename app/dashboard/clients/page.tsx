@@ -16,46 +16,37 @@ export default async function ClientsPage() {
 
   const supabase = await createClient();
 
-  // Get unique dentist organizations that have sent orders
-  const { data: orders } = await supabase
-    .from("lab_orders")
-    .select(`
-      dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name, phone, address)
-    `)
+  // Source of truth: lab_dentist_relations (includes clients with no orders yet)
+  const { data: relations } = await supabase
+    .from("lab_dentist_relations")
+    .select("dentist_org_id")
     .eq("lab_org_id", org.id);
 
-  // Group by dentist org
-  const clientsMap = new Map<string, {
-    id: string;
-    name: string;
-    phone: string | null;
-    address: string | null;
-    orderCount: number;
-    totalValue: number;
-  }>();
+  const dentistIds = (relations || []).map((r: any) => r.dentist_org_id).filter(Boolean) as string[];
 
-  orders?.forEach((order) => {
-    const dentistData = order.dentist_org as
-      | { id: string; name: string; phone: string | null; address: string | null }
-      | { id: string; name: string; phone: string | null; address: string | null }[]
-      | null
-      | undefined;
-    const dentist = Array.isArray(dentistData) ? dentistData[0] : dentistData ?? null;
-    if (dentist) {
-      const existing = clientsMap.get(dentist.id);
-      if (existing) {
-        existing.orderCount++;
-      } else {
-        clientsMap.set(dentist.id, {
-          ...dentist,
-          orderCount: 1,
-          totalValue: 0,
-        });
-      }
-    }
+  const [{ data: clientOrgs }, { data: orders }] = await Promise.all([
+    dentistIds.length > 0
+      ? supabase.from("organizations").select("id, name, phone, address").in("id", dentistIds).order("name")
+      : Promise.resolve({ data: [] }),
+    dentistIds.length > 0
+      ? supabase.from("lab_orders").select("dentist_org_id").eq("lab_org_id", org.id).in("dentist_org_id", dentistIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  // Order count per client
+  const orderCountMap = new Map<string, number>();
+  (orders || []).forEach((o: any) => {
+    orderCountMap.set(o.dentist_org_id, (orderCountMap.get(o.dentist_org_id) || 0) + 1);
   });
 
-  const clients = Array.from(clientsMap.values());
+  const clients = (clientOrgs || []).map((c: any) => ({
+    id: c.id as string,
+    name: c.name as string,
+    phone: (c.phone as string | null) ?? null,
+    address: (c.address as string | null) ?? null,
+    orderCount: orderCountMap.get(c.id) || 0,
+    totalValue: 0,
+  }));
 
   return (
     <div className="flex flex-col">
@@ -139,7 +130,7 @@ export default async function ClientsPage() {
                 <Building2 className="mx-auto h-12 w-12 text-muted-foreground/50" />
                 <h3 className="mt-4 text-lg font-medium">No hay clinicas</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Las clinicas apareceran aqui cuando envien pedidos
+                  Conecta clínicas desde Configuración para que aparezcan aquí
                 </p>
               </div>
             )}

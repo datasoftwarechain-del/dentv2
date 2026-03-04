@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DollarSign,
   Clock,
@@ -49,6 +50,8 @@ import {
   AlertCircle,
   Users,
   Check,
+  Receipt,
+  Search,
 } from "lucide-react";
 
 import { WORK_TYPE_LABELS, formatWorkType } from "@/lib/work-types";
@@ -100,12 +103,18 @@ interface Client {
   pendingAmount: number;
 }
 
+interface ConnectedDentist {
+  id: string;
+  name: string;
+}
+
 interface BillingDashboardProps {
   invoices: Invoice[];
   movements: LedgerMovement[];
   isDentist: boolean;
   organizationId: string;
   clients: Client[];
+  connectedDentists?: ConnectedDentist[];
   stats: {
     totalInvoiced: number;
     totalPaid: number;
@@ -133,20 +142,95 @@ const statusColors: Record<string, string> = {
 };
 
 export function BillingDashboard({
-  invoices,
+  invoices: initialInvoices,
   movements,
   isDentist,
   organizationId,
   clients,
-  stats,
+  connectedDentists = [],
+  stats: initialStats,
 }: BillingDashboardProps) {
   const router = useRouter();
+  const [invoices, setInvoices] = useState(initialInvoices);
+  const [stats, setStats] = useState(initialStats);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     amount: "",
     description: "",
   });
+
+  // ─── Client search ───
+  const [clientSearch, setClientSearch] = useState("");
+  const filteredClients = clientSearch.trim()
+    ? clients.filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clients;
+
+  // ─── Nueva factura manual ───
+  const [newInvoiceOpen, setNewInvoiceOpen] = useState(false);
+  const [newInvoiceLoading, setNewInvoiceLoading] = useState(false);
+  const [catalog, setCatalog] = useState<{ id: string; name: string; base_price: number }[]>([]);
+  const [newInvoiceForm, setNewInvoiceForm] = useState({
+    dentistOrgId: "",
+    patientName: "",
+    workType: "",
+    total: "",
+    dueDate: "",
+    notes: "",
+  });
+
+  // Fetch price catalog when dialog opens
+  useEffect(() => {
+    if (!newInvoiceOpen || isDentist) return;
+    fetch(`/api/catalog/${organizationId}`)
+      .then((r) => r.json())
+      .then((d) => setCatalog(d.catalog || []))
+      .catch(() => {});
+  }, [newInvoiceOpen, organizationId, isDentist]);
+
+  async function handleCreateInvoice(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newInvoiceForm.dentistOrgId) {
+      toast.error("Seleccioná una clínica");
+      return;
+    }
+    if (!newInvoiceForm.total || isNaN(Number(newInvoiceForm.total)) || Number(newInvoiceForm.total) <= 0) {
+      toast.error("Ingresá un monto válido");
+      return;
+    }
+    setNewInvoiceLoading(true);
+    try {
+      const res = await fetch("/api/billing/manual-invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dentistOrgId: newInvoiceForm.dentistOrgId,
+          patientName: newInvoiceForm.patientName || null,
+          workType: newInvoiceForm.workType || null,
+          total: Number(newInvoiceForm.total),
+          dueDate: newInvoiceForm.dueDate || null,
+          notes: newInvoiceForm.notes || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al crear factura");
+
+      setInvoices([data.data, ...invoices]);
+      setStats(prev => ({
+        ...prev,
+        totalInvoiced: prev.totalInvoiced + Number(newInvoiceForm.total),
+        totalPending: prev.totalPending + Number(newInvoiceForm.total),
+      }));
+      setNewInvoiceOpen(false);
+      setNewInvoiceForm({ dentistOrgId: "", patientName: "", workType: "", total: "", dueDate: "", notes: "" });
+      toast.success(`Factura ${data.data.invoice_number} creada`);
+      router.refresh();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setNewInvoiceLoading(false);
+    }
+  }
 
   async function handleMarkAsPaid(invoiceId: string) {
     const supabase = createClient();
@@ -413,57 +497,69 @@ export function BillingDashboard({
       {/* Clients List */}
       {clients.length > 0 && (
         <Card className="border border-border/50 shadow-premium bg-background/50 backdrop-blur-sm">
-          <CardHeader className="border-b border-border/40 pb-6">
-            <div>
-              <CardTitle className="text-lg font-bold">Estado de Cuenta por Cliente</CardTitle>
-              <CardDescription className="text-xs font-medium">
-                Ver detalle de facturación por {isDentist ? "laboratorio" : "clínica"}
-              </CardDescription>
+          <CardHeader className="border-b border-border/40 pb-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="text-lg font-bold">Estado de Cuenta por Cliente</CardTitle>
+                <CardDescription className="text-xs font-medium">
+                  {clients.length} {isDentist ? "laboratorios" : "clínicas"} · {clients.filter(c => c.pendingAmount > 0).length} con saldo pendiente
+                </CardDescription>
+              </div>
+              <div className="relative w-full sm:w-60">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder={`Buscar ${isDentist ? "laboratorio" : "clínica"}…`}
+                  className="pl-9 h-9 text-sm bg-background"
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                />
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {clients.map((client) => (
-                <Link
-                  key={client.id}
-                  href={`/dashboard/billing/accounts/${client.id}`}
-                  className="group"
-                >
-                  <div className="rounded-2xl border-2 border-border/40 p-4 bg-background/30 hover:bg-primary/5 hover:border-primary/40 transition-all cursor-pointer">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                          <Building2 className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm truncate group-hover:text-primary transition-colors">
-                            {client.name}
-                          </h4>
-                          <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
-                            {client.invoiceCount} {client.invoiceCount === 1 ? "factura" : "facturas"}
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+          <CardContent className="pt-0 px-0 pb-0">
+            {filteredClients.length > 0 ? (
+              <div className="divide-y divide-border/50">
+                {filteredClients.map((client) => (
+                  <Link
+                    key={client.id}
+                    href={`/dashboard/billing/accounts/${client.id}`}
+                    className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/30 transition-colors group"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted group-hover:bg-primary/10 transition-colors">
+                      <Building2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-muted-foreground">Total</span>
-                        <span className="font-bold">${formatNumber(client.totalAmount)}</span>
-                      </div>
-                      {client.pendingAmount > 0 && (
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-muted-foreground">Pendiente</span>
-                          <span className="font-bold text-[#09919b]">
-                            ${formatNumber(client.pendingAmount)}
-                          </span>
-                        </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                        {client.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {client.invoiceCount} {client.invoiceCount === 1 ? "factura" : "facturas"}
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      {client.pendingAmount > 0 ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#d2f2f3] text-[#09919b] border border-[#a8d8dc] px-2.5 py-1 text-xs font-bold">
+                          <DollarSign className="h-3 w-3" />
+                          ${formatNumber(client.pendingAmount)}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 px-2.5 py-1 text-xs font-bold">
+                          <Check className="h-3 w-3" />
+                          Al día
+                        </span>
                       )}
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="py-8 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No hay resultados para &ldquo;{clientSearch}&rdquo;
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -478,6 +574,149 @@ export function BillingDashboard({
                 {isDentist ? "Control de facturación recibida" : "Gestión de facturas emitidas"}
               </CardDescription>
             </div>
+            <div className="flex items-center gap-2">
+            {/* Nueva Factura Manual — solo para labs */}
+            {!isDentist && connectedDentists.length > 0 && (
+              <Dialog open={newInvoiceOpen} onOpenChange={setNewInvoiceOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="font-bold text-xs uppercase tracking-wider border-primary/40 text-primary hover:bg-primary/5">
+                    <Receipt className="mr-2 h-4 w-4" />
+                    Nueva Factura
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[480px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-bold">Nueva Factura Manual</DialogTitle>
+                    <DialogDescription className="text-muted-foreground text-sm">
+                      Crea una factura sin necesidad de una orden registrada en el sistema.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateInvoice} className="space-y-4 mt-2">
+                    {/* Clínica */}
+                    <div className="space-y-2">
+                      <Label htmlFor="ni-clinica">Clínica *</Label>
+                      <select
+                        id="ni-clinica"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        value={newInvoiceForm.dentistOrgId}
+                        onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, dentistOrgId: e.target.value })}
+                      >
+                        <option value="">Seleccionar clínica…</option>
+                        {connectedDentists.map((d) => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Arancel — pre-completa el precio */}
+                    {catalog.length > 0 && (
+                      <div className="space-y-2">
+                        <Label htmlFor="ni-catalog">Arancel de precios</Label>
+                        <select
+                          id="ni-catalog"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          defaultValue=""
+                          onChange={(e) => {
+                            const item = catalog.find((i) => i.id === e.target.value);
+                            if (item) setNewInvoiceForm((prev) => ({ ...prev, total: String(item.base_price) }));
+                          }}
+                        >
+                          <option value="">Elegir servicio para pre-completar precio…</option>
+                          {catalog.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name} — ${formatNumber(item.base_price)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Paciente */}
+                      <div className="space-y-2">
+                        <Label htmlFor="ni-patient">Paciente</Label>
+                        <Input
+                          id="ni-patient"
+                          placeholder="Nombre del paciente"
+                          value={newInvoiceForm.patientName}
+                          onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, patientName: e.target.value })}
+                        />
+                      </div>
+
+                      {/* Tipo de trabajo */}
+                      <div className="space-y-2">
+                        <Label htmlFor="ni-worktype">Tipo de trabajo</Label>
+                        <select
+                          id="ni-worktype"
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          value={newInvoiceForm.workType}
+                          onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, workType: e.target.value })}
+                        >
+                          <option value="">Seleccionar…</option>
+                          {Object.entries(WORK_TYPE_LABELS).map(([key, label]) => (
+                            <option key={key} value={key}>{label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Monto */}
+                      <div className="space-y-2">
+                        <Label htmlFor="ni-total">Monto *</Label>
+                        <div className="relative">
+                          <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="ni-total"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="0.00"
+                            className="pl-9"
+                            value={newInvoiceForm.total}
+                            onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, total: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {/* Vencimiento */}
+                      <div className="space-y-2">
+                        <Label htmlFor="ni-due">Vencimiento</Label>
+                        <Input
+                          id="ni-due"
+                          type="date"
+                          value={newInvoiceForm.dueDate}
+                          onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, dueDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Notas */}
+                    <div className="space-y-2">
+                      <Label htmlFor="ni-notes">Notas</Label>
+                      <Textarea
+                        id="ni-notes"
+                        placeholder="Descripción del trabajo, número de orden en papel, etc."
+                        rows={3}
+                        value={newInvoiceForm.notes}
+                        onChange={(e) => setNewInvoiceForm({ ...newInvoiceForm, notes: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-2">
+                      <Button type="button" variant="ghost" onClick={() => setNewInvoiceOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={newInvoiceLoading} className="bg-primary hover:bg-primary/90">
+                        {newInvoiceLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Crear Factura
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            )}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="font-bold text-xs uppercase tracking-wider bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg transition-all">
@@ -544,6 +783,7 @@ export function BillingDashboard({
                 </form>
               </DialogContent>
             </Dialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="pt-4 px-0 pb-0">
@@ -702,7 +942,7 @@ export function BillingDashboard({
               <div>
                 <h3 className="font-bold text-sm">No hay facturas</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Las facturas aparecerán aquí cuando se generen automáticamente.
+                  Las facturas aparecerán aquí cuando se generen desde una orden o se creen manualmente.
                 </p>
               </div>
             </div>
