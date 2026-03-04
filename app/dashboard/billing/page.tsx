@@ -90,8 +90,12 @@ export default async function BillingPage() {
   }
 
   // ─── LAB BILLING ──────────────────────────────────────────
-  // Both queries are independent — run in parallel
-  const [{ data: invoices }, { data: movements }] = await Promise.all([
+  // All four queries run in parallel
+  const [
+    { data: invoices },
+    { data: allMovements },
+    { data: dentistRelations },
+  ] = await Promise.all([
     supabase
       .from("invoices")
       .select(`
@@ -102,22 +106,56 @@ export default async function BillingPage() {
       .eq("lab_org_id", org.id)
       .order("created_at", { ascending: false }),
 
+    // All movements (for per-client balance + recent display)
     supabase
       .from("ledger_movements")
       .select("*")
       .eq("lab_org_id", org.id)
-      .order("created_at", { ascending: false })
-      .limit(20),
+      .order("created_at", { ascending: false }),
+
+    // Connected dentist org IDs — source of truth for client list
+    supabase
+      .from("lab_dentist_relations")
+      .select("dentist_org_id")
+      .eq("lab_org_id", org.id),
   ]);
 
+  // Fetch org names for all connected dentists (avoids FK hint issues)
+  const dentistOrgIds = [...new Set(
+    (dentistRelations || []).map((r: any) => r.dentist_org_id).filter(Boolean)
+  )] as string[];
+  const { data: dentistOrgsData } = dentistOrgIds.length > 0
+    ? await supabase.from("organizations").select("id, name").in("id", dentistOrgIds).order("name")
+    : { data: [] };
+  const connectedDentists = (dentistOrgsData || []) as { id: string; name: string }[];
+
+  // Latest ledger balance per client (movements already ordered by created_at desc)
+  const balanceMap = new Map<string, number>();
+  (allMovements || []).forEach((m: any) => {
+    if (!balanceMap.has(m.dentist_org_id)) {
+      balanceMap.set(m.dentist_org_id, Number(m.balance));
+    }
+  });
+
+  // Movements for recent display (limit to 20)
+  const movements = (allMovements || []).slice(0, 20);
+
+  // Invoice stats
   const totalInvoiced = invoices?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
   const totalPaid = invoices?.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
   const totalPending = invoices?.filter((inv) => inv.status === "pending").reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
 
-  // Single-pass O(n) accumulation — avoids the previous O(n²) nested .filter()
+  // Build clients from connected dentists (source of truth) + invoice data overlay + ledger balance
   const clientsMap = new Map<string, {
     id: string; name: string; invoiceCount: number; totalAmount: number; paidAmount: number;
   }>();
+
+  // Seed with ALL connected dentists
+  connectedDentists.forEach((d) => {
+    clientsMap.set(d.id, { id: d.id, name: d.name, invoiceCount: 0, totalAmount: 0, paidAmount: 0 });
+  });
+
+  // Overlay invoice data
   invoices?.forEach((invoice) => {
     const clientOrg = invoice.dentist_org as { id: string; name: string } | null;
     if (!clientOrg) return;
@@ -129,10 +167,14 @@ export default async function BillingPage() {
     if (invoice.status === "paid") entry.paidAmount += Number(invoice.total);
     clientsMap.set(clientOrg.id, entry);
   });
-  const clients = Array.from(clientsMap.values()).map((c) => ({
-    ...c,
-    pendingAmount: c.totalAmount - c.paidAmount,
-  }));
+
+  const clients = Array.from(clientsMap.values()).map((c) => {
+    const invoicePending = c.totalAmount - c.paidAmount;
+    // If client has no invoices yet, use ledger balance as pending amount
+    const ledgerBalance = balanceMap.get(c.id) ?? 0;
+    const pendingAmount = c.invoiceCount > 0 ? invoicePending : Math.max(0, ledgerBalance);
+    return { ...c, pendingAmount };
+  });
 
   return (
     <div className="flex flex-col">
@@ -147,6 +189,7 @@ export default async function BillingPage() {
           isDentist={false}
           organizationId={org.id}
           clients={clients}
+          connectedDentists={connectedDentists}
           stats={{ totalInvoiced, totalPaid, totalPending }}
         />
       </div>

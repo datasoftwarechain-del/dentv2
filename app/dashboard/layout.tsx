@@ -23,7 +23,9 @@ export default async function DashboardLayout({
       />
       {/* pt-14 reserves space for the mobile sticky top bar (h-14). Removed on lg+ where the bar doesn't exist. */}
       <main className="flex-1 overflow-auto pt-14 lg:pt-0 lg:ml-[80px]">
-        <PageTransition>{children}</PageTransition>
+        <div className="[zoom:0.8] lg:[zoom:1]">
+          <PageTransition>{children}</PageTransition>
+        </div>
       </main>
       <SupportWidget />
       <WhatsAppButton />

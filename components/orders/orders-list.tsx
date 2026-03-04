@@ -219,6 +219,7 @@ export function OrdersList({
               labs={labs}
               mode={isDentist ? "dentist" : "lab"}
               defaultLabId={defaultLabId}
+              showPrices={showPrices}
             />
           )}
         </div>

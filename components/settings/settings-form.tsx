@@ -400,11 +400,13 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
         </Card>
       )}
 
-      {/* Arancel / Servicios — visible para todos los miembros */}
-      <PriceCatalogSection
-        orgId={organization.id}
-        orgType={organization.type}
-      />
+      {/* Arancel / Servicios — solo admins */}
+      {role === "admin" && (
+        <PriceCatalogSection
+          orgId={organization.id}
+          orgType={organization.type}
+        />
+      )}
 
       {/* Colaboradores — solo admins */}
       {role === "admin" && (
