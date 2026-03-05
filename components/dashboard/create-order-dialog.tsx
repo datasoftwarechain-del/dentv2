@@ -17,6 +17,7 @@ import {
     Calendar, FileText, Info, Clock, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Combobox } from "@/components/ui/combobox";
 
 // ──────────────────────────────────────────────
 // Types
@@ -108,66 +109,6 @@ function guessWorkType(name: string): string {
     return "otro";
 }
 
-// ──────────────────────────────────────────────
-// InlinePicker: dropdown inline para listas simples (evita portal)
-// ──────────────────────────────────────────────
-interface InlinePickerProps {
-    value: string;
-    onChange: (value: string) => void;
-    options: { value: string; label: string }[];
-    placeholder?: string;
-    emptyMessage?: string;
-}
-
-function InlinePicker({ value, onChange, options, placeholder = "Seleccionar", emptyMessage = "Sin opciones" }: InlinePickerProps) {
-    const [dropdownOpen, setDropdownOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const selected = options.find((o) => o.value === value);
-
-    useEffect(() => {
-        if (!dropdownOpen) return;
-        function handleClickOutside(e: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setDropdownOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [dropdownOpen]);
-
-    return (
-        <div ref={containerRef} className="relative">
-            <button
-                type="button"
-                onClick={() => setDropdownOpen((p) => !p)}
-                className="w-full flex items-center justify-between pl-8 pr-3 h-9 text-sm rounded-md border border-[#b0dde0] bg-background hover:border-[#09919b] focus:outline-none focus:ring-2 focus:ring-[#09919b]/20 focus:border-[#09919b] transition-colors"
-            >
-                <span className={selected ? "text-foreground truncate" : "text-muted-foreground truncate"}>
-                    {selected ? selected.label : placeholder}
-                </span>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
-            </button>
-            {dropdownOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-lg max-h-[260px] overflow-y-auto">
-                    {options.length > 0 ? (
-                        options.map((opt) => (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() => { onChange(opt.value); setDropdownOpen(false); }}
-                                className={`w-full text-left px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors ${value === opt.value ? "bg-accent/50 font-medium" : ""}`}
-                            >
-                                {opt.label}
-                            </button>
-                        ))
-                    ) : (
-                        <div className="px-4 py-4 text-center text-xs text-muted-foreground">{emptyMessage}</div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
 
 // ──────────────────────────────────────────────
 // CatalogPicker: dropdown inline (evita problemas de portal dentro del Dialog)
@@ -188,8 +129,15 @@ function CatalogPicker({
     showPrices = true,
 }: CatalogPickerProps) {
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [search, setSearch] = useState("");
     const containerRef = useRef<HTMLDivElement>(null);
+    const searchRef = useRef<HTMLInputElement>(null);
     const selected = items.find((i) => i.id === value);
+
+    useEffect(() => {
+        if (!dropdownOpen) { setSearch(""); return; }
+        setTimeout(() => searchRef.current?.focus(), 10);
+    }, [dropdownOpen]);
 
     useEffect(() => {
         if (!dropdownOpen) return;
@@ -201,6 +149,19 @@ function CatalogPicker({
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [dropdownOpen]);
+
+    // Filter items across all categories
+    const { filteredCategories, filteredGrouped } = React.useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return { filteredCategories: categories, filteredGrouped: grouped };
+        const fg: Record<string, CatalogItem[]> = {};
+        const fc: string[] = [];
+        for (const cat of categories) {
+            const matches = (grouped[cat] || []).filter((i) => i.name.toLowerCase().includes(q));
+            if (matches.length > 0) { fg[cat] = matches; fc.push(cat); }
+        }
+        return { filteredCategories: fc, filteredGrouped: fg };
+    }, [search, categories, grouped]);
 
     return (
         <div ref={containerRef} className="relative">
@@ -215,24 +176,41 @@ function CatalogPicker({
                 <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
             {dropdownOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-lg max-h-[300px] overflow-y-auto">
-                    {categories.map((cat) => (
-                        <React.Fragment key={cat}>
-                            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 sticky top-0">
-                                {cat}
-                            </div>
-                            {grouped[cat].map((item) => (
-                                <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => { onChange(item.id); setDropdownOpen(false); }}
-                                    className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-3 hover:bg-accent hover:text-accent-foreground transition-colors ${value === item.id ? "bg-accent/50 font-medium" : ""}`}
-                                >
-                                    <span>{item.name}</span>
-                                </button>
-                            ))}
-                        </React.Fragment>
-                    ))}
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-lg">
+                    {/* Search input */}
+                    <div className="p-2 border-b border-border/40">
+                        <input
+                            ref={searchRef}
+                            type="text"
+                            placeholder="Buscar en arancel..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
+                        />
+                    </div>
+                    <div className="max-h-[260px] overflow-y-auto">
+                        {filteredCategories.length === 0 ? (
+                            <div className="px-4 py-6 text-center text-xs text-muted-foreground">Sin resultados.</div>
+                        ) : (
+                            filteredCategories.map((cat) => (
+                                <React.Fragment key={cat}>
+                                    <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 sticky top-0">
+                                        {cat}
+                                    </div>
+                                    {filteredGrouped[cat].map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => { onChange(item.id); setDropdownOpen(false); }}
+                                            className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-3 hover:bg-muted transition-colors ${value === item.id ? "bg-muted font-medium" : ""}`}
+                                        >
+                                            <span>{item.name}</span>
+                                        </button>
+                                    ))}
+                                </React.Fragment>
+                            ))
+                        )}
+                    </div>
                 </div>
             )}
         </div>
@@ -689,16 +667,15 @@ export function CreateOrderDialog({
                                             />
                                         </div>
                                     ) : (
-                                        <div className="relative">
-                                            <User className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b] z-10 pointer-events-none" />
-                                            <InlinePicker
-                                                value={formData.patientId}
-                                                onChange={(v) => setFormData({ ...formData, patientId: v })}
-                                                options={patients.map((p) => ({ value: p.id, label: `${p.first_name} ${p.last_name}` }))}
-                                                placeholder="Seleccionar paciente"
-                                                emptyMessage="Sin pacientes"
-                                            />
-                                        </div>
+                                        <Combobox
+                                            options={patients.map((p) => ({ value: p.id, label: `${p.first_name} ${p.last_name}` }))}
+                                            value={formData.patientId}
+                                            onValueChange={(v) => setFormData({ ...formData, patientId: v })}
+                                            placeholder="Seleccionar paciente"
+                                            searchPlaceholder="Buscar paciente..."
+                                            emptyText="Sin pacientes"
+                                            className="border-[#b0dde0]"
+                                        />
                                     )}
                                 </div>
 
@@ -737,16 +714,15 @@ export function CreateOrderDialog({
                                             />
                                         </div>
                                     ) : (
-                                        <div className="relative">
-                                            <Building2 className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b] z-10 pointer-events-none" />
-                                            <InlinePicker
-                                                value={formData.targetOrgId}
-                                                onChange={(v) => setFormData({ ...formData, targetOrgId: v })}
-                                                options={labs.map((l) => ({ value: l.id, label: l.name }))}
-                                                placeholder={mode === "dentist" ? "Seleccionar Lab" : "Seleccionar Clínica"}
-                                                emptyMessage={mode === "dentist" ? "Sin laboratorios" : "Sin clínicas"}
-                                            />
-                                        </div>
+                                        <Combobox
+                                            options={labs.map((l) => ({ value: l.id, label: l.name }))}
+                                            value={formData.targetOrgId}
+                                            onValueChange={(v) => setFormData({ ...formData, targetOrgId: v })}
+                                            placeholder={mode === "dentist" ? "Seleccionar Lab" : "Seleccionar Clínica"}
+                                            searchPlaceholder={mode === "dentist" ? "Buscar laboratorio..." : "Buscar clínica..."}
+                                            emptyText={mode === "dentist" ? "Sin laboratorios" : "Sin clínicas"}
+                                            className="border-[#b0dde0]"
+                                        />
                                     )}
                                 </div>
                             </div>
@@ -868,15 +844,15 @@ export function CreateOrderDialog({
                                             Este laboratorio no tiene arancel configurado.
                                         </p>
                                     )}
-                                    <div className="relative">
-                                        <Ticket className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b] z-10 pointer-events-none" />
-                                        <InlinePicker
-                                            value={formData.workType}
-                                            onChange={(v) => setFormData({ ...formData, workType: v })}
-                                            options={workTypes}
-                                            placeholder="Selecciona el tipo de trabajo"
-                                        />
-                                    </div>
+                                    <Combobox
+                                        options={workTypes}
+                                        value={formData.workType}
+                                        onValueChange={(v) => setFormData({ ...formData, workType: v })}
+                                        placeholder="Selecciona el tipo de trabajo"
+                                        searchPlaceholder="Buscar tipo..."
+                                        emptyText="Sin resultados."
+                                        className="border-[#b0dde0]"
+                                    />
                                 </div>
                             )}
 
@@ -960,15 +936,19 @@ export function CreateOrderDialog({
                                     <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
                                         Prioridad
                                     </Label>
-                                    <InlinePicker
-                                        value={formData.priority}
-                                        onChange={(v) => setFormData({ ...formData, priority: v as "low" | "normal" | "high" | "urgent" })}
+                                    <Combobox
                                         options={[
                                             { value: "low",    label: "Baja" },
                                             { value: "normal", label: "Normal" },
                                             { value: "high",   label: "Alta" },
                                             { value: "urgent", label: "Urgente" },
                                         ]}
+                                        value={formData.priority}
+                                        onValueChange={(v) => setFormData({ ...formData, priority: v as "low" | "normal" | "high" | "urgent" })}
+                                        placeholder="Prioridad"
+                                        searchPlaceholder="Buscar..."
+                                        emptyText="Sin resultados."
+                                        className="border-[#b0dde0]"
                                     />
                                 </div>
                             </div>

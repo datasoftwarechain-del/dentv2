@@ -96,7 +96,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-[#d2f2f3] text-[#4b8899] border-[#a8d8dc]",
-  paid: "bg-emerald-100 text-emerald-800 border-emerald-200",
+  paid: "bg-secondary/[0.10] text-secondary border-secondary/25",
   cancelled: "bg-muted text-muted-foreground border-border",
 };
 
@@ -256,12 +256,12 @@ export function DentistBillingDashboard({
         <Card className="border border-border/50 shadow-sm bg-background/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">Cobrado</p>
-            <div className="p-2 rounded-xl bg-emerald-500/10"><CheckCircle className="h-4 w-4 text-emerald-600" /></div>
+            <div className="p-2 rounded-xl bg-secondary/[0.10]"><CheckCircle className="h-4 w-4 text-secondary" /></div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-emerald-600">${formatNumber(stats.totalPatientPaid)}</div>
+            <div className="text-3xl font-bold text-secondary">${formatNumber(stats.totalPatientPaid)}</div>
             <p className="text-[10px] text-muted-foreground mt-1 font-medium flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Recibido
+              <span className="h-1.5 w-1.5 rounded-full bg-secondary" /> Recibido
             </p>
           </CardContent>
         </Card>
@@ -569,7 +569,7 @@ export function DentistBillingDashboard({
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-7 px-2 text-[10px] font-bold hover:bg-emerald-600 hover:text-white transition-all"
+                                    className="h-7 px-2 text-[10px] font-bold hover:bg-secondary hover:text-white transition-all"
                                     onClick={() => handleMarkPaid(inv.id)}
                                   >
                                     <Check className="h-3 w-3 mr-1" />Cobrada
@@ -643,7 +643,7 @@ export function DentistBillingDashboard({
                             <span className="font-bold text-rose-600">${formatNumber(lab.pendingAmount)}</span>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+                          <div className="flex items-center gap-1.5 text-xs text-secondary">
                             <CheckCircle className="h-3.5 w-3.5" />
                             <span className="font-bold">Al día</span>
                           </div>

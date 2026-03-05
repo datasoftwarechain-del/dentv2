@@ -100,7 +100,7 @@ interface UnifiedAccountStatementProps {
 
 const statusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800 hover:bg-yellow-100",
-  paid: "bg-green-100 text-green-800 hover:bg-green-100",
+  paid: "bg-secondary/[0.10] text-secondary hover:bg-secondary/[0.14]",
 };
 
 export function UnifiedAccountStatement({
@@ -488,7 +488,7 @@ export function UnifiedAccountStatement({
                         ) : transaction.debit > 0 ? (
                           <TrendingUp className="h-3.5 w-3.5 text-slate-600 flex-shrink-0" />
                         ) : (
-                          <TrendingDown className="h-3.5 w-3.5 text-emerald-600/70 flex-shrink-0" />
+                          <TrendingDown className="h-3.5 w-3.5 text-secondary00/70 flex-shrink-0" />
                         )}
                         <span className="text-[13px] font-medium text-slate-800 leading-snug">{transaction.description}</span>
                       </div>
@@ -514,7 +514,7 @@ export function UnifiedAccountStatement({
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {transaction.credit > 0 ? (
-                        <span className="text-[14px] font-semibold text-emerald-700">
+                        <span className="text-[14px] font-semibold text-secondary">
                           −${formatNumber(transaction.credit)}
                         </span>
                       ) : (
@@ -524,7 +524,7 @@ export function UnifiedAccountStatement({
                     <TableCell className="text-right tabular-nums">
                       <span className={cn(
                         "text-[14px] font-bold tracking-tight",
-                        transaction.balance > 0 ? "text-slate-900" : transaction.balance < 0 ? "text-emerald-800" : "text-slate-600"
+                        transaction.balance > 0 ? "text-slate-900" : transaction.balance < 0 ? "text-secondary" : "text-slate-600"
                       )}>
                         ${formatNumber(Math.abs(transaction.balance))}
                       </span>
@@ -582,20 +582,20 @@ export function UnifiedAccountStatement({
                   <TableCell className="text-right text-[14px] font-bold text-slate-800 tabular-nums py-4">
                     ${formatNumber(filteredTransactions.reduce((sum, t) => sum + t.debit, 0))}
                   </TableCell>
-                  <TableCell className="text-right text-[14px] font-bold text-emerald-700 tabular-nums py-4">
+                  <TableCell className="text-right text-[14px] font-bold text-secondary tabular-nums py-4">
                     ${formatNumber(filteredTransactions.reduce((sum, t) => sum + t.credit, 0))}
                   </TableCell>
                   <TableCell className="text-right py-4">
                     <div className="flex items-center justify-end gap-2">
                       <span className={cn(
                         "text-[15px] font-extrabold tabular-nums tracking-tight",
-                        finalBalance > 0 ? "text-slate-900" : finalBalance < 0 ? "text-emerald-800" : "text-slate-600"
+                        finalBalance > 0 ? "text-slate-900" : finalBalance < 0 ? "text-secondary" : "text-slate-600"
                       )}>
                         ${formatNumber(Math.abs(finalBalance))}
                       </span>
                       <Badge variant="outline" className={cn(
                         "text-[7px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md",
-                        finalBalance > 0 ? "bg-blue-50/80 text-blue-700 border-blue-300/60" : "bg-emerald-50/80 text-emerald-700 border-emerald-300/60"
+                        finalBalance > 0 ? "bg-blue-50/80 text-blue-700 border-blue-300/60" : "bg-secondary/[0.08] text-secondary border-secondary/20"
                       )}>
                         {finalBalance > 0 ? "A Cobrar" : finalBalance < 0 ? "A Favor" : "Saldado"}
                       </Badge>
@@ -624,7 +624,7 @@ export function UnifiedAccountStatement({
                     {transaction.debit > 0 ? (
                       <span className="text-[15px] font-bold text-slate-800 tabular-nums">+${formatNumber(transaction.debit)}</span>
                     ) : (
-                      <span className="text-[15px] font-bold text-emerald-700 tabular-nums">−${formatNumber(transaction.credit)}</span>
+                      <span className="text-[15px] font-bold text-secondary tabular-nums">−${formatNumber(transaction.credit)}</span>
                     )}
                   </div>
                 </div>
@@ -636,7 +636,7 @@ export function UnifiedAccountStatement({
                   ) : transaction.debit > 0 ? (
                     <TrendingUp className="h-3.5 w-3.5 text-slate-500 shrink-0 mt-[1px]" />
                   ) : (
-                    <TrendingDown className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-[1px]" />
+                    <TrendingDown className="h-3.5 w-3.5 text-secondary00 shrink-0 mt-[1px]" />
                   )}
                   <span className="text-[13px] font-semibold text-slate-700 leading-snug">{transaction.description}</span>
                 </div>
@@ -656,7 +656,7 @@ export function UnifiedAccountStatement({
                   <div className="flex items-center gap-1 shrink-0">
                     <span className={cn(
                       "text-[11px] font-bold tabular-nums mr-1",
-                      transaction.balance > 0 ? "text-slate-600" : transaction.balance < 0 ? "text-emerald-700" : "text-slate-400"
+                      transaction.balance > 0 ? "text-slate-600" : transaction.balance < 0 ? "text-secondary" : "text-slate-400"
                     )}>
                       Saldo: ${formatNumber(Math.abs(transaction.balance))}
                     </span>
@@ -710,7 +710,7 @@ export function UnifiedAccountStatement({
                 </div>
                 <div className="flex items-center gap-2 text-[11px]">
                   <span className="font-medium text-slate-500">Total Abonos:</span>
-                  <span className="font-bold text-emerald-700 tabular-nums">
+                  <span className="font-bold text-secondary tabular-nums">
                     ${formatNumber(filteredTransactions.reduce((s, t) => s + t.credit, 0))}
                   </span>
                 </div>
@@ -719,13 +719,13 @@ export function UnifiedAccountStatement({
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Balance Final</p>
                 <p className={cn(
                   "text-[22px] font-extrabold tabular-nums tracking-tight leading-none mb-1",
-                  finalBalance > 0 ? "text-slate-900" : finalBalance < 0 ? "text-emerald-800" : "text-slate-500"
+                  finalBalance > 0 ? "text-slate-900" : finalBalance < 0 ? "text-secondary" : "text-slate-500"
                 )}>
                   ${formatNumber(Math.abs(finalBalance))}
                 </p>
                 <Badge variant="outline" className={cn(
                   "text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-md",
-                  finalBalance > 0 ? "bg-blue-50/80 text-blue-700 border-blue-300/60" : "bg-emerald-50/80 text-emerald-700 border-emerald-300/60"
+                  finalBalance > 0 ? "bg-blue-50/80 text-blue-700 border-blue-300/60" : "bg-secondary/[0.08] text-secondary border-secondary/20"
                 )}>
                   {finalBalance > 0 ? "A Cobrar" : finalBalance < 0 ? "A Favor" : "Saldado"}
                 </Badge>

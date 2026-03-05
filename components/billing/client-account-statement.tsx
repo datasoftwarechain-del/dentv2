@@ -55,10 +55,11 @@ import {
   ArrowUp,
   ArrowDown,
   Pencil,
+  Percent,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { formatWorkType } from "@/lib/work-types";
+import { formatWorkType, WORK_TYPE_LABELS } from "@/lib/work-types";
 import { logger } from "@/lib/logger";
 
 interface Organization {
@@ -122,7 +123,7 @@ const statusLabels: Record<string, string> = {
 
 const statusColors: Record<string, string> = {
   pending:   "bg-[#d2f2f3] text-[#4b8899] border-[#a8d8dc] hover:bg-[#d2f2f3]",
-  paid:      "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50",
+  paid:      "bg-secondary/[0.08] text-secondary border-secondary/20 hover:bg-secondary/[0.12]",
   overdue:   "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-50",
   cancelled: "bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100",
 };
@@ -155,6 +156,18 @@ export function ClientAccountStatement({
   const [adjustFormData, setAdjustFormData] = useState({
     targetBalance: "",
     description: "",
+  });
+
+  const [createInvoiceDialogOpen, setCreateInvoiceDialogOpen] = useState(false);
+  const [createInvoiceLoading, setCreateInvoiceLoading] = useState(false);
+  const [createInvoiceForm, setCreateInvoiceForm] = useState({
+    patientName: "",
+    workType: "",
+    subtotal: "",
+    applyIva: false,
+    ivaRate: "10",
+    dueDate: "",
+    notes: "",
   });
 
   // Función para ordenar
@@ -296,6 +309,46 @@ export function ClientAccountStatement({
     }
   }
 
+  async function handleCreateInvoice(e: React.FormEvent) {
+    e.preventDefault();
+    const subtotal = parseFloat(createInvoiceForm.subtotal) || 0;
+    const ivaRate = createInvoiceForm.applyIva ? parseFloat(createInvoiceForm.ivaRate) || 10 : 0;
+    const ivaAmount = createInvoiceForm.applyIva ? parseFloat((subtotal * ivaRate / 100).toFixed(2)) : 0;
+    const total = parseFloat((subtotal + ivaAmount).toFixed(2));
+
+    setCreateInvoiceLoading(true);
+    try {
+      const response = await fetch("/api/billing/manual-invoices", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
+        body: JSON.stringify({
+          dentistOrgId: client.id,
+          patientName: createInvoiceForm.patientName || null,
+          workType: createInvoiceForm.workType || null,
+          total,
+          dueDate: createInvoiceForm.dueDate || null,
+          notes: createInvoiceForm.notes || null,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Error al crear factura");
+
+      toast.success("Factura creada correctamente");
+      setCreateInvoiceDialogOpen(false);
+      setCreateInvoiceForm({ patientName: "", workType: "", subtotal: "", applyIva: false, ivaRate: "10", dueDate: "", notes: "" });
+      router.refresh();
+      setTimeout(() => window.location.reload(), 500);
+    } catch (err: any) {
+      toast.error(err.message || "Error al crear factura");
+    } finally {
+      setCreateInvoiceLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Back Button */}
@@ -327,7 +380,7 @@ export function ClientAccountStatement({
               variant="outline"
               className={cn(
                 "text-xs font-bold uppercase tracking-wider px-3 py-1",
-                balance > 0 ? "bg-[#d2f2f3] text-[#0d687d] border-[#a8d8dc]" : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                balance > 0 ? "bg-[#d2f2f3] text-[#0d687d] border-[#a8d8dc]" : "bg-secondary/[0.08] text-secondary border-secondary/20"
               )}
             >
               {balance > 0 ? "Con Saldo Pendiente" : "Al Día"}
@@ -362,12 +415,12 @@ export function ClientAccountStatement({
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
               Total Pagado
             </p>
-            <div className="p-2 rounded-xl bg-emerald-500/10">
-              <CheckCircle className="h-4 w-4 text-emerald-600" />
+            <div className="p-2 rounded-xl bg-secondary/[0.10]">
+              <CheckCircle className="h-4 w-4 text-secondary" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tracking-tight text-emerald-600">
+            <div className="text-3xl font-bold tracking-tight text-secondary">
               ${formatNumber(totalPaid)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 font-medium">
@@ -400,7 +453,7 @@ export function ClientAccountStatement({
           <CardContent>
             <div className={cn(
               "text-3xl font-bold tracking-tight",
-              balance > 0 ? "text-[#09919b]" : balance < 0 ? "text-emerald-600" : "text-foreground"
+              balance > 0 ? "text-[#09919b]" : balance < 0 ? "text-secondary" : "text-foreground"
             )}>
               ${formatNumber(Math.abs(balance))}
             </div>
@@ -408,7 +461,7 @@ export function ClientAccountStatement({
               {balance > 0 ? (
                 <span className="text-[#09919b]">· A cobrar</span>
               ) : balance < 0 ? (
-                <span className="text-emerald-600">✓ A favor del cliente</span>
+                <span className="text-secondary">✓ A favor del cliente</span>
               ) : (
                 <span className="text-muted-foreground">✓ Saldo en cero</span>
               )}
@@ -467,7 +520,7 @@ export function ClientAccountStatement({
                     <span>Ajuste</span>
                     <span className={cn(
                       "font-semibold",
-                      parseFloat(adjustFormData.targetBalance) > balance ? "text-red-600" : "text-emerald-600"
+                      parseFloat(adjustFormData.targetBalance) > balance ? "text-red-600" : "text-secondary"
                     )}>
                       {parseFloat(adjustFormData.targetBalance) >= balance ? "+" : ""}
                       ${formatNumber(Math.abs(parseFloat(adjustFormData.targetBalance) - balance))}
@@ -635,24 +688,198 @@ export function ClientAccountStatement({
       {activeTab === "invoices" && (
         <Card className="border border-border/50 shadow-premium bg-background/50 backdrop-blur-sm">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="shrink-0">
                 <CardTitle className="text-lg font-bold">Historial de Facturas</CardTitle>
                 <CardDescription className="text-xs font-medium">
                   Todas las facturas emitidas para este cliente
                 </CardDescription>
               </div>
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por paciente, trabajo..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 bg-background"
-                />
+              <div className="flex items-center gap-2">
+                <div className="relative w-56">
+                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por paciente, trabajo..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 bg-background"
+                  />
+                </div>
+                {/* Only labs can create manual invoices */}
+                {!isDentist && (
+                  <Button
+                    onClick={() => setCreateInvoiceDialogOpen(true)}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs uppercase tracking-wider shrink-0"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    Nueva Factura
+                  </Button>
+                )}
               </div>
             </div>
           </CardHeader>
+
+          {/* Create Invoice Dialog */}
+          <Dialog open={createInvoiceDialogOpen} onOpenChange={setCreateInvoiceDialogOpen}>
+            <DialogContent className="sm:max-w-[460px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
+                  Nueva Factura Manual
+                </DialogTitle>
+                <DialogDescription className="text-muted-foreground">
+                  Crea una factura para {client.name} sin necesidad de una orden
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleCreateInvoice} className="space-y-4 mt-3">
+                {/* Patient */}
+                <div className="space-y-2">
+                  <Label htmlFor="ci-patient">Paciente <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <Input
+                    id="ci-patient"
+                    placeholder="Nombre del paciente"
+                    className="bg-background focus:border-primary"
+                    value={createInvoiceForm.patientName}
+                    onChange={(e) => setCreateInvoiceForm({ ...createInvoiceForm, patientName: e.target.value })}
+                  />
+                </div>
+
+                {/* Work Type */}
+                <div className="space-y-2">
+                  <Label htmlFor="ci-work">Tipo de Trabajo <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <select
+                    id="ci-work"
+                    value={createInvoiceForm.workType}
+                    onChange={(e) => setCreateInvoiceForm({ ...createInvoiceForm, workType: e.target.value })}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
+                  >
+                    <option value="">— Sin especificar —</option>
+                    {Object.entries(WORK_TYPE_LABELS).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Subtotal */}
+                <div className="space-y-2">
+                  <Label htmlFor="ci-subtotal">Subtotal <span className="text-destructive">*</span></Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="ci-subtotal"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      className="pl-9 bg-background focus:border-primary font-bold"
+                      value={createInvoiceForm.subtotal}
+                      onChange={(e) => setCreateInvoiceForm({ ...createInvoiceForm, subtotal: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* IVA toggle */}
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Percent className="h-4 w-4 text-primary/70" />
+                      <span className="text-sm font-semibold">Aplicar IVA</span>
+                      <span className="text-[10px] text-muted-foreground">(opcional)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCreateInvoiceForm({ ...createInvoiceForm, applyIva: !createInvoiceForm.applyIva })}
+                      className={cn(
+                        "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none",
+                        createInvoiceForm.applyIva ? "bg-primary" : "bg-muted-foreground/30"
+                      )}
+                    >
+                      <span className={cn(
+                        "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform",
+                        createInvoiceForm.applyIva ? "translate-x-4" : "translate-x-1"
+                      )} />
+                    </button>
+                  </div>
+                  {createInvoiceForm.applyIva && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="ci-iva" className="text-xs text-muted-foreground">Porcentaje IVA (mínimo 10%)</Label>
+                      <div className="relative">
+                        <Percent className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="ci-iva"
+                          type="number"
+                          step="0.5"
+                          min="10"
+                          max="100"
+                          placeholder="10"
+                          className="pl-9 bg-background focus:border-primary font-bold"
+                          value={createInvoiceForm.ivaRate}
+                          onChange={(e) => setCreateInvoiceForm({ ...createInvoiceForm, ivaRate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Total preview */}
+                {createInvoiceForm.subtotal && !isNaN(parseFloat(createInvoiceForm.subtotal)) && (
+                  <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-1.5 text-sm">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span>${formatNumber(parseFloat(createInvoiceForm.subtotal) || 0)}</span>
+                    </div>
+                    {createInvoiceForm.applyIva && (
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>IVA ({createInvoiceForm.ivaRate || 10}%)</span>
+                        <span>${formatNumber((parseFloat(createInvoiceForm.subtotal) || 0) * (parseFloat(createInvoiceForm.ivaRate) || 10) / 100)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between font-bold border-t border-primary/20 pt-1.5 text-primary">
+                      <span>Total</span>
+                      <span>${formatNumber(
+                        (parseFloat(createInvoiceForm.subtotal) || 0) +
+                        (createInvoiceForm.applyIva ? (parseFloat(createInvoiceForm.subtotal) || 0) * (parseFloat(createInvoiceForm.ivaRate) || 10) / 100 : 0)
+                      )}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Due Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="ci-due">Fecha de Vencimiento <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <Input
+                    id="ci-due"
+                    type="date"
+                    className="bg-background focus:border-primary"
+                    value={createInvoiceForm.dueDate}
+                    onChange={(e) => setCreateInvoiceForm({ ...createInvoiceForm, dueDate: e.target.value })}
+                  />
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-2">
+                  <Label htmlFor="ci-notes">Notas <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+                  <Input
+                    id="ci-notes"
+                    placeholder="Observaciones adicionales..."
+                    className="bg-background focus:border-primary"
+                    value={createInvoiceForm.notes}
+                    onChange={(e) => setCreateInvoiceForm({ ...createInvoiceForm, notes: e.target.value })}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-1">
+                  <Button type="button" variant="ghost" onClick={() => setCreateInvoiceDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={createInvoiceLoading} className="bg-primary hover:bg-primary/90">
+                    {createInvoiceLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Crear Factura
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
           <CardContent>
             {invoices.length > 0 ? (
               <>
@@ -909,13 +1136,13 @@ export function ClientAccountStatement({
                       <div
                         className={cn(
                           "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
-                          movement.type === "charge" ? "bg-slate-100" : "bg-emerald-50"
+                          movement.type === "charge" ? "bg-slate-100" : "bg-secondary/[0.06]"
                         )}
                       >
                         {movement.type === "charge" ? (
                           <TrendingUp className="h-5 w-5 text-slate-600" />
                         ) : (
-                          <TrendingDown className="h-5 w-5 text-emerald-600/80" />
+                          <TrendingDown className="h-5 w-5 text-secondary/80" />
                         )}
                       </div>
                       <div>
@@ -931,7 +1158,7 @@ export function ClientAccountStatement({
                     <span
                       className={cn(
                         "font-semibold text-base tabular-nums",
-                        movement.type === "charge" ? "text-slate-700" : "text-emerald-600/80"
+                        movement.type === "charge" ? "text-slate-700" : "text-secondary/80"
                       )}
                     >
                       {movement.type === "charge" ? "+" : "-"}$

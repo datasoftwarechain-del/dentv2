@@ -1,33 +1,13 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ORDER_STATUS_BADGE_CLASSES } from "@/lib/order-status";
+import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import { formatDueTime, isOverdue } from "@/lib/date-utils";
-import {
-  AlertCircle,
-  Clock,
-  Calendar,
-  Bell,
-  ChevronRight,
-  User,
-  Building2,
-} from "lucide-react";
+import { Clock, Calendar, Bell, ChevronRight, User, Building2, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
-interface Patient {
-  id: string;
-  first_name: string;
-  last_name: string;
-}
-
-interface Organization {
-  id: string;
-  name: string;
-}
-
+interface Patient { id: string; first_name: string; last_name: string; }
+interface Organization { id: string; name: string; }
 interface Order {
   id: string;
   order_number: string;
@@ -37,229 +17,202 @@ interface Order {
   dentist_org: Organization | Organization[] | null;
   lab_org: Organization | Organization[] | null;
 }
-
 interface DeliveryAlertsProps {
   todayOrders: Order[];
   tomorrowOrders: Order[];
   isDentist: boolean;
 }
 
-export function DeliveryAlerts({
-  todayOrders,
-  tomorrowOrders,
-  isDentist,
-}: DeliveryAlertsProps) {
-  const statusColors = ORDER_STATUS_BADGE_CLASSES;
-
-  // Don't render if no alerts
-  if (todayOrders.length === 0 && tomorrowOrders.length === 0) {
-    return null;
-  }
-
-  // Using utility functions from date-utils
+function OrderRow({ order, isDentist, isToday }: { order: Order; isDentist: boolean; isToday: boolean }) {
+  const patient = Array.isArray(order.patient) ? order.patient[0] : order.patient;
+  const orgData = isDentist ? order.lab_org : order.dentist_org;
+  const org = Array.isArray(orgData) ? orgData[0] : orgData;
+  const overdue = isToday && isOverdue(order.due_date);
+  const statusLabel = ORDER_STATUS_LABELS[order.status] || order.status;
 
   return (
-    <div className="space-y-4">
-      {/* Today's Deliveries - Brand Highlight */}
-      {todayOrders.length > 0 && (
-        <Card className="border border-secondary/20 bg-gradient-to-br from-secondary/[0.04] via-background to-secondary/[0.02] shadow-premium animate-in fade-in slide-in-from-top-2 duration-500">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary shadow-lg shadow-secondary/20">
-                  <Clock className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg font-bold text-secondary flex items-center gap-2">
-                    Entregas HOY
-                    <Badge variant="outline" className="bg-secondary/10 border-secondary/20 text-secondary text-[10px] uppercase tracking-wider h-5 font-bold">Urgente</Badge>
-                  </CardTitle>
-                  <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                    {todayOrders.length}{" "}
-                    {todayOrders.length === 1 ? "trabajo pendiente" : "trabajos pendientes"}
-                  </p>
-                </div>
-              </div>
-              <Link href="/dashboard/orders">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs font-bold text-secondary hover:bg-secondary/10"
-                >
-                  Ver Todos
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 pt-0">
-            {todayOrders.slice(0, 3).map((order) => {
-              const patientData = order.patient;
-              const patient = Array.isArray(patientData) ? patientData[0] : patientData;
-              const orgData = isDentist ? order.lab_org : order.dentist_org;
-              const org = Array.isArray(orgData) ? orgData[0] : orgData;
-              const overdue = isOverdue(order.due_date);
+    <Link href={`/dashboard/orders/${order.id}`}>
+      <div className={cn(
+        "group relative flex items-center justify-between gap-4 rounded-xl px-4 py-3 transition-all duration-200 cursor-pointer border",
+        overdue
+          ? "bg-destructive/[0.04] border-destructive/20 hover:bg-destructive/[0.08]"
+          : "bg-white/60 border-[#d2f2f3]/80 hover:bg-[#f0fafb] hover:border-[#b0dde0]"
+      )}>
+        {/* Left accent line */}
+        <div className={cn(
+          "absolute left-0 top-3 bottom-3 w-[3px] rounded-full",
+          overdue ? "bg-destructive" : "bg-gradient-to-b from-[#09919b] to-[#044c64]"
+        )} />
 
-              return (
-                <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
-                  <Card className="group cursor-pointer border border-border/50 hover:border-secondary/40 hover:shadow-md transition-all bg-white/50 dark:bg-background/50 backdrop-blur-sm rounded-xl">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="text-sm font-bold text-foreground group-hover:text-secondary transition-colors">
-                              {order.order_number}
-                            </p>
-                            <Badge
-                              variant="secondary"
-                              className={cn(
-                                "text-[9px] font-bold uppercase",
-                                statusColors[order.status]
-                              )}
-                            >
-                              {order.status}
-                            </Badge>
-                          </div>
-                          <div className="flex flex-wrap gap-x-3 gap-y-1">
-                            {patient && (
-                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate font-medium">
-                                <User className="h-3 w-3" />
-                                {patient.first_name} {patient.last_name}
-                              </p>
-                            )}
-                            {org && (
-                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate font-medium">
-                                <Building2 className="h-3 w-3" />
-                                {org.name}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div
-                            className={cn(
-                              "flex items-center justify-end gap-1 font-bold",
-                              overdue ? "text-primary px-2 py-0.5 bg-primary/5 rounded-lg" : "text-[#09919b]"
-                            )}
-                          >
-                            <Clock className="h-3.5 w-3.5" />
-                            <span className="text-lg">{formatDueTime(order.due_date)}</span>
-                          </div>
-                          {overdue && (
-                            <div className="flex justify-end mt-1">
-                              <span className="bg-primary/10 text-primary text-[8px] font-black px-1.5 py-0.5 rounded-full tracking-tighter">
-                                ATRASADO
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-            {todayOrders.length > 3 && (
-              <Link href="/dashboard/orders">
-                <div className="text-center py-2 text-[11px] text-secondary font-bold hover:underline transition-all cursor-pointer">
-                  + {todayOrders.length - 3} ENTREGAS MÁS HOY
-                </div>
-              </Link>
+        <div className="flex-1 min-w-0 pl-1">
+          <div className="flex items-center gap-2.5 mb-1">
+            <span className={cn(
+              "font-bold text-sm tracking-wide",
+              overdue ? "text-destructive" : "text-[#044c64]"
+            )}>
+              {order.order_number}
+            </span>
+            <span className={cn(
+              "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+              ORDER_STATUS_BADGE_CLASSES[order.status] || "bg-muted text-muted-foreground border-border"
+            )}>
+              {statusLabel}
+            </span>
+            {overdue && (
+              <span className="flex items-center gap-1 text-[10px] font-bold text-destructive">
+                <AlertTriangle className="h-3 w-3" />
+                Atrasado
+              </span>
             )}
-          </CardContent>
-        </Card>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5">
+            {patient && (
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <User className="h-3 w-3 text-[#09919b]" />
+                {patient.first_name} {patient.last_name}
+              </span>
+            )}
+            {org && (
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Building2 className="h-3 w-3 text-[#09919b]" />
+                {org.name}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Time */}
+        <div className={cn(
+          "flex items-center gap-1.5 font-black text-xl tabular-nums shrink-0 tracking-tight",
+          overdue ? "text-destructive" : "text-[#044c64]"
+        )}>
+          {isToday ? <Clock className="h-4 w-4 shrink-0" /> : <Calendar className="h-4 w-4 shrink-0" />}
+          {formatDueTime(order.due_date)}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function AlertSection({
+  icon: Icon,
+  title,
+  subtitle,
+  count,
+  linkHref,
+  linkLabel,
+  accentFrom,
+  accentTo,
+  glowColor,
+  children,
+}: {
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
+  count: number;
+  linkHref: string;
+  linkLabel: string;
+  accentFrom: string;
+  accentTo: string;
+  glowColor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-[#d2f2f3] bg-white shadow-sm">
+      {/* Gradient glow orb — top right corner, inspired by reference */}
+      <div
+        className="pointer-events-none absolute -top-8 -right-8 h-36 w-36 rounded-full blur-2xl opacity-30"
+        style={{ background: glowColor }}
+      />
+      {/* Top gradient bar */}
+      <div className={cn("h-[3px] w-full bg-gradient-to-r", accentFrom, accentTo)} />
+
+      {/* Header */}
+      <div className="relative flex items-center justify-between px-5 pt-4 pb-3">
+        <div className="flex items-center gap-3.5">
+          {/* Icon circle — inspired by reference photo */}
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-[#b0dde0] bg-gradient-to-br from-[#f0fafb] to-white shadow-inner shrink-0">
+            <Icon className="h-5 w-5 text-[#09919b]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h3 className="text-base font-bold text-[#044c64] leading-none">{title}</h3>
+              <span className="inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-[#044c64] text-white text-[10px] font-black">
+                {count}
+              </span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{subtitle}</p>
+          </div>
+        </div>
+        <Link href={linkHref}>
+          <span className="flex items-center gap-0.5 text-[11px] font-semibold text-[#09919b] hover:text-[#044c64] transition-colors">
+            {linkLabel}
+            <ChevronRight className="h-3.5 w-3.5" />
+          </span>
+        </Link>
+      </div>
+
+      {/* Order rows */}
+      <div className="px-4 pb-4 space-y-2">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function DeliveryAlerts({ todayOrders, tomorrowOrders, isDentist }: DeliveryAlertsProps) {
+  if (todayOrders.length === 0 && tomorrowOrders.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      {todayOrders.length > 0 && (
+        <AlertSection
+          icon={Clock}
+          title="Entregas de hoy"
+          subtitle={`${todayOrders.length === 1 ? "trabajo pendiente" : "trabajos pendientes"} para hoy`}
+          count={todayOrders.length}
+          linkHref="/dashboard/orders"
+          linkLabel="Ver todos"
+          accentFrom="from-[#044c64]"
+          accentTo="via-[#09919b] to-transparent"
+          glowColor="radial-gradient(circle, #09919b 0%, transparent 70%)"
+        >
+          {todayOrders.slice(0, 3).map((o) => (
+            <OrderRow key={o.id} order={o} isDentist={isDentist} isToday />
+          ))}
+          {todayOrders.length > 3 && (
+            <Link href="/dashboard/orders">
+              <p className="text-center text-[11px] text-[#09919b] font-semibold pt-1 hover:underline cursor-pointer">
+                + {todayOrders.length - 3} entregas más hoy
+              </p>
+            </Link>
+          )}
+        </AlertSection>
       )}
 
-      {/* Tomorrow's Deliveries - Warning Alert */}
       {tomorrowOrders.length > 0 && (
-        <Card className="border border-indigo-200 bg-gradient-to-r from-indigo-50 to-[#d2f2f3] dark:from-indigo-950/20 dark:to-[#044c64]/10 dark:border-indigo-900/50 shadow-md animate-in fade-in slide-in-from-top-2 duration-500 delay-100">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500 shadow-lg shadow-indigo-500/30">
-                  <Bell className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg font-bold text-indigo-900 dark:text-indigo-300">
-                    Entregas MAÑANA
-                  </CardTitle>
-                  <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium mt-0.5">
-                    {tomorrowOrders.length}{" "}
-                    {tomorrowOrders.length === 1 ? "trabajo programado" : "trabajos programados"}
-                  </p>
-                </div>
-              </div>
-              <Link href="/dashboard/schedule">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-indigo-300 hover:bg-indigo-100 dark:border-indigo-800 dark:hover:bg-indigo-900/30"
-                >
-                  Ver Agenda
-                  <ChevronRight className="ml-1 h-4 w-4" />
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-2 pt-0">
-            {tomorrowOrders.slice(0, 3).map((order) => {
-              const patientData = order.patient;
-              const patient = Array.isArray(patientData) ? patientData[0] : patientData;
-              const orgData = isDentist ? order.lab_org : order.dentist_org;
-              const org = Array.isArray(orgData) ? orgData[0] : orgData;
-
-              return (
-                <Link key={order.id} href={`/dashboard/orders/${order.id}`}>
-                  <Card className="group cursor-pointer border border-indigo-200/50 hover:border-indigo-400 hover:shadow-md transition-all bg-white/80 dark:bg-background/50 backdrop-blur-sm">
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="text-sm font-bold text-foreground group-hover:text-indigo-600 transition-colors">
-                              {order.order_number}
-                            </p>
-                            <Badge
-                              variant="secondary"
-                              className={cn(
-                                "text-[9px] font-bold uppercase",
-                                statusColors[order.status]
-                              )}
-                            >
-                              {order.status}
-                            </Badge>
-                          </div>
-                          {patient && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                              <User className="h-3 w-3" />
-                              {patient.first_name} {patient.last_name}
-                            </p>
-                          )}
-                          {org && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 truncate mt-0.5">
-                              <Building2 className="h-3 w-3" />
-                              {org.name}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 text-[#09919b] font-bold">
-                          <Clock className="h-4 w-4" />
-                          <span className="text-lg">{formatDueTime(order.due_date)}</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              );
-            })}
-            {tomorrowOrders.length > 3 && (
-              <Link href="/dashboard/schedule">
-                <div className="text-center py-2 text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
-                  + {tomorrowOrders.length - 3} entregas más mañana
-                </div>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
+        <AlertSection
+          icon={Bell}
+          title="Entregas de mañana"
+          subtitle={`${tomorrowOrders.length === 1 ? "trabajo programado" : "trabajos programados"}`}
+          count={tomorrowOrders.length}
+          linkHref="/dashboard/schedule"
+          linkLabel="Ver agenda"
+          accentFrom="from-[#09919b]/60"
+          accentTo="via-[#044c64]/30 to-transparent"
+          glowColor="radial-gradient(circle, #044c64 0%, transparent 70%)"
+        >
+          {tomorrowOrders.slice(0, 3).map((o) => (
+            <OrderRow key={o.id} order={o} isDentist={isDentist} isToday={false} />
+          ))}
+          {tomorrowOrders.length > 3 && (
+            <Link href="/dashboard/schedule">
+              <p className="text-center text-[11px] text-[#09919b] font-semibold pt-1 hover:underline cursor-pointer">
+                + {tomorrowOrders.length - 3} entregas más mañana
+              </p>
+            </Link>
+          )}
+        </AlertSection>
       )}
     </div>
   );

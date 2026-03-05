@@ -42,11 +42,11 @@ const statusLabels: Record<string, string> = {
 };
 
 const statusStyles: Record<string, string> = {
-  scheduled: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  confirmed: "bg-green-500/10 text-green-500 border-green-500/20",
-  completed: "bg-accent/10 text-accent border-accent/20",
-  cancelled: "bg-red-500/10 text-red-500 border-red-500/20",
-  no_show: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
+  scheduled: "bg-primary/[0.08] text-primary border-primary/20",
+  confirmed: "bg-secondary/[0.10] text-secondary border-secondary/25",
+  completed: "bg-primary/[0.06] text-primary border-primary/15",
+  cancelled: "bg-destructive/[0.08] text-destructive border-destructive/20",
+  no_show: "bg-muted text-muted-foreground border-border",
 };
 
 export function AppointmentsList({

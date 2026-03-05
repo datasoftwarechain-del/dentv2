@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Loader2, Calendar, Clock, User, FileText } from "lucide-react";
 
 const editAppointmentSchema = z.object({
@@ -145,20 +146,19 @@ export function EditAppointmentForm({
                     <User className="h-4 w-4 text-[#09919b]" />
                     Paciente
                   </FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Seleccioná un paciente" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {patients.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.first_name} {p.last_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <Combobox
+                      options={patients.map((p) => ({
+                        value: p.id,
+                        label: `${p.first_name} ${p.last_name}`,
+                      }))}
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      placeholder="Seleccioná un paciente"
+                      searchPlaceholder="Buscar paciente..."
+                      emptyText="No se encontró el paciente."
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

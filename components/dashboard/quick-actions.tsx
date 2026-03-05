@@ -67,8 +67,8 @@ export function QuickActions({ organizationId, patients, labs }: QuickActionsPro
                 {/* View Orders */}
                 <Link href="/dashboard/orders">
                     <Button variant="ghost" className="w-full h-auto py-4 sm:py-6 flex-col gap-1.5 sm:gap-2 rounded-2xl bg-white shadow-sm border border-border/40 hover:bg-[#f5fbfc] hover:border-[#b0dde0] hover:shadow-md text-foreground group transition-all duration-200">
-                        <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-emerald-50 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <ClipboardList className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+                        <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-[#d2f2f3] flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <ClipboardList className="h-4 w-4 sm:h-5 sm:w-5 text-[#09919b]" />
                         </div>
                         <span className="font-semibold text-xs sm:text-sm">Ver Pedidos</span>
                     </Button>

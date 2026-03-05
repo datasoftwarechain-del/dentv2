@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Combobox } from "@/components/ui/combobox";
 import { FileText, Upload, Send, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -401,7 +401,7 @@ export function CasesView({ organizationId, isDentist }: CasesViewProps) {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#b0dde0]">
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="h-2 w-2 rounded-full bg-secondary animate-pulse" />
               <span className="text-xs font-semibold text-[#09919b]">Sistema Digital Activo</span>
             </div>
           </div>
@@ -450,18 +450,15 @@ export function CasesView({ organizationId, isDentist }: CasesViewProps) {
                     <Label htmlFor="clinic-select" className="text-sm font-semibold">
                       Clínica / Dentista
                     </Label>
-                    <Select value={selectedClinic} onValueChange={setSelectedClinic}>
-                      <SelectTrigger id="clinic-select" className="bg-white border-[#d2f2f3]">
-                        <SelectValue placeholder="Selecciona una clínica..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clinics.map((clinic) => (
-                          <SelectItem key={clinic.id} value={clinic.id}>
-                            {clinic.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Combobox
+                      id="clinic-select"
+                      options={clinics.map((c) => ({ value: c.id, label: c.name }))}
+                      value={selectedClinic}
+                      onValueChange={setSelectedClinic}
+                      placeholder="Selecciona una clínica..."
+                      searchPlaceholder="Buscar clínica..."
+                      emptyText="No se encontró ninguna clínica."
+                    />
                   </div>
                 )}
               </CardContent>
@@ -529,16 +526,15 @@ export function CasesView({ organizationId, isDentist }: CasesViewProps) {
             <CardContent className="p-6 space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="work-type" className="text-sm font-semibold">Selecciona el trabajo a realizar</Label>
-                <Select value={workType} onValueChange={setWorkType}>
-                  <SelectTrigger id="work-type" className="bg-white border-[#d2f2f3]">
-                    <SelectValue placeholder="Elige un tipo de trabajo..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {workTypes.map(wt => (
-                      <SelectItem key={wt.value} value={wt.value}>{wt.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Combobox
+                  id="work-type"
+                  options={workTypes}
+                  value={workType}
+                  onValueChange={setWorkType}
+                  placeholder="Elige un tipo de trabajo..."
+                  searchPlaceholder="Buscar tipo de trabajo..."
+                  emptyText="No se encontró ese tipo de trabajo."
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="notes" className="text-sm font-semibold">Notas Adicionales</Label>

@@ -14,7 +14,8 @@ import {
     MessageSquare,
     AlertCircle,
     Download,
-    File
+    File,
+    Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-sta
 import { formatSimpleDate, formatDateTime } from "@/lib/date-utils";
 import { EditDueDateButton } from "@/components/orders/edit-due-date-button";
 import { CaseFilesSection } from "@/components/orders/case-files-section";
+import { formatWorkType } from "@/lib/work-types";
 
 export default async function OrderDetailsPage({
     params,
@@ -77,22 +79,6 @@ export default async function OrderDetailsPage({
     const statusLabels = ORDER_STATUS_LABELS;
     const statusColors = ORDER_STATUS_BADGE_CLASSES;
 
-    const workTypeLabels: Record<string, string> = {
-        corona_metal_ceramica: "Corona Metal-Cerámica",
-        corona_zirconia:       "Corona Zirconia",
-        corona_emax:           "Corona Emax",
-        puente_fijo:           "Puente Fijo",
-        protesis_removible:    "Prótesis Removible",
-        protesis_total:        "Prótesis Total",
-        implante_corona:       "Corona sobre Implante",
-        carilla:               "Carilla",
-        incrustacion:          "Incrustación",
-        ferula:                "Férula",
-        retenedor:             "Retenedor",
-        reparacion:            "Reparación",
-        otro:                  "Otro",
-    };
-
     return (
         <div className="flex flex-col min-h-screen bg-background/50">
             <DashboardHeader
@@ -118,6 +104,11 @@ export default async function OrderDetailsPage({
                         <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-xs">
                             <Printer className="mr-2 h-4 w-4" /> Imprimir
                         </Button>
+                        <Link href={`/dashboard/orders/${order.id}/edit`}>
+                            <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-xs border-[#09919b] text-[#09919b] hover:bg-[#09919b]/10">
+                                <Pencil className="mr-2 h-4 w-4" /> Editar
+                            </Button>
+                        </Link>
                         <Button className="h-9 px-4 font-bold text-xs bg-primary hover:bg-primary/90">
                             <MessageSquare className="mr-2 h-4 w-4" /> Chat Lab
                         </Button>
@@ -186,11 +177,10 @@ export default async function OrderDetailsPage({
                                                 </thead>
                                                 <tbody className="divide-y divide-border/40">
                                                     {order.items.map((item: any) => {
-                                                        const workLabel =
-                                                            item.catalog_item?.name ||
-                                                            workTypeLabels[item.work_type] ||
-                                                            item.work_type?.replace(/_/g, " ") ||
-                                                            "—";
+                                                        const catalogName = Array.isArray(item.catalog_item)
+                                                            ? item.catalog_item[0]?.name
+                                                            : item.catalog_item?.name;
+                                                        const workLabel = catalogName || formatWorkType(item.work_type) || "—";
                                                         const extras: { name: string; qty: number }[] =
                                                             Array.isArray(item.selected_extras) ? item.selected_extras : [];
                                                         return (

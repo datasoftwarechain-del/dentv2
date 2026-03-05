@@ -240,7 +240,7 @@ const CaseFileUploaderComponent = ({
                   <Loader2 className="h-5 w-5 text-[#09919b] animate-spin" />
                 )}
                 {uf.status === 'success' && (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  <CheckCircle2 className="h-5 w-5 text-secondary" />
                 )}
                 {uf.status === 'error' && (
                   <AlertCircle className="h-5 w-5 text-rose-600" />

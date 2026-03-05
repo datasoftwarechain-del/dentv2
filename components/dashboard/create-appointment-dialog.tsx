@@ -22,6 +22,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Combobox } from "@/components/ui/combobox";
 import { Plus, Loader2, Calendar, Clock, User, FileText, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
@@ -162,27 +163,17 @@ export function CreateAppointmentDialog({ organizationId, patients, children }: 
                                 />
                             </div>
                         ) : (
-                            <div className="relative">
-                                <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground z-10" />
-                                <Select
-                                    value={formData.patientId}
-                                    onValueChange={(value) =>
-                                        setFormData({ ...formData, patientId: value })
-                                    }
-                                    required
-                                >
-                                    <SelectTrigger className="pl-9 bg-background border-input text-foreground focus:border-primary focus:ring-primary/20 transition-all">
-                                        <SelectValue placeholder="Seleccionar Paciente" />
-                                    </SelectTrigger>
-                                    <SelectContent className="bg-background border-border text-foreground">
-                                        {patients.map((patient) => (
-                                            <SelectItem key={patient.id} value={patient.id} className="focus:bg-muted focus:text-foreground">
-                                                {patient.first_name} {patient.last_name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <Combobox
+                                options={patients.map((p) => ({
+                                    value: p.id,
+                                    label: `${p.first_name} ${p.last_name}`,
+                                }))}
+                                value={formData.patientId}
+                                onValueChange={(value) => setFormData({ ...formData, patientId: value })}
+                                placeholder="Seleccionar Paciente"
+                                searchPlaceholder="Buscar paciente..."
+                                emptyText="No se encontró el paciente."
+                            />
                         )}
                     </div>
 

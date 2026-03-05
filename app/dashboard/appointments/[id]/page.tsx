@@ -79,7 +79,7 @@ export default async function AppointmentDetailPage(props: PageProps) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmed":
-        return { label: "Confirmada", className: "bg-emerald-100 text-emerald-700 border-emerald-300" };
+        return { label: "Confirmada", className: "bg-secondary/[0.10] text-secondary border-secondary/25" };
       case "cancelled":
         return { label: "Cancelada", className: "bg-rose-100 text-rose-700 border-rose-300" };
       case "completed":

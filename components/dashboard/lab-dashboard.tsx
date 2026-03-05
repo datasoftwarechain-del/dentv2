@@ -249,23 +249,54 @@ export function LabDashboard({
           </CardContent>
         </Card>
 
-        {/* ── Card 3: Entregados mes — white + spark bars ── */}
-        <Card className="border border-emerald-200 bg-white shadow-sm overflow-hidden relative">
-          <div className="absolute -bottom-8 -right-8 h-24 w-24 rounded-full bg-emerald-50 opacity-80" />
+        {/* ── Card 3: Entregados mes — teal gradient + sacred geometry ── */}
+        <Card className="border-0 shadow-md overflow-hidden relative bg-gradient-to-br from-[#044c64] via-[#0d687d] to-[#09919b]">
+          {/* Sacred geometry — Flower of Life SVG */}
+          <div className="pointer-events-none absolute inset-0">
+            <svg width="100%" height="100%" viewBox="0 0 200 160" fill="none" xmlns="http://www.w3.org/2000/svg"
+              className="absolute inset-0 w-full h-full opacity-[0.12]">
+              {/* Flower of Life — center + 6 petals at r=32 */}
+              <circle cx="150" cy="100" r="32" stroke="white" strokeWidth="0.8"/>
+              <circle cx="150" cy="68" r="32" stroke="white" strokeWidth="0.8"/>
+              <circle cx="150" cy="132" r="32" stroke="white" strokeWidth="0.8"/>
+              <circle cx="122.3" cy="84" r="32" stroke="white" strokeWidth="0.8"/>
+              <circle cx="122.3" cy="116" r="32" stroke="white" strokeWidth="0.8"/>
+              <circle cx="177.7" cy="84" r="32" stroke="white" strokeWidth="0.8"/>
+              <circle cx="177.7" cy="116" r="32" stroke="white" strokeWidth="0.8"/>
+              {/* Outer ring */}
+              <circle cx="150" cy="36" r="32" stroke="white" strokeWidth="0.5" strokeOpacity="0.5"/>
+              <circle cx="150" cy="164" r="32" stroke="white" strokeWidth="0.5" strokeOpacity="0.5"/>
+              <circle cx="94.6" cy="68" r="32" stroke="white" strokeWidth="0.5" strokeOpacity="0.5"/>
+              <circle cx="94.6" cy="132" r="32" stroke="white" strokeWidth="0.5" strokeOpacity="0.5"/>
+              <circle cx="205.4" cy="68" r="32" stroke="white" strokeWidth="0.5" strokeOpacity="0.5"/>
+              <circle cx="205.4" cy="132" r="32" stroke="white" strokeWidth="0.5" strokeOpacity="0.5"/>
+              {/* Metatron inner — hexagon lines */}
+              <polygon points="150,68 177.7,84 177.7,116 150,132 122.3,116 122.3,84"
+                stroke="white" strokeWidth="0.6" strokeOpacity="0.7" fill="none"/>
+              {/* Star of David triangles */}
+              <polygon points="150,68 177.7,116 122.3,116"
+                stroke="white" strokeWidth="0.5" strokeOpacity="0.5" fill="none"/>
+              <polygon points="150,132 177.7,84 122.3,84"
+                stroke="white" strokeWidth="0.5" strokeOpacity="0.5" fill="none"/>
+              {/* Center dot */}
+              <circle cx="150" cy="100" r="3" fill="white" fillOpacity="0.4"/>
+            </svg>
+          </div>
+
           <CardContent className="px-5 py-5 relative z-10">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500/60">Entregados (mes)</p>
-              <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 capitalize">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-white/50">Entregados (mes)</p>
+              <span className="text-[9px] font-semibold text-white/90 bg-white/10 border border-white/20 rounded-full px-2.5 py-0.5 capitalize backdrop-blur-sm">
                 {now.toLocaleDateString("es-AR", { month: "short" })}
               </span>
             </div>
             <div className="flex items-end justify-between gap-3">
               <div>
-                <p className="text-5xl font-black leading-none text-emerald-700 tabular-nums">{deliveredThisMonth.length}</p>
-                <p className="text-[11px] text-emerald-500/70 mt-2.5 font-medium">Últimos 7 días</p>
+                <p className="text-5xl font-black leading-none text-white tabular-nums">{deliveredThisMonth.length}</p>
+                <p className="text-[11px] text-white/50 mt-2.5 font-medium">Últimos 7 días</p>
               </div>
               <div className="flex-1 pb-0.5">
-                <SparkBars data={sparkDeliveries} color="#10b981" height={40} />
+                <SparkBars data={sparkDeliveries} color="#43eada" height={40} />
               </div>
             </div>
           </CardContent>

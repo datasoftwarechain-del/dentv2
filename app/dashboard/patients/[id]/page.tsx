@@ -184,7 +184,7 @@ export default async function PatientDetailsPage({
                                                 </div>
                                                 <Badge variant="outline" className={cn(
                                                     "text-[10px] font-bold uppercase tracking-wider",
-                                                    apt.status === 'completed' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-blue-50 text-blue-700 border-blue-200"
+                                                    apt.status === 'completed' ? "bg-secondary/[0.08] text-secondary border-secondary/20" : "bg-primary/[0.08] text-primary border-primary/20"
                                                 )}>
                                                     {apt.status}
                                                 </Badge>

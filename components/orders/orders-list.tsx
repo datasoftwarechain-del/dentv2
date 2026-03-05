@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, FileText, Building2, User, Calendar, ChevronDown, Loader2 } from "lucide-react";
 import { formatDueTime, formatDueDate, formatShortDate, isOverdue, isUrgent } from "@/lib/date-utils";
 import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
+import { formatWorkType } from "@/lib/work-types";
 import { toast } from "sonner";
 
 interface Patient { id: string; first_name: string; last_name: string; }
@@ -52,21 +53,6 @@ interface OrdersListProps {
 const statusLabels = ORDER_STATUS_LABELS;
 const statusColors = ORDER_STATUS_BADGE_CLASSES;
 
-const workTypes = [
-  { value: "corona_metal_ceramica", label: "Corona Metal-Cerámica" },
-  { value: "corona_zirconia",       label: "Corona Zirconia" },
-  { value: "corona_emax",           label: "Corona Emax" },
-  { value: "puente_fijo",           label: "Puente Fijo" },
-  { value: "protesis_removible",    label: "Prótesis Removible" },
-  { value: "protesis_total",        label: "Prótesis Total" },
-  { value: "implante_corona",       label: "Corona sobre Implante" },
-  { value: "carilla",               label: "Carilla" },
-  { value: "incrustacion",          label: "Incrustación" },
-  { value: "ferula",                label: "Férula" },
-  { value: "retenedor",             label: "Retenedor" },
-  { value: "reparacion",            label: "Reparación" },
-  { value: "otro",                  label: "Otro" },
-];
 
 const statusOptions = [
   { value: "received",     label: "Recibido" },
@@ -268,13 +254,9 @@ export function OrdersList({
 
               <TableBody>
                 {filteredOrders.map((order) => {
-                  // Prefer catalog item name over enum label
-                  const catalogName = order.items?.[0]?.catalog_item?.name ?? null;
-                  const workLabel =
-                    catalogName ||
-                    workTypes.find(t => t.value === order.items?.[0]?.work_type)?.label ||
-                    order.items?.[0]?.work_type?.replace(/_/g, " ") ||
-                    null;
+                  const workLabel = order.items?.[0]?.work_type
+                    ? formatWorkType(order.items[0].work_type)
+                    : null;
 
                   const isActive = !["delivered", "cancelled"].includes(order.status);
                   const overdue = isActive && order.due_date ? isOverdue(order.due_date) : false;
@@ -288,7 +270,7 @@ export function OrdersList({
                     >
                       {/* Order number */}
                       <TableCell className="py-3.5">
-                        <span className="font-mono text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md group-hover:border-primary/40 group-hover:text-primary transition-colors">
+                        <span className="font-mono text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md group-hover:border-primary/40 group-hover:text-primary transition-colors whitespace-nowrap">
                           {order.order_number}
                         </span>
                       </TableCell>
@@ -384,12 +366,9 @@ export function OrdersList({
           {/* ── Mobile card list ── */}
           <div className="sm:hidden divide-y divide-border/60">
             {filteredOrders.map((order) => {
-              const catalogName = order.items?.[0]?.catalog_item?.name ?? null;
-              const workLabel =
-                catalogName ||
-                workTypes.find(t => t.value === order.items?.[0]?.work_type)?.label ||
-                order.items?.[0]?.work_type?.replace(/_/g, " ") ||
-                null;
+                const workLabel = order.items?.[0]?.work_type
+                ? formatWorkType(order.items[0].work_type)
+                : null;
               const isActive = !["delivered", "cancelled"].includes(order.status);
               const overdue = isActive && order.due_date ? isOverdue(order.due_date) : false;
               const urgent  = isActive && order.due_date ? isUrgent(order.due_date) : false;
@@ -402,7 +381,7 @@ export function OrdersList({
                 >
                   {/* Fila 1: Número + Estado */}
                   <div className="flex items-center justify-between mb-2.5">
-                    <span className="font-mono text-[12px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                    <span className="font-mono text-[12px] font-bold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md whitespace-nowrap">
                       {order.order_number}
                     </span>
                     <div onClick={(e) => e.stopPropagation()}>

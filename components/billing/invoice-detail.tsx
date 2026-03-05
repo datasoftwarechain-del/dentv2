@@ -49,7 +49,7 @@ interface InvoiceDetailProps {
 
 const statusConfig: Record<string, { label: string; icon: any; bg: string; text: string; border: string }> = {
   pending:   { label: "Pendiente",  icon: Clock,        bg: "bg-[#e0f4f6]",  text: "text-[#09919b]",  border: "border-[#b0dde0]"  },
-  paid:      { label: "Pagada",     icon: CheckCircle2, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  paid:      { label: "Pagada",     icon: CheckCircle2, bg: "bg-secondary/[0.08]", text: "text-secondary", border: "border-secondary/25" },
   overdue:   { label: "Vencida",    icon: XCircle,      bg: "bg-rose-50",    text: "text-rose-600",    border: "border-rose-200"   },
   cancelled: { label: "Cancelada",  icon: XCircle,      bg: "bg-slate-100",  text: "text-slate-500",   border: "border-slate-200"  },
 };

@@ -136,9 +136,9 @@ const statusLabels: Record<string, string> = {
 // cancelled → neutral
 const statusColors: Record<string, string> = {
   pending:   "bg-[#d2f2f3] text-[#4b8899] border-[#a8d8dc]",
-  paid:      "bg-emerald-50 text-emerald-700 border-emerald-200",
-  overdue:   "bg-rose-50 text-rose-600 border-rose-200",
-  cancelled: "bg-slate-100 text-slate-500 border-slate-200",
+  paid:      "bg-secondary/10 text-secondary border-secondary/25",
+  overdue:   "bg-destructive/8 text-destructive border-destructive/20",
+  cancelled: "bg-muted text-muted-foreground border-border",
 };
 
 export function BillingDashboard({
@@ -364,7 +364,7 @@ export function BillingDashboard({
               ${formatNumber(stats.totalInvoiced)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 font-medium flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-emerald-500" /> +8.2% vs mes anterior
+              <TrendingUp className="h-3 w-3 text-secondary" /> +8.2% vs mes anterior
             </p>
           </CardContent>
         </Card>
@@ -374,16 +374,16 @@ export function BillingDashboard({
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
               {isDentist ? "Pagado" : "Cobrado"}
             </p>
-            <div className="p-2 rounded-xl bg-emerald-500/10 transition-colors">
-              <CheckCircle className="h-4 w-4 text-emerald-600" />
+            <div className="p-2 rounded-xl bg-secondary/10 transition-colors">
+              <CheckCircle className="h-4 w-4 text-secondary" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold tracking-tight text-emerald-600">
+            <div className="text-3xl font-bold tracking-tight text-secondary">
               ${formatNumber(stats.totalPaid)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 font-medium flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Estado al día
+              <span className="h-1.5 w-1.5 rounded-full bg-secondary animate-pulse" /> Estado al día
             </p>
           </CardContent>
         </Card>
@@ -443,7 +443,7 @@ export function BillingDashboard({
               </div>
               <div className={cn(
                 "flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg",
-                Number(monthGrowth) >= 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-500"
+                Number(monthGrowth) >= 0 ? "bg-secondary/10 text-secondary" : "bg-muted text-muted-foreground"
               )}>
                 {Number(monthGrowth) >= 0 ? (
                   <TrendingUp className="h-3 w-3" />
@@ -473,18 +473,19 @@ export function BillingDashboard({
         </Card>
 
         {overdueInvoices.length > 0 && (
-          <Card className="border border-rose-200 shadow-sm bg-rose-50/50">
-            <CardContent className="pt-6">
+          <Card className="border-0 overflow-hidden shadow-sm">
+            <div className="h-0.5 w-full bg-gradient-to-r from-destructive/50 via-destructive/20 to-transparent" />
+            <CardContent className="pt-5 bg-destructive/[0.03]">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-rose-100">
-                  <AlertCircle className="h-5 w-5 text-rose-500" />
+                <div className="p-2 rounded-xl bg-destructive/10 border border-destructive/15">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-rose-500 mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
                     Facturas Vencidas
                   </p>
-                  <p className="text-2xl font-bold text-rose-600">{overdueInvoices.length}</p>
-                  <p className="text-[10px] text-rose-500 mt-1">
+                  <p className="text-2xl font-bold text-foreground">{overdueInvoices.length}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
                     ${formatNumber(overdueInvoices.reduce((sum, inv) => sum + Number(inv.total), 0))}
                   </p>
                 </div>
@@ -543,7 +544,7 @@ export function BillingDashboard({
                           ${formatNumber(client.pendingAmount)}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 px-2.5 py-1 text-xs font-bold">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/8 text-primary border border-primary/20 px-2.5 py-1 text-xs font-bold">
                           <Check className="h-3 w-3" />
                           Al día
                         </span>
@@ -859,7 +860,7 @@ export function BillingDashboard({
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 px-3 text-[10px] font-bold uppercase tracking-wide hover:bg-emerald-600 hover:text-white border-emerald-300 text-emerald-700 transition-all"
+                              className="h-7 px-3 text-[10px] font-bold uppercase tracking-wide hover:bg-secondary hover:text-white border-secondary/40 text-secondary transition-all"
                               onClick={() => handleMarkAsPaid(invoice.id)}
                             >
                               <Check className="h-3 w-3 mr-1" /> Pagada
@@ -922,7 +923,7 @@ export function BillingDashboard({
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-7 px-2.5 text-[10px] font-bold hover:bg-emerald-600 hover:text-white border-emerald-300 text-emerald-700"
+                          className="h-7 px-2.5 text-[10px] font-bold hover:bg-secondary hover:text-white border-secondary/40 text-secondary"
                           onClick={() => handleMarkAsPaid(invoice.id)}
                         >
                           <Check className="h-3 w-3 mr-1" /> Pagada
@@ -968,13 +969,13 @@ export function BillingDashboard({
                     <div
                       className={cn(
                         "flex h-10 w-10 items-center justify-center rounded-xl transition-transform group-hover:scale-110 shadow-sm",
-                        movement.type === "charge" ? "bg-emerald-500/10" : "bg-[#d2f2f3]"
+                        movement.type === "charge" ? "bg-primary/8" : "bg-secondary/10"
                       )}
                     >
                       {movement.type === "charge" ? (
-                        <TrendingUp className="h-5 w-5 text-emerald-600" />
+                        <TrendingUp className="h-5 w-5 text-primary" />
                       ) : (
-                        <TrendingDown className="h-5 w-5 text-[#09919b]" />
+                        <TrendingDown className="h-5 w-5 text-secondary" />
                       )}
                     </div>
                     <div>
@@ -990,7 +991,7 @@ export function BillingDashboard({
                   <span
                     className={cn(
                       "font-bold text-lg",
-                      movement.type === "charge" ? "text-emerald-600" : "text-[#09919b]"
+                      movement.type === "charge" ? "text-primary" : "text-secondary"
                     )}
                   >
                     {movement.type === "charge" ? "+" : "-"}$

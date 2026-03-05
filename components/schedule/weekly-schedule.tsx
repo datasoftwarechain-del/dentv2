@@ -17,6 +17,7 @@ import {
   User,
   AlertCircle,
 } from "lucide-react";
+import { formatWorkType } from "@/lib/work-types";
 import Link from "next/link";
 
 interface Order {
@@ -251,16 +252,16 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
               <div className={cn(
                 "text-3xl font-bold",
                 isDentist
-                  ? (todayAppointments > 0 ? "text-[#09919b]" : "text-slate-600")
-                  : (urgentOrders > 0 ? "text-indigo-600" : "text-emerald-600")
+                  ? (todayAppointments > 0 ? "text-secondary" : "text-muted-foreground")
+                  : (urgentOrders > 0 ? "text-secondary" : "text-muted-foreground")
               )}>
                 {isDentist ? todayAppointments : urgentOrders}
               </div>
               <Clock className={cn(
                 "h-4 w-4",
                 isDentist
-                  ? (todayAppointments > 0 ? "text-[#09919b]" : "text-slate-600")
-                  : (urgentOrders > 0 ? "text-indigo-600" : "text-emerald-600")
+                  ? (todayAppointments > 0 ? "text-secondary" : "text-muted-foreground")
+                  : (urgentOrders > 0 ? "text-secondary" : "text-muted-foreground")
               )} />
             </div>
           </CardContent>
@@ -405,7 +406,7 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
                                       className={cn(
                                         "text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0 leading-none shrink-0",
                                         appointment.status === "confirmed"
-                                          ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                                          ? "bg-secondary/[0.08] text-secondary border-secondary/25"
                                           : appointment.status === "cancelled"
                                           ? "bg-rose-50 text-rose-700 border-rose-300"
                                           : "bg-amber-50 text-amber-700 border-amber-300"
@@ -500,13 +501,13 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
                                         <Badge
                                           key={idx}
                                           variant="secondary"
-                                          className="text-[9px] px-1.5 py-0 font-medium max-w-full truncate"
+                                          className="text-[9px] px-1.5 py-0 font-medium max-w-full truncate bg-secondary/10 text-secondary border-secondary/20"
                                         >
-                                          {item.work_type.replace(/_/g, " ")}
+                                          {formatWorkType(item.work_type)}
                                         </Badge>
                                       ))}
                                       {order.items.length > 1 && (
-                                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0">
+                                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 shrink-0 bg-muted text-muted-foreground">
                                           +{order.items.length - 1}
                                         </Badge>
                                       )}
@@ -541,21 +542,26 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
 
       {/* Urgent Orders Alert */}
       {urgentOrders > 0 && (
-        <Card className="border-indigo-200 bg-indigo-50 dark:border-indigo-900/30 dark:bg-indigo-950/20">
-          <CardContent className="flex items-center gap-4 p-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/20">
-              <AlertCircle className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+        <Card className="border-0 overflow-hidden shadow-sm">
+          <div className="h-0.5 w-full bg-gradient-to-r from-secondary via-secondary/40 to-transparent" />
+          <CardContent className="flex items-center gap-4 p-4 bg-secondary/[0.04]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary/10 border border-secondary/20 shrink-0">
+              <AlertCircle className="h-4 w-4 text-secondary" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-indigo-900 dark:text-indigo-300">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-foreground">
                 {urgentOrders} {urgentOrders === 1 ? "entrega urgente" : "entregas urgentes"}
               </p>
-              <p className="text-xs text-indigo-700 dark:text-indigo-400">
+              <p className="text-xs text-muted-foreground">
                 Requieren atención en las próximas 48 horas
               </p>
             </div>
             <Link href="/dashboard/orders">
-              <Button size="sm" variant="outline" className="border-indigo-300 hover:bg-indigo-100 dark:border-indigo-800 dark:hover:bg-indigo-900/30">
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 border-secondary/30 text-secondary hover:bg-secondary/8 hover:border-secondary/50 text-xs font-semibold"
+              >
                 Ver Pedidos
               </Button>
             </Link>

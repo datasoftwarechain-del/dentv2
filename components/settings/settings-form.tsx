@@ -288,7 +288,7 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
   return (
     <div className="max-w-2xl space-y-6">
       {success && (
-        <Alert className="border-green-200 bg-green-50 text-green-800">
+        <Alert className="border-secondary/25 bg-secondary/[0.08] text-secondary">
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
