@@ -119,8 +119,9 @@ export function KanbanBoard({ orders }: KanbanBoardProps) {
           <div className="space-y-3">
             {getOrdersByStatus(column.id).map((order) => {
               const daysUntilDue = getDaysUntilDue(order.due_date);
-              const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
-              const isUrgent = daysUntilDue !== null && daysUntilDue <= 2 && daysUntilDue >= 0;
+              const isDelivered = order.status === "delivered";
+              const isOverdue = !isDelivered && daysUntilDue !== null && daysUntilDue < 0;
+              const isUrgent = !isDelivered && daysUntilDue !== null && daysUntilDue <= 2 && daysUntilDue >= 0;
               const firstItem = order.items?.[0];
               const workType = firstItem?.work_type || "";
               const toothPositions = firstItem?.tooth_positions || null;

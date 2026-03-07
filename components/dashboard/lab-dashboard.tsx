@@ -16,8 +16,9 @@ import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog";
 import { DeliveryAlerts } from "@/components/dashboard/delivery-alerts";
 import { WorksInProgressList } from "@/app/dashboard/laboratory/components/WorksInProgressList";
 import {
-  Building2, ArrowRight, TrendingUp,
+  Building2, ArrowRight, TrendingUp, CalendarClock,
 } from "lucide-react";
+import { formatWorkType } from "@/lib/work-types";
 
 interface Patient  { id: string; first_name: string; last_name: string; }
 interface Org      { id: string; name: string; }
@@ -30,6 +31,7 @@ interface Order {
   patient: Patient | Patient[] | null;
   dentist_org: Org | Org[] | null;
   lab_org?: Org | Org[] | null;
+  items?: Array<{ work_type: string; catalog_item: { name: string } | null }> | null;
 }
 
 interface LabDashboardProps {
@@ -468,36 +470,62 @@ export function LabDashboard({
                 {recentOrders.map((order) => {
                   const p   = Array.isArray(order.patient)     ? order.patient[0]     : order.patient;
                   const org = Array.isArray(order.dentist_org) ? order.dentist_org[0] : order.dentist_org;
+                  const firstItem = order.items?.[0];
+                  const workLabel = firstItem
+                    ? (firstItem.catalog_item?.name || formatWorkType(firstItem.work_type))
+                    : null;
                   return (
                     <Link
                       key={order.id}
                       href={`/dashboard/orders/${order.id}`}
-                      className="flex items-center justify-between px-5 py-3 hover:bg-muted/20 transition-colors"
+                      className="flex items-center justify-between px-5 py-3.5 hover:bg-muted/20 transition-colors group"
                     >
+                      {/* Left: order # + info */}
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="font-mono text-[11px] font-bold text-[#0d687d] bg-[#d2f2f3] border border-[#b0dde0] px-2 py-0.5 rounded-md shrink-0">
+                        <span className="font-mono text-[11px] font-bold text-[#0d687d] bg-[#d2f2f3] border border-[#b0dde0] px-2 py-1 rounded-md shrink-0 leading-none">
                           {order.order_number}
                         </span>
-                        <div className="min-w-0">
-                          {p && (
-                            <p className="text-xs font-semibold text-foreground truncate">
-                              {p.first_name} {p.last_name}
-                            </p>
-                          )}
+                        <div className="min-w-0 space-y-0.5">
+                          {/* Line 1: patient name + work type chip */}
+                          <div className="flex items-center gap-2 min-w-0">
+                            {p ? (
+                              <p className="text-[13px] font-semibold text-foreground truncate leading-tight">
+                                {p.first_name} {p.last_name}
+                              </p>
+                            ) : (
+                              <p className="text-[13px] font-semibold text-muted-foreground">Sin paciente</p>
+                            )}
+                            {workLabel && (
+                              <span className="hidden sm:inline-flex text-[10px] font-semibold text-[#0d687d] bg-[#d2f2f3] border border-[#b0dde0] px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+                                {workLabel}
+                              </span>
+                            )}
+                          </div>
+                          {/* Line 2: org name */}
                           {org && (
-                            <p className="text-[10px] text-muted-foreground flex items-center gap-1 truncate">
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate">
                               <Building2 className="h-2.5 w-2.5 shrink-0" />{org.name}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        <span className="text-[10px] text-muted-foreground hidden sm:block">
-                          {formatShortDate(order.created_at)}
-                        </span>
+
+                      {/* Right: due date + status */}
+                      <div className="flex items-center gap-3 shrink-0 ml-3">
+                        {order.due_date ? (
+                          <div className="hidden sm:flex flex-col items-end gap-0.5">
+                            <span className="text-[9px] font-medium text-muted-foreground/70 uppercase tracking-wide">Entrega</span>
+                            <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                              <CalendarClock className="h-3 w-3 text-muted-foreground" />
+                              {formatShortDate(order.due_date)}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="hidden sm:block text-[10px] text-muted-foreground/50">Sin fecha</span>
+                        )}
                         <Badge
                           variant="outline"
-                          className={cn("text-[9px] font-semibold uppercase tracking-wide", statusColors[order.status])}
+                          className={cn("text-[9px] font-semibold uppercase tracking-wide shrink-0", statusColors[order.status])}
                         >
                           {statusLabels[order.status] || order.status}
                         </Badge>

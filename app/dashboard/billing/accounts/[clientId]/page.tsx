@@ -9,6 +9,8 @@ interface PageProps {
   }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function ClientAccountPage({ params }: PageProps) {
   const resolvedParams = await params;
   const supabase = await createClient();
@@ -83,13 +85,15 @@ export default async function ClientAccountPage({ params }: PageProps) {
     .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
     .order("created_at", { ascending: false });
 
-  // Calculate balance from invoices, payments and manual charge adjustments
-  const totalInvoiced = invoices?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
-  const totalPaid    = movements?.filter(m => m.type === "payment").reduce((sum, m) => sum + Number(m.amount), 0) || 0;
-  const totalCharges = movements?.filter(m => m.type === "charge").reduce((sum, m) => sum + Number(m.amount), 0) || 0;
+  // Calculate balance — same logic as UnifiedAccountStatement:
+  // charges add to balance, everything else (payments + any other type) reduces it
+  const totalInvoiced = (invoices || []).reduce((sum, inv) => sum + Number(inv.total), 0);
+  const totalPaid     = (movements || []).filter(m => m.type === "payment").reduce((sum, m) => sum + Number(m.amount), 0);
+  const totalCharges  = (movements || []).filter(m => m.type === "charge").reduce((sum, m) => sum + Number(m.amount), 0);
+  const otherCredits  = (movements || []).filter(m => m.type !== "payment" && m.type !== "charge").reduce((sum, m) => sum + Number(m.amount), 0);
 
-  // balance = facturas + cargos manuales - cobros/pagos
-  const balance = totalInvoiced + totalCharges - totalPaid;
+  // Mirrors the running balance in UnifiedAccountStatement
+  const balance = totalInvoiced + totalCharges - totalPaid - otherCredits;
 
   return (
     <div className="flex flex-col">

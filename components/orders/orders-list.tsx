@@ -254,9 +254,8 @@ export function OrdersList({
 
               <TableBody>
                 {filteredOrders.map((order) => {
-                  const workLabel = order.items?.[0]?.work_type
-                    ? formatWorkType(order.items[0].work_type)
-                    : null;
+                  const workLabel = order.items?.[0]?.catalog_item?.name
+                    || (order.items?.[0]?.work_type ? formatWorkType(order.items[0].work_type) : null);
 
                   const isActive = !["delivered", "cancelled"].includes(order.status);
                   const overdue = isActive && order.due_date ? isOverdue(order.due_date) : false;
@@ -366,9 +365,8 @@ export function OrdersList({
           {/* ── Mobile card list ── */}
           <div className="sm:hidden divide-y divide-border/60">
             {filteredOrders.map((order) => {
-                const workLabel = order.items?.[0]?.work_type
-                ? formatWorkType(order.items[0].work_type)
-                : null;
+                const workLabel = order.items?.[0]?.catalog_item?.name
+                  || (order.items?.[0]?.work_type ? formatWorkType(order.items[0].work_type) : null);
               const isActive = !["delivered", "cancelled"].includes(order.status);
               const overdue = isActive && order.due_date ? isOverdue(order.due_date) : false;
               const urgent  = isActive && order.due_date ? isUrgent(order.due_date) : false;

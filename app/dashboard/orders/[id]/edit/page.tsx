@@ -40,6 +40,7 @@ export default async function EditOrderPage({
         shade,
         quantity,
         unit_price,
+        selected_extras,
         catalog_item:price_catalog(name)
       )
     `)
@@ -65,10 +66,13 @@ export default async function EditOrderPage({
   const items = (order.items || []).map((item: any) => ({
     id: item.id,
     work_type: item.work_type,
-    tooth_positions: item.tooth_positions,
+    tooth_positions: Array.isArray(item.tooth_positions)
+      ? item.tooth_positions.join(", ")
+      : (item.tooth_positions ?? ""),
     shade: item.shade,
     quantity: item.quantity ?? 1,
     unit_price: item.unit_price,
+    selected_extras: Array.isArray(item.selected_extras) ? item.selected_extras : [],
     catalog_item_name: Array.isArray(item.catalog_item)
       ? item.catalog_item[0]?.name ?? null
       : item.catalog_item?.name ?? null,

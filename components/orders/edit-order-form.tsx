@@ -33,6 +33,12 @@ interface Patient {
   last_name: string;
 }
 
+interface Extra {
+  name: string;
+  price: number;
+  qty: number;
+}
+
 interface OrderItem {
   id: string;
   work_type: string | null;
@@ -40,6 +46,7 @@ interface OrderItem {
   shade: string | null;
   quantity: number;
   unit_price: number | null;
+  selected_extras: Extra[];
   catalog_item_name?: string | null;
 }
 
@@ -91,6 +98,7 @@ function blankItem(): Omit<OrderItem, "id"> & { _tempId: string } {
     shade: "",
     quantity: 1,
     unit_price: null,
+    selected_extras: [],
     catalog_item_name: null,
   };
 }
@@ -193,15 +201,22 @@ export function EditOrderForm({
         if (delError) throw delError;
       }
 
+      // helper: form stores tooth_positions as a plain string; DB column is text[]
+      function toToothArray(s: string | null): string[] | null {
+        if (!s || !s.trim()) return null;
+        return s.split(",").map((v) => v.trim()).filter(Boolean);
+      }
+
       // 3. Update existing items
       for (const item of existingItems) {
         const { error: updError } = await supabase
           .from("lab_order_items")
           .update({
             work_type: item.work_type || null,
-            tooth_positions: item.tooth_positions || null,
+            tooth_positions: toToothArray(item.tooth_positions),
             shade: item.shade || null,
             quantity: item.quantity || 1,
+            selected_extras: item.selected_extras,
           })
           .eq("id", item.id);
         if (updError) throw updError;
@@ -213,10 +228,11 @@ export function EditOrderForm({
         .map(({ _tempId: _, ...item }) => ({
           order_id: order.id,
           work_type: item.work_type || null,
-          tooth_positions: item.tooth_positions || null,
+          tooth_positions: toToothArray(item.tooth_positions),
           shade: item.shade || null,
           quantity: item.quantity || 1,
           unit_price: item.unit_price || null,
+          selected_extras: item.selected_extras,
         }));
 
       if (itemsToInsert.length > 0) {
@@ -383,10 +399,14 @@ export function EditOrderForm({
               toothPositions={item.tooth_positions || ""}
               shade={item.shade || ""}
               quantity={item.quantity}
+              extras={item.selected_extras}
               onWorkTypeChange={(v) => updateExistingItem(item.id, "work_type", v)}
               onToothChange={(v) => updateExistingItem(item.id, "tooth_positions", v)}
               onShadeChange={(v) => updateExistingItem(item.id, "shade", v)}
               onQuantityChange={(v) => updateExistingItem(item.id, "quantity", v)}
+              onExtrasChange={(extras) => setExistingItems((prev) =>
+                prev.map((i) => i.id === item.id ? { ...i, selected_extras: extras } : i)
+              )}
               onRemove={() => removeExistingItem(item.id)}
             />
           ))}
@@ -402,10 +422,14 @@ export function EditOrderForm({
               toothPositions={item.tooth_positions || ""}
               shade={item.shade || ""}
               quantity={item.quantity}
+              extras={item.selected_extras}
               onWorkTypeChange={(v) => updateNewItem(item._tempId, "work_type", v)}
               onToothChange={(v) => updateNewItem(item._tempId, "tooth_positions", v)}
               onShadeChange={(v) => updateNewItem(item._tempId, "shade", v)}
               onQuantityChange={(v) => updateNewItem(item._tempId, "quantity", v)}
+              onExtrasChange={(extras) => setNewItems((prev) =>
+                prev.map((i) => i._tempId === item._tempId ? { ...i, selected_extras: extras } : i)
+              )}
               onRemove={() => removeNewItem(item._tempId)}
             />
           ))}
@@ -446,10 +470,12 @@ interface ItemRowProps {
   toothPositions: string;
   shade: string;
   quantity: number;
+  extras: Extra[];
   onWorkTypeChange: (v: string) => void;
   onToothChange: (v: string) => void;
   onShadeChange: (v: string) => void;
   onQuantityChange: (v: number) => void;
+  onExtrasChange: (extras: Extra[]) => void;
   onRemove: () => void;
 }
 
@@ -461,12 +487,34 @@ function ItemRow({
   toothPositions,
   shade,
   quantity,
+  extras,
   onWorkTypeChange,
   onToothChange,
   onShadeChange,
   onQuantityChange,
+  onExtrasChange,
   onRemove,
 }: ItemRowProps) {
+  const [newExtraName, setNewExtraName] = useState("");
+  const [newExtraPrice, setNewExtraPrice] = useState("");
+
+  function addExtra() {
+    const name = newExtraName.trim();
+    const price = parseFloat(newExtraPrice);
+    if (!name || isNaN(price) || price < 0) return;
+    onExtrasChange([...extras, { name, price, qty: 1 }]);
+    setNewExtraName("");
+    setNewExtraPrice("");
+  }
+
+  function removeExtra(i: number) {
+    onExtrasChange(extras.filter((_, idx) => idx !== i));
+  }
+
+  function updateExtraPrice(i: number, price: number) {
+    onExtrasChange(extras.map((e, idx) => idx === i ? { ...e, price } : e));
+  }
+
   return (
     <div className="rounded-xl border border-border/60 bg-muted/10 p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -493,7 +541,6 @@ function ItemRow({
       <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">Tipo de trabajo</Label>
         {catalogName && !isNew ? (
-          // Catalog-based item: show name + allow override via select
           <div className="space-y-1.5">
             <p className="text-sm font-semibold text-foreground">{catalogName}</p>
             <p className="text-[11px] text-muted-foreground">
@@ -501,7 +548,7 @@ function ItemRow({
             </p>
           </div>
         ) : (
-          <Select value={workType} onValueChange={onWorkTypeChange}>
+          <Select value={workType || undefined} onValueChange={onWorkTypeChange}>
             <SelectTrigger className="h-9 text-sm">
               <SelectValue placeholder="Seleccionar tipo..." />
             </SelectTrigger>
@@ -517,7 +564,6 @@ function ItemRow({
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        {/* Tooth positions */}
         <div className="col-span-2 space-y-1.5">
           <Label className="text-xs text-muted-foreground">Piezas dentales</Label>
           <Input
@@ -527,7 +573,6 @@ function ItemRow({
             onChange={(e) => onToothChange(e.target.value)}
           />
         </div>
-        {/* Shade */}
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Color / Shade</Label>
           <Input
@@ -539,7 +584,6 @@ function ItemRow({
         </div>
       </div>
 
-      {/* Quantity */}
       <div className="space-y-1.5 max-w-[120px]">
         <Label className="text-xs text-muted-foreground">Cantidad</Label>
         <Input
@@ -549,6 +593,71 @@ function ItemRow({
           value={quantity}
           onChange={(e) => onQuantityChange(parseInt(e.target.value) || 1)}
         />
+      </div>
+
+      {/* ── Extras ── */}
+      <div className="space-y-2 pt-1 border-t border-border/40">
+        <Label className="text-xs text-muted-foreground">Extras / Adicionales</Label>
+
+        {/* Existing extras */}
+        {extras.length > 0 && (
+          <div className="space-y-1.5">
+            {extras.map((extra, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="flex-1 text-xs font-medium text-foreground truncate">{extra.name}</span>
+                <span className="text-[10px] text-muted-foreground">$</span>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  className="h-7 text-xs w-24 px-2"
+                  value={extra.price}
+                  onChange={(e) => updateExtraPrice(i, parseFloat(e.target.value) || 0)}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                  onClick={() => removeExtra(i)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add new extra */}
+        <div className="flex items-center gap-2">
+          <Input
+            placeholder="Nombre del extra"
+            className="h-7 text-xs flex-1"
+            value={newExtraName}
+            onChange={(e) => setNewExtraName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addExtra())}
+          />
+          <span className="text-[10px] text-muted-foreground">$</span>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            placeholder="0.00"
+            className="h-7 text-xs w-24 px-2"
+            value={newExtraPrice}
+            onChange={(e) => setNewExtraPrice(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addExtra())}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 px-2 text-[11px] border-[#09919b]/40 text-[#09919b] hover:bg-[#09919b]/10 shrink-0"
+            onClick={addExtra}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+        </div>
       </div>
     </div>
   );

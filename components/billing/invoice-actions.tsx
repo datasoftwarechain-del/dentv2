@@ -135,8 +135,21 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
     try {
       const { generateInvoiceBlob } = await import("@/lib/invoice-export");
       const blob = await generateInvoiceBlob(invoiceWithBalance, isDentist);
+      const fileName = `Factura_${invoice.invoice_number}.png`;
+      const file = new File([blob], fileName, { type: "image/png" });
 
-      // Intentar copiar imagen al portapapeles
+      // Web Share API: abre el selector nativo (WhatsApp, etc.) en móvil y Chrome/Edge desktop
+      if (typeof navigator.share === "function" && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `Factura ${invoice.invoice_number}`,
+          text: `Factura DigitalDent #${invoice.invoice_number}`,
+        });
+        // El usuario eligió la app — no hace falta toast
+        return;
+      }
+
+      // Fallback desktop: copiar al portapapeles + descargar + abrir WhatsApp Web
       let copiedToClipboard = false;
       try {
         await navigator.clipboard.write([
@@ -144,32 +157,35 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
         ]);
         copiedToClipboard = true;
       } catch {
-        // Clipboard no disponible — descargar el archivo
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `Factura_${invoice.invoice_number}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        // Portapapeles no disponible
       }
+
+      // Descargar imagen
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
       // Abrir WhatsApp Web
       window.open("https://web.whatsapp.com/", "_blank");
 
       if (copiedToClipboard) {
         toast.success(
-          "Imagen copiada al portapapeles. Pégala en WhatsApp con Ctrl+V / ⌘+V",
-          { duration: 6000 }
+          "Imagen copiada al portapapeles. En WhatsApp pega con Ctrl+V / Cmd+V",
+          { duration: 8000 }
         );
       } else {
         toast.info(
-          "Imagen descargada. Adjúntala manualmente en WhatsApp.",
-          { duration: 6000 }
+          'Imagen descargada. En WhatsApp usa el clip para adjuntarla.',
+          { duration: 8000 }
         );
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === "AbortError") return; // Usuario canceló el share dialog
       console.error("Error al preparar WhatsApp:", error);
       toast.error("Error al generar la imagen de la factura");
     } finally {
