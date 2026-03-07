@@ -60,6 +60,10 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
   const hasTax = invoice.tax_amount > 0;
   const showBalance = balanceBefore !== undefined && balanceAfter !== undefined;
 
+  // Supabase returns FK joins as arrays — normalize to single object
+  const labOrg  = Array.isArray(invoice.lab_org)     ? invoice.lab_org[0]     : invoice.lab_org;
+  const dentOrg = Array.isArray(invoice.dentist_org) ? invoice.dentist_org[0] : invoice.dentist_org;
+
   return (
     <div className={cn("rounded-2xl overflow-hidden shadow-xl border border-[#b0dde0]/40 bg-white", className)}>
 
@@ -112,7 +116,7 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
             </p>
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-[#09919b] shrink-0" />
-              <span className="font-bold text-[#044c64] text-base">{invoice.lab_org?.name || "—"}</span>
+              <span className="font-bold text-[#044c64] text-base">{labOrg?.name || "—"}</span>
             </div>
           </div>
           <div className="bg-white px-6 py-5">
@@ -121,7 +125,7 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
             </p>
             <div className="flex items-center gap-2">
               <Building2 className="h-4 w-4 text-[#09919b] shrink-0" />
-              <span className="font-bold text-[#044c64] text-base">{invoice.dentist_org?.name || "—"}</span>
+              <span className="font-bold text-[#044c64] text-base">{dentOrg?.name || "—"}</span>
             </div>
           </div>
         </div>

@@ -73,7 +73,8 @@ export default async function DashboardPage() {
         .select(`
           id, order_number, status, created_at, due_date,
           patient:patients(id, first_name, last_name),
-          dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name)
+          dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
+          items:lab_order_items(work_type, catalog_item:price_catalog(name))
         `)
         .eq("lab_org_id", org.id)
         .order("created_at", { ascending: false })
@@ -179,7 +180,8 @@ export default async function DashboardPage() {
         created_at,
         due_date,
         patient:patients(id, first_name, last_name),
-        lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
+        lab_org:organizations!lab_orders_lab_org_id_fkey(id, name),
+        items:lab_order_items(work_type, catalog_item:price_catalog(name))
       `)
       .eq("dentist_org_id", org.id)
       .order("created_at", { ascending: false })

@@ -37,10 +37,11 @@ export async function recalculateBalances(
 
   if (movements) {
     for (const mov of movements) {
-      if (mov.type === "payment") {
-        runningBalance -= Number(mov.amount);
-      } else if (mov.type === "charge") {
+      if (mov.type === "charge") {
         runningBalance += Number(mov.amount);
+      } else {
+        // "payment" and any other type reduce the balance
+        runningBalance -= Number(mov.amount);
       }
 
       logger.log(`Movimiento ${mov.id}: tipo=${mov.type}, monto=${mov.amount}, balance=${runningBalance}`);

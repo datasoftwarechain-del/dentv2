@@ -181,7 +181,7 @@ export default async function OrderDetailsPage({
                                                             ? item.catalog_item[0]?.name
                                                             : item.catalog_item?.name;
                                                         const workLabel = catalogName || formatWorkType(item.work_type) || "—";
-                                                        const extras: { name: string; qty: number }[] =
+                                                        const extras: { name: string; price?: number; qty: number }[] =
                                                             Array.isArray(item.selected_extras) ? item.selected_extras : [];
                                                         return (
                                                             <tr key={item.id} className="hover:bg-muted/30 transition-colors">
@@ -190,14 +190,21 @@ export default async function OrderDetailsPage({
                                                                     {extras.length > 0 && (
                                                                         <div className="mt-1 space-y-0.5">
                                                                             {extras.map((e, i) => (
-                                                                                <p key={i} className="text-xs text-muted-foreground font-normal">
-                                                                                    + {e.name}{e.qty > 1 ? ` ×${e.qty}` : ""}
+                                                                                <p key={i} className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
+                                                                                    <span>+ {e.name}{e.qty > 1 ? ` ×${e.qty}` : ""}</span>
+                                                                                    {e.price != null && e.price > 0 && (
+                                                                                        <span className="text-[#09919b] font-medium">${e.price * e.qty}</span>
+                                                                                    )}
                                                                                 </p>
                                                                             ))}
                                                                         </div>
                                                                     )}
                                                                 </td>
-                                                                <td className="px-4 py-4">{item.tooth_positions || "Varias"}</td>
+                                                                <td className="px-4 py-4">
+                                                                    {Array.isArray(item.tooth_positions)
+                                                                        ? item.tooth_positions.join(", ") || "Varias"
+                                                                        : item.tooth_positions || "Varias"}
+                                                                </td>
                                                                 <td className="px-4 py-4">
                                                                     <Badge variant="secondary" className="font-bold">{item.shade || "N/A"}</Badge>
                                                                 </td>

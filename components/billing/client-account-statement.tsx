@@ -170,6 +170,24 @@ export function ClientAccountStatement({
     notes: "",
   });
 
+  // Compute per-invoice running balances (interleaving invoices + movements chronologically)
+  const invoiceBalances = React.useMemo(() => {
+    const events = [
+      ...invoices.map(inv => ({ date: inv.created_at, kind: "invoice" as const, id: inv.id, amount: Number(inv.total) })),
+      ...movements.map(mov => ({ date: mov.created_at, kind: (mov.type === "charge" ? "charge" : "payment") as const, id: mov.id, amount: Number(mov.amount) })),
+    ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    const map: Record<string, { before: number; after: number }> = {};
+    let running = 0;
+    for (const e of events) {
+      const prev = running;
+      if (e.kind === "invoice" || e.kind === "charge") running += e.amount;
+      else running -= e.amount;
+      if (e.kind === "invoice") map[e.id] = { before: prev, after: running };
+    }
+    return map;
+  }, [invoices, movements]);
+
   // Función para ordenar
   function handleSort(field: "invoice_number" | "patient_name" | "work_type" | "delivery_date") {
     if (sortField === field) {
@@ -986,15 +1004,18 @@ export function ClientAccountStatement({
                             {statusLabels[invoice.status] || invoice.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-bold text-base tabular-nums">
-                          ${formatNumber(invoice.total)}
+                        <TableCell className="text-right tabular-nums">
+                          <span className="font-bold text-base">${formatNumber(invoice.total)}</span>
+                          {invoice.tax_amount > 0 && (
+                            <div className="text-[9px] font-bold uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 inline-block ml-1.5 whitespace-nowrap">IVA</div>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <InvoiceActions
                             invoice={invoice}
                             isDentist={isDentist}
-                            balanceBefore={Math.max(0, balance - invoice.total)}
-                            balanceAfter={balance}
+                            balanceBefore={invoiceBalances[invoice.id]?.before ?? 0}
+                            balanceAfter={invoiceBalances[invoice.id]?.after ?? balance}
                           />
                         </TableCell>
                       </TableRow>

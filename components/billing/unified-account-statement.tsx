@@ -42,10 +42,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FileText, TrendingUp, TrendingDown, Calendar, Edit2, Trash2, DollarSign, Loader2, User, Percent, Download, ArrowUp, ArrowDown } from "lucide-react";
+import { FileText, TrendingUp, TrendingDown, Calendar, Edit2, Trash2, DollarSign, Loader2, User, Percent, Download, ArrowUp, ArrowDown, Eye } from "lucide-react";
 import { toast } from "sonner";
+import Link from "next/link";
 
 import { formatWorkType } from "@/lib/work-types";
+import { InvoiceDetail } from "./invoice-detail";
 
 interface Organization {
   id: string;
@@ -53,16 +55,22 @@ interface Organization {
 }
 
 interface OrderItem {
-  catalog_item: { name: string } | null;
+  id?: string;
+  catalog_item: { name: string; base_price: number } | null;
   work_type: string;
+  unit_price?: number | null;
+  quantity?: number;
+  selected_extras?: { name: string; price: number; qty?: number }[];
 }
 
 interface Invoice {
   id: string;
   invoice_number: string;
   total: number;
+  tax_amount: number;
   status: string;
   created_at: string;
+  order_id?: string | null;
   patient_name?: string | null;
   work_type?: string | null;
   order_items?: OrderItem[];
@@ -86,6 +94,8 @@ interface UnifiedTransaction {
   credit: number; // Abono (pago)
   balance: number;
   status?: string;
+  has_tax?: boolean;
+  order_id?: string | null;
 }
 
 interface UnifiedAccountStatementProps {
@@ -121,6 +131,8 @@ export function UnifiedAccountStatement({
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editInvoiceDialogOpen, setEditInvoiceDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [viewInvoiceOpen, setViewInvoiceOpen] = useState(false);
+  const [viewInvoiceData, setViewInvoiceData] = useState<{ invoice: Invoice; balanceBefore: number; balanceAfter: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedMovement, setSelectedMovement] = useState<LedgerMovement | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
@@ -156,6 +168,8 @@ export function UnifiedAccountStatement({
       credit: 0,
       balance: 0, // Se calculará después
       status: inv.status,
+      has_tax: Number(inv.tax_amount) > 0,
+      order_id: inv.order_id || null,
     });
   });
 
@@ -227,12 +241,18 @@ export function UnifiedAccountStatement({
 
   function handleEditInvoiceClick(invoice: Invoice) {
     setSelectedInvoice(invoice);
+    const taxAmt = Number(invoice.tax_amount) || 0;
+    const hasTax = taxAmt > 0;
+    const subtotalVal = hasTax ? invoice.total - taxAmt : invoice.total;
+    const computedRate = hasTax && subtotalVal > 0
+      ? Math.round(taxAmt / subtotalVal * 100).toString()
+      : "10";
     setEditInvoiceFormData({
-      subtotal: invoice.total.toString(), // pre-load with current total as subtotal
+      subtotal: subtotalVal.toFixed(2),
       patient_name: invoice.patient_name || "",
       work_type: invoice.work_type || "",
-      applyIva: false,
-      ivaRate: "10",
+      applyIva: hasTax,
+      ivaRate: computedRate,
     });
     setEditInvoiceDialogOpen(true);
   }
@@ -490,7 +510,23 @@ export function UnifiedAccountStatement({
                         ) : (
                           <TrendingDown className="h-3.5 w-3.5 text-secondary00/70 flex-shrink-0" />
                         )}
-                        <span className="text-[13px] font-medium text-slate-800 leading-snug">{transaction.description}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[13px] font-medium text-slate-800 leading-snug">{transaction.description}</span>
+                            {transaction.has_tax && (
+                              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-1.5 py-0.5">IVA</span>
+                            )}
+                          </div>
+                          {transaction.type === "invoice" && transaction.order_id && (
+                            <Link
+                              href={`/dashboard/orders/${transaction.order_id}`}
+                              className="text-[11px] text-primary/70 hover:text-primary hover:underline font-medium transition-colors w-fit"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              Ver orden →
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="min-w-[140px]">
@@ -532,17 +568,38 @@ export function UnifiedAccountStatement({
                     <TableCell>
                       <div className="flex justify-center gap-1">
                         {transaction.type === "invoice" ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                            onClick={() => {
-                              const invoice = invoices.find(inv => inv.id === transaction.id);
-                              if (invoice) handleEditInvoiceClick(invoice);
-                            }}
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-[#d2f2f3] hover:text-[#0d687d] transition-colors"
+                              title="Ver factura"
+                              onClick={() => {
+                                const invoice = invoices.find(inv => inv.id === transaction.id);
+                                if (invoice) {
+                                  setViewInvoiceData({
+                                    invoice,
+                                    balanceBefore: transaction.balance - transaction.debit,
+                                    balanceAfter: transaction.balance,
+                                  });
+                                  setViewInvoiceOpen(true);
+                                }
+                              }}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                              onClick={() => {
+                                const invoice = invoices.find(inv => inv.id === transaction.id);
+                                if (invoice) handleEditInvoiceClick(invoice);
+                              }}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
                         ) : (
                           <>
                             <Button
@@ -638,7 +695,23 @@ export function UnifiedAccountStatement({
                   ) : (
                     <TrendingDown className="h-3.5 w-3.5 text-secondary00 shrink-0 mt-[1px]" />
                   )}
-                  <span className="text-[13px] font-semibold text-slate-700 leading-snug">{transaction.description}</span>
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[13px] font-semibold text-slate-700 leading-snug">{transaction.description}</span>
+                      {transaction.has_tax && (
+                        <span className="shrink-0 text-[9px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-1.5 py-0.5">IVA</span>
+                      )}
+                    </div>
+                    {transaction.type === "invoice" && transaction.order_id && (
+                      <Link
+                        href={`/dashboard/orders/${transaction.order_id}`}
+                        className="text-[11px] text-primary/70 hover:text-primary hover:underline font-medium transition-colors w-fit"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Ver orden →
+                      </Link>
+                    )}
+                  </div>
                 </div>
 
                 {/* Fila 3: Paciente + Saldo + Acciones */}
@@ -661,15 +734,34 @@ export function UnifiedAccountStatement({
                       Saldo: ${formatNumber(Math.abs(transaction.balance))}
                     </span>
                     {transaction.type === "invoice" ? (
-                      <button
-                        className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                        onClick={() => {
-                          const invoice = invoices.find(inv => inv.id === transaction.id);
-                          if (invoice) handleEditInvoiceClick(invoice);
-                        }}
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
+                      <>
+                        <button
+                          className="p-1.5 rounded-lg text-slate-400 hover:bg-[#d2f2f3] hover:text-[#0d687d] transition-colors"
+                          title="Ver factura"
+                          onClick={() => {
+                            const invoice = invoices.find(inv => inv.id === transaction.id);
+                            if (invoice) {
+                              setViewInvoiceData({
+                                invoice,
+                                balanceBefore: transaction.balance - transaction.debit,
+                                balanceAfter: transaction.balance,
+                              });
+                              setViewInvoiceOpen(true);
+                            }
+                          }}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                          onClick={() => {
+                            const invoice = invoices.find(inv => inv.id === transaction.id);
+                            if (invoice) handleEditInvoiceClick(invoice);
+                          }}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </button>
+                      </>
                     ) : (
                       <>
                         <button
@@ -742,6 +834,40 @@ export function UnifiedAccountStatement({
         )}
 
       </CardContent>
+
+      {/* View Invoice Dialog */}
+      <Dialog open={viewInvoiceOpen} onOpenChange={setViewInvoiceOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 border-0 bg-transparent shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Factura {viewInvoiceData?.invoice.invoice_number}</DialogTitle>
+            <DialogDescription>Detalle de la factura</DialogDescription>
+          </DialogHeader>
+          {viewInvoiceData && (
+            <InvoiceDetail
+              invoice={{
+                ...viewInvoiceData.invoice,
+                subtotal: viewInvoiceData.invoice.total - viewInvoiceData.invoice.tax_amount,
+                dentist_org: null,
+                lab_org: null,
+                due_date: null,
+                order_items: (viewInvoiceData.invoice.order_items || []).map((item) => ({
+                  id: item.id ?? "",
+                  work_type: item.work_type,
+                  unit_price: item.unit_price ?? null,
+                  quantity: item.quantity ?? 1,
+                  selected_extras: item.selected_extras ?? [],
+                  catalog_item: item.catalog_item
+                    ? { name: item.catalog_item.name, base_price: item.catalog_item.base_price }
+                    : null,
+                })),
+              }}
+              isDentist={isDentist}
+              balanceBefore={viewInvoiceData.balanceBefore}
+              balanceAfter={viewInvoiceData.balanceAfter}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Movement Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

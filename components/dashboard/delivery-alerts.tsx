@@ -27,7 +27,7 @@ function OrderRow({ order, isDentist, isToday }: { order: Order; isDentist: bool
   const patient = Array.isArray(order.patient) ? order.patient[0] : order.patient;
   const orgData = isDentist ? order.lab_org : order.dentist_org;
   const org = Array.isArray(orgData) ? orgData[0] : orgData;
-  const overdue = isToday && isOverdue(order.due_date);
+  const overdue = isToday && isOverdue(order.due_date) && order.status !== "delivered";
   const statusLabel = ORDER_STATUS_LABELS[order.status] || order.status;
 
   return (

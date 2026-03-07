@@ -34,6 +34,7 @@ interface Order {
     work_type: string;
     tooth_positions: string | null;
     shade: string | null;
+    catalog_item: { name: string } | null;
   }>;
 }
 
@@ -503,7 +504,7 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
                                           variant="secondary"
                                           className="text-[9px] px-1.5 py-0 font-medium max-w-full truncate bg-secondary/10 text-secondary border-secondary/20"
                                         >
-                                          {formatWorkType(item.work_type)}
+                                          {item.catalog_item?.name || formatWorkType(item.work_type)}
                                         </Badge>
                                       ))}
                                       {order.items.length > 1 && (
