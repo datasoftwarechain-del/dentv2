@@ -174,7 +174,7 @@ export function ClientAccountStatement({
   const invoiceBalances = React.useMemo(() => {
     const events = [
       ...invoices.map(inv => ({ date: inv.created_at, kind: "invoice" as const, id: inv.id, amount: Number(inv.total) })),
-      ...movements.map(mov => ({ date: mov.created_at, kind: (mov.type === "charge" ? "charge" : "payment") as const, id: mov.id, amount: Number(mov.amount) })),
+      ...movements.map(mov => ({ date: mov.created_at, kind: (mov.type === "charge" ? "charge" as const : "payment" as const), id: mov.id, amount: Number(mov.amount) })),
     ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     const map: Record<string, { before: number; after: number }> = {};
