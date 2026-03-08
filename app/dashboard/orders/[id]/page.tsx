@@ -222,7 +222,7 @@ export default async function OrderDetailsPage({
                                 </div>
 
                                 {/* Case Files Section - Client Component */}
-                                <CaseFilesSection orderId={order.id} />
+                                <CaseFilesSection orderId={order.id} orderNumber={order.order_number} />
 
                                 {/* Notes */}
                                 {(order.notes || order.internal_notes) && (

@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, User, Building2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, User, Building2, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+import { formatWorkType } from "@/lib/work-types";
 import { ORDER_STATUS_KANBAN_COLUMNS } from "@/lib/order-status";
 
 interface Patient {
@@ -27,6 +30,7 @@ interface Order {
     work_type: string | null;
     tooth_positions: string[] | null;
     shade: string | null;
+    catalog_item: { name: string } | { name: string }[] | null;
   }[];
   notes: string | null;
   due_date: string | null;
@@ -41,21 +45,6 @@ interface KanbanBoardProps {
 
 const columns = ORDER_STATUS_KANBAN_COLUMNS;
 
-const workTypeLabels: Record<string, string> = {
-  corona_metal_ceramica: "Corona Metal-Ceramica",
-  corona_zirconia: "Corona Zirconia",
-  corona_emax: "Corona Emax",
-  puente_fijo: "Puente Fijo",
-  protesis_removible: "Protesis Removible",
-  protesis_total: "Protesis Total",
-  implante_corona: "Corona sobre Implante",
-  carilla: "Carilla",
-  incrustacion: "Incrustacion",
-  ferula: "Ferula",
-  retenedor: "Retenedor",
-  reparacion: "Reparacion",
-  otro: "Otro",
-};
 
 export function KanbanBoard({ orders }: KanbanBoardProps) {
   const router = useRouter();
@@ -123,7 +112,10 @@ export function KanbanBoard({ orders }: KanbanBoardProps) {
               const isOverdue = !isDelivered && daysUntilDue !== null && daysUntilDue < 0;
               const isUrgent = !isDelivered && daysUntilDue !== null && daysUntilDue <= 2 && daysUntilDue >= 0;
               const firstItem = order.items?.[0];
-              const workType = firstItem?.work_type || "";
+              const catalogItem = Array.isArray(firstItem?.catalog_item)
+                ? firstItem?.catalog_item[0]
+                : firstItem?.catalog_item;
+              const workLabel = catalogItem?.name || formatWorkType(firstItem?.work_type) || "Sin trabajo";
               const toothPositions = firstItem?.tooth_positions || null;
               const shade = firstItem?.shade || null;
 
@@ -141,7 +133,7 @@ export function KanbanBoard({ orders }: KanbanBoardProps) {
                         {order.order_number}
                       </CardTitle>
                       <Badge variant="outline" className="text-xs">
-                        {workTypeLabels[workType] || workType || "Sin trabajo"}
+                        {workLabel}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -171,22 +163,44 @@ export function KanbanBoard({ orders }: KanbanBoardProps) {
                           Color: {shade}
                         </div>
                       )}
-                      {order.due_date && (
+                      {isDelivered ? (
+                        <div className="flex items-center gap-2 text-emerald-600">
+                          <Clock className="h-3 w-3" />
+                          <span>Entregado</span>
+                        </div>
+                      ) : isOverdue ? (
+                        <div className="mt-1 space-y-1.5">
+                          <div className="flex items-center gap-2 text-destructive">
+                            <Clock className="h-3 w-3" />
+                            <span className="text-xs font-medium">
+                              Vencido hace {Math.abs(daysUntilDue!)} {Math.abs(daysUntilDue!) === 1 ? "dia" : "dias"}
+                            </span>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 w-full text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDrop(order.id, "delivered");
+                              toast.success(`${order.order_number} marcada como entregada`);
+                            }}
+                          >
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            ¿Ya fue entregada?
+                          </Button>
+                        </div>
+                      ) : order.due_date && (
                         <div
-                          className={`flex items-center gap-2 ${isOverdue
-                              ? "text-destructive"
-                              : isUrgent
-                                ? "text-yellow-600"
-                                : "text-muted-foreground"
-                            }`}
+                          className={`flex items-center gap-2 ${
+                            isUrgent ? "text-yellow-600" : "text-muted-foreground"
+                          }`}
                         >
                           <Clock className="h-3 w-3" />
                           <span>
-                            {isOverdue
-                              ? `Vencido hace ${Math.abs(daysUntilDue!)} dias`
-                              : daysUntilDue === 0
-                                ? "Entrega hoy"
-                                : `${daysUntilDue} dias restantes`}
+                            {daysUntilDue === 0
+                              ? "Entrega hoy"
+                              : `${daysUntilDue} dias restantes`}
                           </span>
                         </div>
                       )}

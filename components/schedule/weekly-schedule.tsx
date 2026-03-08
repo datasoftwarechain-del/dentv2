@@ -459,7 +459,7 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
                                 <CardContent className="p-2.5 space-y-1.5">
                                   {/* Order number — full, never truncated */}
                                   <div className="flex items-center justify-between gap-1">
-                                    <span className="font-mono text-[11px] font-bold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md leading-none">
+                                    <span className="font-mono text-[11px] font-bold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md leading-none whitespace-nowrap">
                                       {order.order_number}
                                     </span>
                                     <Badge

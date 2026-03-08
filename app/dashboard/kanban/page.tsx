@@ -16,7 +16,7 @@ export default async function KanbanPage() {
     .from("lab_orders")
     .select(`
       *,
-      items:lab_order_items(work_type, tooth_positions, shade),
+      items:lab_order_items(work_type, tooth_positions, shade, catalog_item:price_catalog(name)),
       patient:patients(id, first_name, last_name),
       dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name)
     `)

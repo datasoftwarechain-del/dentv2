@@ -17,9 +17,10 @@ interface CaseFile {
 
 interface CaseFilesSectionProps {
   orderId: string;
+  orderNumber?: string;
 }
 
-export function CaseFilesSection({ orderId }: CaseFilesSectionProps) {
+export function CaseFilesSection({ orderId, orderNumber }: CaseFilesSectionProps) {
   const [files, setFiles] = useState<CaseFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,11 +130,7 @@ export function CaseFilesSection({ orderId }: CaseFilesSectionProps) {
           Archivos del Caso Digital
         </h3>
         <div className="p-4 rounded-xl border border-dashed border-border/60 bg-muted/10 text-center text-sm text-muted-foreground">
-          No hay archivos digitales para esta orden.
-          <div className="mt-2 text-xs">
-            <p>Order ID: {orderId}</p>
-            <p>Archivos encontrados: {files.length}</p>
-          </div>
+          No hay archivos digitales para {orderNumber ? `la ${orderNumber}` : "esta orden"}.
         </div>
       </div>
     );
