@@ -320,7 +320,17 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="grid grid-cols-1 lg:grid-cols-7 divide-x divide-border/40">
+          {/* Mobile empty state — shown when no day has items */}
+          {orders.length === 0 && appointments.length === 0 && (
+            <div className="lg:hidden flex flex-col items-center justify-center py-16 text-center px-6">
+              <div className="h-14 w-14 rounded-2xl bg-muted/30 flex items-center justify-center mb-3">
+                <Calendar className="h-7 w-7 text-muted-foreground/50" />
+              </div>
+              <p className="text-sm font-semibold text-muted-foreground">Sin actividad esta semana</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">No hay entregas ni citas programadas</p>
+            </div>
+          )}
+          <div className="grid grid-cols-1 lg:grid-cols-7 divide-y lg:divide-y-0 lg:divide-x divide-border/40">
             {DAYS_OF_WEEK.map((day, index) => {
               const date = new Date(currentWeekStart);
               date.setDate(currentWeekStart.getDate() + index);
@@ -334,14 +344,15 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
                 <div
                   key={index}
                   className={cn(
-                    "min-h-[400px] border-b border-border/40 lg:border-b-0",
+                    "lg:min-h-[400px]",
+                    totalItems === 0 && "hidden lg:block",
                     today && "bg-primary/5",
                     past && "opacity-60"
                   )}
                 >
                   {/* Day Header */}
                   <div className={cn(
-                    "sticky top-0 z-10 border-b border-border/40 p-4 bg-muted/30 backdrop-blur-sm",
+                    "lg:sticky lg:top-0 z-10 border-b border-border/40 p-4 bg-muted/30 backdrop-blur-sm",
                     today && "bg-primary/10 border-primary/30"
                   )}>
                     <div className="flex items-center justify-between">
