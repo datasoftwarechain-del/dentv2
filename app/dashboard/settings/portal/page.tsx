@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserOrg } from "@/lib/get-user-org";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { PortalSection } from "@/components/settings/portal-section";
@@ -12,10 +12,11 @@ export default async function PortalPage() {
     redirect("/dashboard");
   }
 
-  const supabase = await createClient();
+  // Use admin client to bypass RLS — lab admin needs full visibility of their data
+  const db = createAdminClient();
 
   // Fetch connected dentist orgs via lab_dentist_relations
-  const { data: relations } = await supabase
+  const { data: relations } = await db
     .from("lab_dentist_relations")
     .select("dentist_org_id, organization:dentist_org_id(id, name)")
     .eq("lab_org_id", org.id);
@@ -29,7 +30,7 @@ export default async function PortalPage() {
   });
 
   // Fetch existing invitations for this lab
-  const { data: rawInvitations } = await supabase
+  const { data: rawInvitations } = await db
     .from("client_invitations")
     .select(`
       id,

@@ -240,12 +240,11 @@ export function PortalSection({ dentistOptions, invitations: initialInvitations,
       });
 
       if (res.ok) {
-        setInvitations((prev) =>
-          prev.map((inv) => (inv.id === id ? { ...inv, status: "revoked" as const } : inv))
-        );
+        // Remove the record from the list entirely (it was deleted from DB)
+        setInvitations((prev) => prev.filter((inv) => inv.id !== id));
       }
     } catch {
-      // silently fail — user will see the status hasn't changed
+      // silently fail
     }
   };
 
@@ -444,38 +443,36 @@ export function PortalSection({ dentistOptions, invitations: initialInvitations,
                               })}
                             </td>
                             <td className="py-3 text-right">
-                              {inv.status !== "revoked" && inv.status !== "converted" && (
                                 <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-xs text-destructive hover:text-destructive hover:bg-destructive/5"
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs text-destructive hover:text-destructive hover:bg-destructive/5"
+                                  >
+                                    Eliminar
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Eliminar acceso</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esto eliminará completamente la cuenta de vista previa de{" "}
+                                      <strong>{inv.invited_email}</strong>. La clínica ya no podrá
+                                      iniciar sesión y el email quedará disponible para crear un nuevo acceso.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleRevoke(inv.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                     >
-                                      Revocar
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Revocar acceso</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Esto deshabilitará la cuenta de vista previa de{" "}
-                                        <strong>{inv.invited_email}</strong>. La clínica ya no podrá
-                                        iniciar sesión. Esta acción no se puede deshacer fácilmente.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => handleRevoke(inv.id)}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      >
-                                        Revocar acceso
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
+                                      Eliminar acceso
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </td>
                           </tr>
                         ))}

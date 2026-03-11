@@ -38,41 +38,40 @@ export async function DELETE(
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    if (invitation.status === "revoked") {
-      return NextResponse.json({ error: "La invitación ya fue revocada" }, { status: 400 });
-    }
-
-    // Disable auth user if there's a preview org
+    // Delete auth user and preview org if they exist
     if (invitation.preview_org_id) {
-      const { data: member } = await supabase
+      const { data: member } = await adminClient
         .from("org_members")
         .select("user_id")
         .eq("org_id", invitation.preview_org_id)
         .single();
 
       if (member?.user_id) {
-        // Suspend in org_members
-        await supabase
+        // Delete auth user entirely (so email can be reused)
+        await adminClient.auth.admin.deleteUser(member.user_id);
+        // org_members row will be cleaned up by cascade or next step
+        await adminClient
           .from("org_members")
-          .update({ status: "suspended" })
+          .delete()
           .eq("user_id", member.user_id)
           .eq("org_id", invitation.preview_org_id);
-
-        // Ban auth user for a very long duration (effectively disabled)
-        await adminClient.auth.admin.updateUserById(member.user_id, {
-          ban_duration: "876600h", // ~100 years
-        });
       }
+
+      // Delete the preview org
+      await adminClient
+        .from("organizations")
+        .delete()
+        .eq("id", invitation.preview_org_id);
     }
 
-    // Mark invitation as revoked
-    const { error: updateError } = await supabase
+    // Delete the invitation row entirely so the email can be reused
+    const { error: deleteError } = await adminClient
       .from("client_invitations")
-      .update({ status: "revoked", updated_at: new Date().toISOString() })
+      .delete()
       .eq("id", id);
 
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    if (deleteError) {
+      return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

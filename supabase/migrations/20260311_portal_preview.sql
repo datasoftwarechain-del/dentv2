@@ -46,9 +46,12 @@ ALTER TABLE client_invitations ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "authenticated can read invitations" ON client_invitations;
 DROP POLICY IF EXISTS "authenticated can insert invitations" ON client_invitations;
 DROP POLICY IF EXISTS "authenticated can update invitations" ON client_invitations;
+DROP POLICY IF EXISTS "authenticated can delete invitations" ON client_invitations;
 CREATE POLICY "authenticated can read invitations"
   ON client_invitations FOR SELECT TO authenticated USING (true);
 CREATE POLICY "authenticated can insert invitations"
   ON client_invitations FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "authenticated can update invitations"
   ON client_invitations FOR UPDATE TO authenticated USING (true);
+CREATE POLICY "authenticated can delete invitations"
+  ON client_invitations FOR DELETE TO authenticated USING (true);
