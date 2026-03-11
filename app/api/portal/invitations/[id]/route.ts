@@ -4,6 +4,8 @@ import { getUserOrg } from "@/lib/get-user-org";
 import { validateCSRF } from "@/lib/csrf";
 import { NextRequest, NextResponse } from "next/server";
 
+// Note: createClient is still used by PATCH below
+
 /** DELETE /api/portal/invitations/[id] — revoke a portal access */
 export async function DELETE(
   request: NextRequest,
@@ -20,11 +22,10 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const supabase = await createClient();
     const adminClient = createAdminClient();
 
-    // Fetch the invitation and verify ownership
-    const { data: invitation, error: fetchError } = await supabase
+    // Fetch via admin client to bypass RLS — ownership verified by lab_org_id check below
+    const { data: invitation, error: fetchError } = await adminClient
       .from("client_invitations")
       .select("id, lab_org_id, preview_org_id, status")
       .eq("id", id)

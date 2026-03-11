@@ -57,14 +57,18 @@ export const getUserOrg = cache(async function getUserOrgImpl(
     .select("role, permissions, status, organization:org_id(id, name, type, phone, address, is_system_account)")
     .eq("user_id", user.id);
 
-  // Find the main system-account org this user belongs to
-  const membershipWithOrg = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      const org = Array.isArray(orgData) ? orgData[0] : orgData;
-      return { org, role: m.role as string, permissions: m.permissions, status: m.status };
-    })
-    .find(({ org }) => org && org.is_system_account !== false);
+  // Find the primary org for this user.
+  // Prefer non-preview orgs (lab/dentist) so that if a lab admin was somehow
+  // linked to a preview org they don't land on the wrong org.
+  // Fall back to any valid org (handles preview-only users like dentist_preview accounts).
+  const mapped = (memberships || []).map((m: any) => {
+    const orgData = m.organization;
+    const org = Array.isArray(orgData) ? orgData[0] : orgData;
+    return { org, role: m.role as string, permissions: m.permissions, status: m.status };
+  });
+  const membershipWithOrg =
+    mapped.find(({ org }) => org && org.type !== "dentist_preview") ??
+    mapped.find(({ org }) => Boolean(org));
 
   if (!membershipWithOrg) redirect("/onboarding");
 

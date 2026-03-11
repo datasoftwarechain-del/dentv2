@@ -4,6 +4,8 @@ import { getUserOrg } from "@/lib/get-user-org";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { PortalSection } from "@/components/settings/portal-section";
 
+export const dynamic = "force-dynamic";
+
 export default async function PortalPage() {
   const { user, org, isCollaborator } = await getUserOrg();
 
