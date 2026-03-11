@@ -41,8 +41,11 @@ export default async function OrderDetailsPage({
 
     // Para preview: resolver el org ID real de la clínica
     let effectiveOrgId = org.id;
+    // Admin client bypasses RLS — used for both invitation lookup and data queries for preview users
+    const db = isPreview ? createAdminClient() : supabase;
+
     if (isPreview) {
-        const { data: invitation } = await supabase
+        const { data: invitation } = await db
             .from("client_invitations")
             .select("dentist_org_id")
             .eq("preview_org_id", org.id)
@@ -55,9 +58,6 @@ export default async function OrderDetailsPage({
     const showPrices = isPreview ? true : canViewPrices(permissions);
     const canDelete = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "create_orders"));
     const canUpdateStatus = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "update_order_status"));
-
-    // Preview users' JWT belongs to the preview org — use admin client to bypass RLS.
-    const db = isPreview ? createAdminClient() : supabase;
 
     // Fetch order details with related data
     const { data: order } = await db

@@ -21,8 +21,11 @@ export default async function OrdersPage() {
 
   // For preview orgs, resolve the real dentist org ID from the invitation record
   let effectiveOrgId = org.id;
+  // Admin client bypasses RLS — used for both invitation lookup and data queries for preview users
+  const db = isPreview ? createAdminClient() : supabase;
+
   if (isPreview) {
-    const { data: invitation } = await supabase
+    const { data: invitation } = await db
       .from("client_invitations")
       .select("dentist_org_id")
       .eq("preview_org_id", org.id)
@@ -31,10 +34,6 @@ export default async function OrdersPage() {
     if (!invitation) redirect("/dashboard");
     effectiveOrgId = invitation.dentist_org_id;
   }
-
-  // Preview users' JWT belongs to the preview org — RLS blocks access to lab/dentist data.
-  // Use admin client for authorized preview reads.
-  const db = isPreview ? createAdminClient() : supabase;
 
   // Get orders based on org type — limit prevents unbounded result sets
   const { data: orders } = await db

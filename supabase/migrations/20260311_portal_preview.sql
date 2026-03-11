@@ -36,3 +36,18 @@ ALTER TABLE lab_orders
 CREATE INDEX idx_invitations_lab ON client_invitations(lab_org_id);
 CREATE INDEX idx_invitations_dentist_org ON client_invitations(dentist_org_id);
 CREATE INDEX idx_invitations_preview_org ON client_invitations(preview_org_id);
+
+-- 5. RLS: allow authenticated users to read (app-level multi-tenancy like all other tables)
+ALTER TABLE client_invitations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "authenticated can read invitations"
+  ON client_invitations FOR SELECT
+  TO authenticated
+  USING (true);
+CREATE POLICY "authenticated can insert invitations"
+  ON client_invitations FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+CREATE POLICY "authenticated can update invitations"
+  ON client_invitations FOR UPDATE
+  TO authenticated
+  USING (true);

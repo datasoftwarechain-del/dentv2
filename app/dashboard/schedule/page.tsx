@@ -18,8 +18,11 @@ export default async function SchedulePage(props: any) {
 
   // Para preview: resolver el org ID real de la clínica y el lab
   let effectiveOrgId = org.id;
+  // Admin client bypasses RLS — used for both invitation lookup and data queries for preview users
+  const db = isPreview ? createAdminClient() : supabase;
+
   if (isPreview) {
-    const { data: invitation } = await supabase
+    const { data: invitation } = await db
       .from("client_invitations")
       .select("dentist_org_id")
       .eq("preview_org_id", org.id)
@@ -28,9 +31,6 @@ export default async function SchedulePage(props: any) {
     if (!invitation) redirect("/dashboard/billing");
     effectiveOrgId = invitation.dentist_org_id;
   }
-
-  // Preview users' JWT belongs to the preview org — RLS blocks access to lab data.
-  const db = isPreview ? createAdminClient() : supabase;
 
   // ── Read week param (supports both sync & async searchParams) ─────────────
   const searchParams = await Promise.resolve(props.searchParams ?? {});

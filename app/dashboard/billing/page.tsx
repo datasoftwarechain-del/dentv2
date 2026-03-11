@@ -20,8 +20,11 @@ export default async function BillingPage() {
   let effectiveOrgId = org.id;
   let previewLabOrgId: string | null = null;
 
+  // Admin client bypasses RLS — used for both invitation lookup and data queries for preview users
+  const db = isPreview ? createAdminClient() : supabase;
+
   if (isPreview) {
-    const { data: invitation } = await supabase
+    const { data: invitation } = await db
       .from("client_invitations")
       .select("dentist_org_id, lab_org_id")
       .eq("preview_org_id", org.id)
@@ -31,10 +34,6 @@ export default async function BillingPage() {
     effectiveOrgId = invitation.dentist_org_id;
     previewLabOrgId = invitation.lab_org_id;
   }
-
-  // Preview users' JWT belongs to the preview org — RLS blocks access to lab/dentist data.
-  // Use admin client for authorized preview reads.
-  const db = isPreview ? createAdminClient() : supabase;
 
   // ─── DENTIST BILLING ───────────────────────────────────────
   if (isDentist) {

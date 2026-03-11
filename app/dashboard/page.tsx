@@ -19,8 +19,11 @@ export default async function DashboardPage() {
 
   // Para orgs preview, resolver el ID real de la clínica desde client_invitations
   let effectiveDentistOrgId = org.id;
+  // Admin client bypasses RLS — used for both invitation lookup and data queries for preview users
+  const db = isPreview ? createAdminClient() : supabase;
+
   if (isPreview) {
-    const { data: invitation } = await supabase
+    const { data: invitation } = await db
       .from("client_invitations")
       .select("dentist_org_id")
       .eq("preview_org_id", org.id)
@@ -29,10 +32,6 @@ export default async function DashboardPage() {
     if (!invitation) redirect("/auth/login");
     effectiveDentistOrgId = invitation.dentist_org_id;
   }
-
-  // Preview users belong to a preview org (not lab/dentist) — RLS blocks their access
-  // to invoices/orders/patients. Use admin client to bypass RLS for authorized preview reads.
-  const db = isPreview ? createAdminClient() : supabase;
 
   // Laboratory dashboard
   if (isLab) {
