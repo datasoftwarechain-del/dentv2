@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import ReactDOM from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -130,25 +131,48 @@ function CatalogPicker({
 }: CatalogPickerProps) {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [search, setSearch] = useState("");
-    const containerRef = useRef<HTMLDivElement>(null);
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
     const selected = items.find((i) => i.id === value);
 
+    const updatePosition = useCallback(() => {
+        if (!buttonRef.current) return;
+        const rect = buttonRef.current.getBoundingClientRect();
+        setDropdownStyle({
+            position: "fixed",
+            top: rect.bottom + 4,
+            left: rect.left,
+            width: rect.width,
+            zIndex: 9999,
+        });
+    }, []);
+
     useEffect(() => {
         if (!dropdownOpen) { setSearch(""); return; }
+        updatePosition();
         setTimeout(() => searchRef.current?.focus(), 10);
-    }, [dropdownOpen]);
+    }, [dropdownOpen, updatePosition]);
 
     useEffect(() => {
         if (!dropdownOpen) return;
         function handleClickOutside(e: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+            if (
+                buttonRef.current && !buttonRef.current.contains(e.target as Node) &&
+                dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
+            ) {
                 setDropdownOpen(false);
             }
         }
+        function handleScroll() { updatePosition(); }
         document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [dropdownOpen]);
+        window.addEventListener("scroll", handleScroll, true);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            window.removeEventListener("scroll", handleScroll, true);
+        };
+    }, [dropdownOpen, updatePosition]);
 
     // Filter items across all categories
     const { filteredCategories, filteredGrouped } = React.useMemo(() => {
@@ -163,9 +187,49 @@ function CatalogPicker({
         return { filteredCategories: fc, filteredGrouped: fg };
     }, [search, categories, grouped]);
 
+    const dropdown = dropdownOpen ? (
+        <div ref={dropdownRef} style={dropdownStyle} className="rounded-md border border-border bg-popover shadow-lg">
+            {/* Search input */}
+            <div className="p-2 border-b border-border/40">
+                <input
+                    ref={searchRef}
+                    type="text"
+                    placeholder="Buscar en arancel..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
+                />
+            </div>
+            <div className="max-h-[260px] overflow-y-auto">
+                {filteredCategories.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-xs text-muted-foreground">Sin resultados.</div>
+                ) : (
+                    filteredCategories.map((cat) => (
+                        <React.Fragment key={cat}>
+                            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 sticky top-0">
+                                {cat}
+                            </div>
+                            {filteredGrouped[cat].map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => { onChange(item.id); setDropdownOpen(false); }}
+                                    className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-3 hover:bg-muted transition-colors ${value === item.id ? "bg-muted font-medium" : ""}`}
+                                >
+                                    <span>{item.name}</span>
+                                </button>
+                            ))}
+                        </React.Fragment>
+                    ))
+                )}
+            </div>
+        </div>
+    ) : null;
+
     return (
-        <div ref={containerRef} className="relative">
+        <div className="relative">
             <button
+                ref={buttonRef}
                 type="button"
                 onClick={() => setDropdownOpen((p) => !p)}
                 className="w-full flex items-center justify-between pl-8 pr-3 h-9 text-sm rounded-md border border-[#b0dde0] bg-background hover:border-[#09919b] focus:outline-none focus:ring-2 focus:ring-[#09919b]/20 focus:border-[#09919b] transition-colors"
@@ -175,44 +239,7 @@ function CatalogPicker({
                 </span>
                 <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
-            {dropdownOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-[200] rounded-md border border-border bg-popover shadow-lg">
-                    {/* Search input */}
-                    <div className="p-2 border-b border-border/40">
-                        <input
-                            ref={searchRef}
-                            type="text"
-                            placeholder="Buscar en arancel..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
-                        />
-                    </div>
-                    <div className="max-h-[260px] overflow-y-auto">
-                        {filteredCategories.length === 0 ? (
-                            <div className="px-4 py-6 text-center text-xs text-muted-foreground">Sin resultados.</div>
-                        ) : (
-                            filteredCategories.map((cat) => (
-                                <React.Fragment key={cat}>
-                                    <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 sticky top-0">
-                                        {cat}
-                                    </div>
-                                    {filteredGrouped[cat].map((item) => (
-                                        <button
-                                            key={item.id}
-                                            type="button"
-                                            onClick={() => { onChange(item.id); setDropdownOpen(false); }}
-                                            className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-3 hover:bg-muted transition-colors ${value === item.id ? "bg-muted font-medium" : ""}`}
-                                        >
-                                            <span>{item.name}</span>
-                                        </button>
-                                    ))}
-                                </React.Fragment>
-                            ))
-                        )}
-                    </div>
-                </div>
-            )}
+            {typeof document !== "undefined" && ReactDOM.createPortal(dropdown, document.body)}
         </div>
     );
 }

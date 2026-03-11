@@ -836,7 +836,7 @@ export function BillingDashboard({
                           {invoice.patient_name || <span className="text-muted-foreground italic text-xs">Sin paciente</span>}
                         </p>
                         <p className="text-[11px] text-muted-foreground truncate mt-0.5">
-                          {formatWorkType(invoice.work_type)}
+                          {invoice.order_items?.[0]?.catalog_item?.name || formatWorkType(invoice.work_type)}
                         </p>
                       </TableCell>
 
@@ -912,7 +912,7 @@ export function BillingDashboard({
                         {invoice.patient_name || <span className="text-muted-foreground italic text-xs">Sin paciente</span>}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {formatWorkType(invoice.work_type)}
+                        {invoice.order_items?.[0]?.catalog_item?.name || formatWorkType(invoice.work_type)}
                         {(isDentist ? invoice.lab_org?.name : invoice.dentist_org?.name)
                           ? ` · ${isDentist ? invoice.lab_org?.name : invoice.dentist_org?.name}`
                           : ""}

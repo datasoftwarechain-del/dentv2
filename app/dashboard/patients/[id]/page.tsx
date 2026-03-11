@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
+import { getUserOrg } from "@/lib/get-user-org";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,27 +27,10 @@ export default async function PatientDetailsPage({
     params: { id: string };
 }) {
     const { id } = await params;
+    const { user, org } = await getUserOrg();
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) redirect("/auth/login");
-
-    // Get user's organizations (handle multiple orgs like layout does)
-    const { data: memberships } = await supabase
-        .from("org_members")
-        .select("organization:org_id(id, name, type, is_system_account)")
-        .eq("user_id", user.id);
-
-    // Filter for system accounts only and get the first one
-    const orgs = (memberships || [])
-        .map((m: any) => {
-            const orgData = m.organization;
-            return Array.isArray(orgData) ? orgData[0] : orgData;
-        })
-        .filter((o: any) => o && o.is_system_account !== false);
-
-    const org = orgs[0] || null;
-    if (!org || org.type !== "dentist") redirect("/dashboard");
+    if (org.type !== "dentist") redirect("/dashboard");
 
     // Fetch patient details
     const { data: patient } = await supabase
