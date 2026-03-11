@@ -267,3 +267,12 @@ export function normalizePermissions(
 export function isCollaboratorRole(role: string | null | undefined): boolean {
   return role === "collaborator";
 }
+
+/**
+ * Returns true if the user can see monetary amounts (prices, totals, subtotals).
+ * Admins always can. Collaborators need view_prices OR view_billing_amounts.
+ */
+export function canViewPrices(permissions: CollaboratorPermissions | null | undefined): boolean {
+  if (permissions === null || permissions === undefined) return true; // admin
+  return !!permissions.view_prices || !!permissions.view_billing_amounts;
+}

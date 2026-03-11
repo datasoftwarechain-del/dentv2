@@ -4,13 +4,13 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatShortDate } from "@/lib/date-utils";
-import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS, STATUS_PIE_COLORS } from "@/lib/order-status";
+import { ORDER_STATUS_LABELS, STATUS_PIE_COLORS } from "@/lib/order-status";
+import { StatusBadge } from "@/components/orders/status-badge";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog";
 import { DeliveryAlerts } from "@/components/dashboard/delivery-alerts";
@@ -87,7 +87,6 @@ export function LabDashboard({
   orgId, orgName, orders, todayOrders, tomorrowOrders, patients, dentistOrgs,
 }: LabDashboardProps) {
   const statusLabels = ORDER_STATUS_LABELS;
-  const statusColors = ORDER_STATUS_BADGE_CLASSES;
   const now = new Date();
 
   // ── KPIs ────────────────────────────────────────────────────────────────
@@ -523,12 +522,7 @@ export function LabDashboard({
                         ) : (
                           <span className="hidden sm:block text-[10px] text-muted-foreground/50">Sin fecha</span>
                         )}
-                        <Badge
-                          variant="outline"
-                          className={cn("text-[9px] font-semibold uppercase tracking-wide shrink-0", statusColors[order.status])}
-                        >
-                          {statusLabels[order.status] || order.status}
-                        </Badge>
+                        <StatusBadge status={order.status} className="text-[9px] shrink-0" />
                       </div>
                     </Link>
                   );

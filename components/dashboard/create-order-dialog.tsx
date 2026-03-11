@@ -176,7 +176,7 @@ function CatalogPicker({
                 <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
             {dropdownOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-lg">
+                <div className="absolute left-0 right-0 top-full mt-1 z-[200] rounded-md border border-border bg-popover shadow-lg">
                     {/* Search input */}
                     <div className="p-2 border-b border-border/40">
                         <input

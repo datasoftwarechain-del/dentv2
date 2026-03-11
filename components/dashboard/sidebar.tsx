@@ -17,18 +17,28 @@ import {
   CalendarClock,
   Scan,
   MessageCircle,
+  Lock,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback } from "react";
 import type { CollaboratorPermissions, PermissionKey } from "@/lib/permissions";
 
 interface SidebarProps {
-  orgType: "dentist" | "lab";
+  orgType: "dentist" | "lab" | "dentist_preview";
   orgName: string;
   isCollaborator?: boolean;
   permissions?: CollaboratorPermissions | null;
 }
+
+/** Paths accessible to dentist_preview accounts without a lock */
+const PREVIEW_ALLOWED = [
+  "/dashboard",
+  "/dashboard/orders",
+  "/dashboard/schedule",
+  "/dashboard/billing",
+];
 
 /** Maps each nav path to the permission key required to see it */
 const NAV_PERMISSION_MAP: Record<string, PermissionKey> = {
@@ -70,7 +80,7 @@ export function Sidebar({ orgType, orgName, isCollaborator = false, permissions 
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  const baseNav = orgType === "dentist" ? dentistNav : labNav;
+  const baseNav = orgType === "lab" ? labNav : dentistNav;
 
   // Filter nav items for collaborators — only show sections they have access to
   const navItems = isCollaborator && permissions
@@ -195,63 +205,118 @@ export function Sidebar({ orgType, orgName, isCollaborator = false, permissions 
         >
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/15 px-3 py-1 text-[11px] font-semibold text-white whitespace-nowrap">
             <span className="h-1.5 w-1.5 rounded-full bg-[#43eada]" />
-            {orgType === "dentist" ? "Clínica Dental" : "Laboratorio"}
+            {orgType === "lab" ? "Laboratorio" : orgType === "dentist_preview" ? "Vista Previa" : "Clínica Dental"}
           </span>
         </div>
 
         {/* ── Navigation ── */}
         <nav className="flex-1 space-y-0.5 overflow-hidden px-2 py-3">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            const NavIcon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={handleLinkClick}
-                title={!isExpanded ? item.label : undefined}
-                className={cn(
-                  "group relative flex items-center gap-3 rounded-2xl py-2.5 text-[13px] font-medium transition-all duration-200 ease-out overflow-hidden",
-                  // Active = white pill (inverted) like the reference; inactive = ghost
-                  isActive
-                    ? "bg-white text-[#033d52] shadow-md"
-                    : "text-white/65 hover:bg-white/10 hover:text-white",
-                  isExpanded ? "px-3" : "justify-center px-2"
-                )}
-              >
-                <NavIcon
-                  className={cn(
-                    "shrink-0 transition-all duration-200",
-                    // Active icon uses dark brand color on white background
-                    isActive
-                      ? "text-[#044c64]"
-                      : "text-white/55 group-hover:text-white",
-                    isExpanded ? "h-[18px] w-[18px]" : "h-5 w-5"
-                  )}
-                  strokeWidth={isActive ? 2.5 : 1.8}
-                />
+          <TooltipProvider delayDuration={300}>
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              const NavIcon = item.icon;
+              const isPreviewLocked =
+                orgType === "dentist_preview" && !PREVIEW_ALLOWED.includes(item.href);
 
-                {/* Label */}
-                <span
+              if (isPreviewLocked) {
+                return (
+                  <Tooltip key={item.href}>
+                    <TooltipTrigger asChild>
+                      <button
+                        disabled
+                        className={cn(
+                          "group relative w-full flex items-center gap-3 rounded-2xl py-2.5 text-[13px] font-medium overflow-hidden opacity-40 cursor-not-allowed",
+                          isExpanded ? "px-3" : "justify-center px-2"
+                        )}
+                      >
+                        <NavIcon
+                          className={cn(
+                            "shrink-0 text-white/40",
+                            isExpanded ? "h-[18px] w-[18px]" : "h-5 w-5"
+                          )}
+                          strokeWidth={1.8}
+                        />
+                        <span
+                          className={cn(
+                            "whitespace-nowrap tracking-wide transition-all duration-300 text-white/40",
+                            isExpanded ? "opacity-100 max-w-[140px]" : "opacity-0 max-w-0 overflow-hidden"
+                          )}
+                        >
+                          {item.label}
+                        </span>
+                        {isExpanded && (
+                          <Lock className="ml-auto h-3 w-3 shrink-0 text-white/30" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-xs">
+                      Disponible en cuenta completa
+                    </TooltipContent>
+                  </Tooltip>
+                );
+              }
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={handleLinkClick}
+                  title={!isExpanded ? item.label : undefined}
                   className={cn(
-                    "whitespace-nowrap tracking-wide transition-all duration-300",
-                    isExpanded ? "opacity-100 max-w-[160px]" : "opacity-0 max-w-0 overflow-hidden"
+                    "group relative flex items-center gap-3 rounded-2xl py-2.5 text-[13px] font-medium transition-all duration-200 ease-out overflow-hidden",
+                    // Active = white pill (inverted) like the reference; inactive = ghost
+                    isActive
+                      ? "bg-white text-[#033d52] shadow-md"
+                      : "text-white/65 hover:bg-white/10 hover:text-white",
+                    isExpanded ? "px-3" : "justify-center px-2"
                   )}
                 >
-                  {item.label}
-                </span>
+                  <NavIcon
+                    className={cn(
+                      "shrink-0 transition-all duration-200",
+                      // Active icon uses dark brand color on white background
+                      isActive
+                        ? "text-[#044c64]"
+                        : "text-white/55 group-hover:text-white",
+                      isExpanded ? "h-[18px] w-[18px]" : "h-5 w-5"
+                    )}
+                    strokeWidth={isActive ? 2.5 : 1.8}
+                  />
 
-                {/* Active indicator dot */}
-                {isExpanded && isActive && (
-                  <div className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-[#09919b]" />
-                )}
-              </Link>
-            );
-          })}
+                  {/* Label */}
+                  <span
+                    className={cn(
+                      "whitespace-nowrap tracking-wide transition-all duration-300",
+                      isExpanded ? "opacity-100 max-w-[160px]" : "opacity-0 max-w-0 overflow-hidden"
+                    )}
+                  >
+                    {item.label}
+                  </span>
+
+                  {/* Active indicator dot */}
+                  {isExpanded && isActive && (
+                    <div className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-[#09919b]" />
+                  )}
+                </Link>
+              );
+            })}
+          </TooltipProvider>
         </nav>
 
         {/* ── Footer ── */}
         <div className="shrink-0 space-y-0.5 border-t border-white/10 px-2 pb-3 pt-2">
+          {/* Preview mode banner — only visible in dentist_preview when expanded */}
+          {orgType === "dentist_preview" && isExpanded && (
+            <div className="mx-2 mb-2 rounded-2xl bg-[#43eada]/10 border border-[#43eada]/30 px-3 py-3">
+              <p className="text-[11px] font-semibold text-[#43eada] mb-1">Modo vista previa</p>
+              <Link
+                href="/onboarding?upgrade=true&from=preview"
+                className="text-[11px] text-white/70 hover:text-[#43eada] transition-colors"
+              >
+                Activar cuenta completa →
+              </Link>
+            </div>
+          )}
           {/* Soporte interno */}
           <button
             onClick={() => window.dispatchEvent(new CustomEvent("open-support-chat"))}

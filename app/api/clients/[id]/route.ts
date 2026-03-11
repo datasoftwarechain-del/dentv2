@@ -1,12 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOrgForApiRoute } from "@/lib/auth-utils";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
+import { validateCSRF } from "@/lib/csrf";
 
 // PATCH: update contact info for a client org that belongs to the lab
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -14,20 +19,7 @@ export async function PATCH(
 
     const { id: clientOrgId } = await params;
 
-    // Verify the caller is a lab and has orders with this dentist org
-    const { data: memberships } = await supabase
-      .from("org_members")
-      .select("organization:org_id(id, type, is_system_account)")
-      .eq("user_id", user.id);
-
-    const orgs = (memberships || [])
-      .map((m: any) => {
-        const orgData = m.organization;
-        return Array.isArray(orgData) ? orgData[0] : orgData;
-      })
-      .filter((o: any) => o && o.is_system_account !== false);
-
-    const org = orgs[0] || null;
+    const org = await getOrgForApiRoute(supabase, user.id);
     if (!org || org.type !== "lab") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -49,7 +41,7 @@ export async function PATCH(
     const { phone, email, address, city, tax_id, notes } = body;
 
     // Update the organization fields
-    const updateData: Record<string, any> = {};
+    const updateData: Record<string, unknown> = {};
     if (phone !== undefined) updateData.phone = phone || null;
     if (email !== undefined) updateData.email = email || null;
     if (address !== undefined) updateData.address = address || null;
@@ -74,7 +66,8 @@ export async function PATCH(
     revalidatePath(`/dashboard/clients/${clientOrgId}`);
     revalidatePath("/dashboard/clients");
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

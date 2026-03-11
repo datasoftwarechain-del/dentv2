@@ -1,33 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOrgForApiRoute } from "@/lib/auth-utils";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
-
-async function getLabOrgForUser(supabase: any, userId: string) {
-  const { data: memberships } = await supabase
-    .from("org_members")
-    .select("organization:org_id(id, type, is_system_account)")
-    .eq("user_id", userId);
-
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  const org = orgs[0] || null;
-  return org?.type === "lab" ? org : null;
-}
+import { validateCSRF } from "@/lib/csrf";
 
 // POST: create a manual invoice (no order required)
 export async function POST(request: NextRequest) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const org = await getLabOrgForUser(supabase, user.id);
-    if (!org) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const org = await getOrgForApiRoute(supabase, user.id);
+    if (!org || org.type !== "lab")
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await request.json();
     const { dentistOrgId, patientName, workType, total, dueDate, notes } = body;
@@ -73,7 +62,8 @@ export async function POST(request: NextRequest) {
 
     revalidatePath("/dashboard/billing");
     return NextResponse.json({ data }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

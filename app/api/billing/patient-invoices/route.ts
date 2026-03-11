@@ -1,22 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { getOrgForApiRoute } from "@/lib/auth-utils";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
-
-async function getOrgForUser(supabase: any, userId: string) {
-  const { data: memberships } = await supabase
-    .from("org_members")
-    .select("organization:org_id(id, type, is_system_account)")
-    .eq("user_id", userId);
-
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  return orgs[0] || null;
-}
+import { validateCSRF } from "@/lib/csrf";
 
 // GET: list patient invoices for the org
 export async function GET(request: NextRequest) {
@@ -25,7 +11,7 @@ export async function GET(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const org = await getOrgForUser(supabase, user.id);
+    const org = await getOrgForApiRoute(supabase, user.id);
     if (!org || org.type !== "dentist")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -37,19 +23,23 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json({ data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 // POST: create a new patient invoice
 export async function POST(request: NextRequest) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const org = await getOrgForUser(supabase, user.id);
+    const org = await getOrgForApiRoute(supabase, user.id);
     if (!org || org.type !== "dentist")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -80,19 +70,23 @@ export async function POST(request: NextRequest) {
 
     revalidatePath("/dashboard/billing");
     return NextResponse.json({ data }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 // PATCH: update status or details
 export async function PATCH(request: NextRequest) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const org = await getOrgForUser(supabase, user.id);
+    const org = await getOrgForApiRoute(supabase, user.id);
     if (!org || org.type !== "dentist")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -101,7 +95,7 @@ export async function PATCH(request: NextRequest) {
 
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (status !== undefined) {
       updateData.status = status;
       if (status === "paid") updateData.paid_at = new Date().toISOString();
@@ -121,19 +115,23 @@ export async function PATCH(request: NextRequest) {
 
     revalidatePath("/dashboard/billing");
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
 // DELETE: remove a patient invoice
 export async function DELETE(request: NextRequest) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const org = await getOrgForUser(supabase, user.id);
+    const org = await getOrgForApiRoute(supabase, user.id);
     if (!org || org.type !== "dentist")
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -151,7 +149,8 @@ export async function DELETE(request: NextRequest) {
 
     revalidatePath("/dashboard/billing");
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

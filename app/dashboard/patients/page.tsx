@@ -2,13 +2,25 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { PatientsList } from "@/components/patients/patients-list";
+import { PreviewGate } from "@/components/dashboard/preview-gate";
 import { getUserOrg } from "@/lib/get-user-org";
+import { Users } from "lucide-react";
 
 export default async function PatientsPage() {
   // No-arg call shares React.cache() with layout — avoids duplicate auth round-trip
   const { user, org, isCollaborator, permissions } = await getUserOrg();
-  if (org.type !== "dentist") redirect("/dashboard");
+  if (org.type !== "dentist" && org.type !== "dentist_preview") redirect("/dashboard");
   if (isCollaborator && !permissions?.view_patients) redirect("/dashboard");
+
+  if (org.type === "dentist_preview") {
+    return (
+      <PreviewGate
+        featureName="Pacientes"
+        description="Visualizá y gestioná el historial completo de tus pacientes. Activá tu cuenta para acceder a esta función."
+        icon={Users}
+      />
+    );
+  }
 
   const supabase = await createClient();
 

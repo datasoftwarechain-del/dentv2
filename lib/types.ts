@@ -6,7 +6,7 @@
 export interface Organization {
   id: string;
   name: string;
-  type: "dentist" | "lab";
+  type: "dentist" | "lab" | "dentist_preview";
   phone: string | null;
   address: string | null;
   is_system_account: boolean;

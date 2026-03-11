@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, User, Building2, Shield, Search, Link2 } from "lucide-react";
+import { Loader2, User, Building2, Shield, Search, Link2, MonitorSmartphone } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { PriceCatalogSection } from "@/components/settings/price-catalog";
 import { CollaboratorsSection } from "@/components/settings/collaborators-section";
@@ -414,6 +415,30 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
           orgId={organization.id}
           orgType={organization.type as "dentist" | "lab"}
         />
+      )}
+
+      {/* Portal de clínicas — solo admins de laboratorio */}
+      {role === "admin" && organization.type === "lab" && (
+        <Card className="border border-border/50">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#09919b]/10">
+                <MonitorSmartphone className="h-4 w-4 text-[#09919b]" />
+              </div>
+              <div>
+                <CardTitle className="text-base">Portal de Clínicas</CardTitle>
+                <CardDescription className="text-xs mt-0.5">
+                  Invitá a tus clientes a ver sus trabajos en tiempo real
+                </CardDescription>
+              </div>
+            </div>
+            <Link href="/dashboard/settings/portal">
+              <Button variant="outline" size="sm" className="h-8 text-xs border-[#09919b]/40 text-[#09919b] hover:bg-[#09919b]/10">
+                Gestionar accesos →
+              </Button>
+            </Link>
+          </CardHeader>
+        </Card>
       )}
 
       {/* Lab Connections */}

@@ -1,13 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { validateCSRF } from "@/lib/csrf";
 
 export async function POST(request: NextRequest) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -15,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     if (!invoiceId || !method) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Faltan campos requeridos" },
         { status: 400 }
       );
     }
@@ -32,7 +36,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (invoiceError || !invoice) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+      return NextResponse.json({ error: "Factura no encontrada" }, { status: 404 });
     }
 
     // Determinar destinatario
@@ -41,54 +45,30 @@ export async function POST(request: NextRequest) {
     const recipientPhone = phone;
 
     if (method === "email") {
-      // Enviar por email
       // TODO: Integrar con servicio de email (Resend, SendGrid, etc.)
-      // Por ahora, simulamos el envío
 
       if (!recipientEmail) {
         return NextResponse.json(
-          { error: "No email address provided" },
+          { error: "No se proporcionó dirección de email" },
           { status: 400 }
         );
       }
-
-      // Aquí iría la integración con el servicio de email
-      // Ejemplo con Resend:
-      /*
-      const { Resend } = await import('resend');
-      const resend = new Resend(process.env.RESEND_API_KEY);
-
-      await resend.emails.send({
-        from: 'facturas@dentlabpro.com',
-        to: recipientEmail,
-        subject: `Factura #${invoice.invoice_number}`,
-        html: generateInvoiceEmailHTML(invoice),
-        attachments: [
-          {
-            filename: `Factura_${invoice.invoice_number}.pdf`,
-            content: await generateInvoicePDF(invoice),
-          },
-        ],
-      });
-      */
 
       console.log(`Sending invoice ${invoice.invoice_number} to email: ${recipientEmail}`);
 
       return NextResponse.json({
         success: true,
-        message: "Invoice sent via email",
+        message: "Factura enviada por email",
         recipient: recipientEmail,
       });
     }
 
     if (method === "whatsapp") {
-      // Enviar por WhatsApp
       // TODO: Integrar con WhatsApp Business API
-      // Por ahora, retornamos la URL para compartir
 
       if (!recipientPhone) {
         return NextResponse.json(
-          { error: "No phone number provided" },
+          { error: "No se proporcionó número de teléfono" },
           { status: 400 }
         );
       }
@@ -104,16 +84,16 @@ Puedes descargarla desde: [enlace]`;
 
       return NextResponse.json({
         success: true,
-        message: "WhatsApp URL generated",
+        message: "URL de WhatsApp generada",
         url: whatsappUrl,
       });
     }
 
-    return NextResponse.json({ error: "Invalid method" }, { status: 400 });
+    return NextResponse.json({ error: "Método inválido" }, { status: 400 });
   } catch (error) {
-    console.error("Error sending invoice:", error);
+    console.error("Error al enviar factura:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Error interno del servidor" },
       { status: 500 }
     );
   }

@@ -16,18 +16,27 @@ export default async function LaboratoryDashboardPage() {
     const supabase = await createClient();
 
     // Both queries are independent — run in parallel
-    const [{ data: dentistOrgs }, { data: patients }] = await Promise.all([
+    // dentistOrgs filtered to active relations only (lab_dentist_relations.status = 'active')
+    const [{ data: activeRelations }, { data: patients }] = await Promise.all([
         supabase
-            .from("organizations")
-            .select("id, name")
-            .eq("type", "dentist")
-            .order("name"),
+            .from("lab_dentist_relations")
+            .select("dentist_org:dentist_org_id(id, name)")
+            .eq("lab_org_id", org.id)
+            .eq("status", "active"),
 
         supabase
             .from("patients")
             .select("id, first_name, last_name")
             .order("last_name"),
     ]);
+
+    const dentistOrgs = (activeRelations || [])
+        .map((r: any) => {
+            const o = Array.isArray(r.dentist_org) ? r.dentist_org[0] : r.dentist_org;
+            return o as { id: string; name: string } | null;
+        })
+        .filter((o): o is { id: string; name: string } => o !== null)
+        .sort((a, b) => a.name.localeCompare(b.name));
 
 
     return (

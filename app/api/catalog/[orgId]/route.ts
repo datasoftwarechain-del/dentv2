@@ -62,7 +62,7 @@ export async function GET(
     return NextResponse.json({ catalog: catalog ?? [] });
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || "Internal server error" },
+      { error: error.message || "Error interno del servidor" },
       { status: 500 }
     );
   }

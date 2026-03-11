@@ -65,6 +65,7 @@ interface EditOrderFormProps {
   patients: Patient[];
   organizationId: string;
   isDentist: boolean;
+  showPrices?: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -108,6 +109,7 @@ export function EditOrderForm({
   patients,
   organizationId,
   isDentist,
+  showPrices = true,
 }: EditOrderFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -400,6 +402,7 @@ export function EditOrderForm({
               shade={item.shade || ""}
               quantity={item.quantity}
               extras={item.selected_extras}
+              showPrices={showPrices}
               onWorkTypeChange={(v) => updateExistingItem(item.id, "work_type", v)}
               onToothChange={(v) => updateExistingItem(item.id, "tooth_positions", v)}
               onShadeChange={(v) => updateExistingItem(item.id, "shade", v)}
@@ -423,6 +426,7 @@ export function EditOrderForm({
               shade={item.shade || ""}
               quantity={item.quantity}
               extras={item.selected_extras}
+              showPrices={showPrices}
               onWorkTypeChange={(v) => updateNewItem(item._tempId, "work_type", v)}
               onToothChange={(v) => updateNewItem(item._tempId, "tooth_positions", v)}
               onShadeChange={(v) => updateNewItem(item._tempId, "shade", v)}
@@ -471,6 +475,7 @@ interface ItemRowProps {
   shade: string;
   quantity: number;
   extras: Extra[];
+  showPrices?: boolean;
   onWorkTypeChange: (v: string) => void;
   onToothChange: (v: string) => void;
   onShadeChange: (v: string) => void;
@@ -488,6 +493,7 @@ function ItemRow({
   shade,
   quantity,
   extras,
+  showPrices = true,
   onWorkTypeChange,
   onToothChange,
   onShadeChange,
@@ -605,15 +611,21 @@ function ItemRow({
             {extras.map((extra, i) => (
               <div key={i} className="flex items-center gap-2">
                 <span className="flex-1 text-xs font-medium text-foreground truncate">{extra.name}</span>
-                <span className="text-[10px] text-muted-foreground">$</span>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  className="h-7 text-xs w-24 px-2"
-                  value={extra.price}
-                  onChange={(e) => updateExtraPrice(i, parseFloat(e.target.value) || 0)}
-                />
+                {showPrices !== false ? (
+                  <>
+                    <span className="text-[10px] text-muted-foreground">$</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="h-7 text-xs w-24 px-2"
+                      value={extra.price}
+                      onChange={(e) => updateExtraPrice(i, parseFloat(e.target.value) || 0)}
+                    />
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground italic w-24 text-center">—</span>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
@@ -637,16 +649,19 @@ function ItemRow({
             onChange={(e) => setNewExtraName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addExtra())}
           />
-          <span className="text-[10px] text-muted-foreground">$</span>
+          {showPrices !== false && (
+            <span className="text-[10px] text-muted-foreground">$</span>
+          )}
           <Input
             type="number"
             min={0}
             step="0.01"
-            placeholder="0.00"
+            placeholder={showPrices !== false ? "0.00" : "—"}
             className="h-7 text-xs w-24 px-2"
-            value={newExtraPrice}
-            onChange={(e) => setNewExtraPrice(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addExtra())}
+            disabled={showPrices === false}
+            value={showPrices !== false ? newExtraPrice : ""}
+            onChange={(e) => showPrices !== false && setNewExtraPrice(e.target.value)}
+            onKeyDown={(e) => showPrices !== false && e.key === "Enter" && (e.preventDefault(), addExtra())}
           />
           <Button
             type="button"

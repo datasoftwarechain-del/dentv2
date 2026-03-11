@@ -1,5 +1,35 @@
 import { createClient } from '@/lib/supabase/server';
 
+interface OrgBasic {
+  id: string;
+  type: string;
+  is_system_account: boolean | null;
+}
+
+/**
+ * Resuelve la org principal del usuario para uso en API routes.
+ * A diferencia de getUserOrg(), devuelve null en vez de redirect()
+ * para que los API routes puedan responder con 401/403 apropiados.
+ */
+export async function getOrgForApiRoute(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<OrgBasic | null> {
+  const { data: memberships } = await supabase
+    .from('org_members')
+    .select('organization:org_id(id, type, is_system_account)')
+    .eq('user_id', userId);
+
+  const orgs = (memberships || [])
+    .map((m: any) => {
+      const orgData = m.organization;
+      return Array.isArray(orgData) ? orgData[0] : orgData;
+    })
+    .filter((o: any) => o && o.is_system_account !== false);
+
+  return (orgs[0] as OrgBasic) ?? null;
+}
+
 /**
  * Verifica que un usuario pertenece a una organización
  * @param userId - ID del usuario autenticado

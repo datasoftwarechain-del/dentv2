@@ -20,6 +20,7 @@ import { Search, FileText, Building2, User, Calendar, ChevronDown, Loader2 } fro
 import { formatDueTime, formatDueDate, formatShortDate, isOverdue, isUrgent } from "@/lib/date-utils";
 import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import { formatWorkType } from "@/lib/work-types";
+import { getArancelLabel } from "@/lib/catalog-types";
 import { toast } from "sonner";
 
 interface Patient { id: string; first_name: string; last_name: string; }
@@ -28,7 +29,7 @@ interface Order {
   id: string;
   order_number: string;
   status: string;
-  items?: { work_type: string | null; catalog_item?: { name: string } | null }[];
+  items?: { work_type: string | null; arancel_type?: string | null; catalog_item?: { name: string } | null }[];
   created_at: string;
   due_date: string | null;
   patient: Patient | null;
@@ -254,8 +255,13 @@ export function OrdersList({
 
               <TableBody>
                 {filteredOrders.map((order) => {
-                  const workLabel = order.items?.[0]?.catalog_item?.name
-                    || (order.items?.[0]?.work_type ? formatWorkType(order.items[0].work_type) : null);
+                  const firstItem = order.items?.[0];
+                  const arancelSuffix = firstItem?.arancel_type ? ` · ${getArancelLabel(firstItem.arancel_type)}` : "";
+                  const workLabel = firstItem?.catalog_item?.name
+                    ? `${firstItem.catalog_item.name}${arancelSuffix}`
+                    : firstItem?.work_type
+                    ? `${formatWorkType(firstItem.work_type)}${arancelSuffix}`
+                    : null;
 
                   const isActive = !["delivered", "cancelled"].includes(order.status);
                   const overdue = isActive && order.due_date ? isOverdue(order.due_date) : false;
@@ -365,8 +371,13 @@ export function OrdersList({
           {/* ── Mobile card list ── */}
           <div className="sm:hidden divide-y divide-border/60">
             {filteredOrders.map((order) => {
-                const workLabel = order.items?.[0]?.catalog_item?.name
-                  || (order.items?.[0]?.work_type ? formatWorkType(order.items[0].work_type) : null);
+                const firstItem = order.items?.[0];
+                const arancelSuffix = firstItem?.arancel_type ? ` · ${getArancelLabel(firstItem.arancel_type)}` : "";
+                const workLabel = firstItem?.catalog_item?.name
+                  ? `${firstItem.catalog_item.name}${arancelSuffix}`
+                  : firstItem?.work_type
+                  ? `${formatWorkType(firstItem.work_type)}${arancelSuffix}`
+                  : null;
               const isActive = !["delivered", "cancelled"].includes(order.status);
               const overdue = isActive && order.due_date ? isOverdue(order.due_date) : false;
               const urgent  = isActive && order.due_date ? isUrgent(order.due_date) : false;

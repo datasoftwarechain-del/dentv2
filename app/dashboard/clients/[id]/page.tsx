@@ -8,7 +8,7 @@ import { ChevronLeft, Building2, FileText, Calendar, Phone, Mail, MapPin, Credit
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
-import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
+import { StatusBadge } from "@/components/orders/status-badge";
 import { ClientEditDialog } from "@/components/clients/client-edit-dialog";
 
 export default async function ClientDetailPage({
@@ -216,12 +216,7 @@ export default async function ClientDetailPage({
                             </div>
                             <div className="flex items-center gap-2 text-right">
                               <div>
-                                <Badge
-                                  variant="outline"
-                                  className={cn("text-[9px] font-bold uppercase tracking-wider", ORDER_STATUS_BADGE_CLASSES[order.status])}
-                                >
-                                  {ORDER_STATUS_LABELS[order.status] || order.status}
-                                </Badge>
+                                <StatusBadge status={order.status} className="text-[9px]" />
                                 <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 justify-end">
                                   <Calendar className="h-3 w-3" />
                                   {formatSimpleDate(order.created_at)}

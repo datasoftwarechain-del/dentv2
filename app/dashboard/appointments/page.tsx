@@ -2,14 +2,26 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { AppointmentsList } from "@/components/appointments/appointments-list";
+import { PreviewGate } from "@/components/dashboard/preview-gate";
 import { getUserOrg } from "@/lib/get-user-org";
+import { Calendar } from "lucide-react";
 
 export default async function AppointmentsPage() {
   // Call getUserOrg() with no args so React.cache() shares the result with
   // the dashboard layout — eliminates one extra getUser() + org_members round-trip.
   const { user, org, isCollaborator, permissions } = await getUserOrg();
-  if (org.type !== "dentist") redirect("/dashboard");
+  if (org.type !== "dentist" && org.type !== "dentist_preview") redirect("/dashboard");
   if (isCollaborator && !permissions?.view_appointments) redirect("/dashboard");
+
+  if (org.type === "dentist_preview") {
+    return (
+      <PreviewGate
+        featureName="Citas"
+        description="Programá y gestioná las citas de tus pacientes con recordatorios automáticos. Activá tu cuenta para acceder."
+        icon={Calendar}
+      />
+    );
+  }
 
   const supabase = await createClient();
 

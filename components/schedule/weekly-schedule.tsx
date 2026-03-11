@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
+import { StatusBadge } from "@/components/orders/status-badge";
 import { formatDueTime } from "@/lib/date-utils";
 import {
   Calendar,
@@ -163,9 +163,6 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
       aptDate.getFullYear() === today.getFullYear()
     );
   }).length;
-
-  const statusLabels = ORDER_STATUS_LABELS;
-  const statusColors = ORDER_STATUS_BADGE_CLASSES;
 
   const formatDate = (date: Date) => {
     const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -462,15 +459,7 @@ export function WeeklySchedule({ orders, appointments = [], isDentist, weekStart
                                     <span className="font-mono text-[11px] font-bold text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded-md leading-none whitespace-nowrap">
                                       {order.order_number}
                                     </span>
-                                    <Badge
-                                      variant="outline"
-                                      className={cn(
-                                        "text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0 leading-none shrink-0",
-                                        statusColors[order.status]
-                                      )}
-                                    >
-                                      {statusLabels[order.status] || order.status}
-                                    </Badge>
+                                    <StatusBadge status={order.status} className="text-[9px] px-1.5 py-0 leading-none shrink-0" />
                                   </div>
 
                                   {/* Time */}

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { getUserOrg } from "@/lib/get-user-org";
+import { canViewPrices } from "@/lib/permissions";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
@@ -17,6 +18,8 @@ export default async function EditOrderPage({
 
   // Only admins or users with order creation rights can edit
   if (isCollaborator && !permissions?.create_orders) redirect("/dashboard");
+
+  const showPrices = canViewPrices(permissions);
 
   const supabase = await createClient();
   const isDentist = org.type === "dentist";
@@ -112,6 +115,7 @@ export default async function EditOrderPage({
           patients={patients}
           organizationId={org.id}
           isDentist={isDentist}
+          showPrices={showPrices}
         />
       </main>
     </div>

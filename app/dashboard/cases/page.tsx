@@ -1,12 +1,24 @@
 import { redirect } from "next/navigation";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { CasesView } from "@/components/cases/cases-view";
+import { PreviewGate } from "@/components/dashboard/preview-gate";
 import { getUserOrg } from "@/lib/get-user-org";
+import { Scan } from "lucide-react";
 
 export default async function CasesPage() {
   // Shares React.cache() with layout — no extra auth round-trip
   const { user, org, isCollaborator, permissions } = await getUserOrg();
   if (isCollaborator && !permissions?.view_cases) redirect("/dashboard");
+
+  if (org.type === "dentist_preview") {
+    return (
+      <PreviewGate
+        featureName="Casos Digitales"
+        description="Adjuntá archivos STL, radiografías y fotos a cada caso clínico. Activá tu cuenta para acceder."
+        icon={Scan}
+      />
+    );
+  }
 
   const isDentist = org.type === "dentist";
 
