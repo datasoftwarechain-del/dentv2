@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { getUserOrg } from "@/lib/get-user-org";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { ClientAccountStatement } from "@/components/billing/client-account-statement";
 
@@ -13,31 +15,31 @@ export const dynamic = "force-dynamic";
 
 export default async function ClientAccountPage({ params }: PageProps) {
   const resolvedParams = await params;
+  const { user, org } = await getUserOrg();
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/auth/login");
+  const isPreview = org.type === "dentist_preview";
+  const isDentist = org.type === "dentist" || isPreview;
 
-  // Get user's organization
-  const { data: memberships } = await supabase
-    .from("org_members")
-    .select("organization:org_id(id, name, type, is_system_account)")
-    .eq("user_id", user.id);
+  // Para preview: resolver el org ID real de la clínica y el lab
+  let effectiveOrgId = org.id;
+  if (isPreview) {
+    const { data: invitation } = await supabase
+      .from("client_invitations")
+      .select("dentist_org_id")
+      .eq("preview_org_id", org.id)
+      .eq("status", "active")
+      .single();
+    if (!invitation) redirect("/dashboard/billing");
+    effectiveOrgId = invitation.dentist_org_id;
+  }
 
-  const orgs = (memberships || [])
-    .map((m: any) => {
-      const orgData = m.organization;
-      return Array.isArray(orgData) ? orgData[0] : orgData;
-    })
-    .filter((o: any) => o && o.is_system_account !== false);
-
-  const org = orgs[0] || null;
-  if (!org) redirect("/dashboard");
-
-  const isDentist = org.type === "dentist";
+  // Preview users' JWT belongs to the preview org — RLS blocks access to lab/dentist data.
+  // Use admin client for authorized preview reads.
+  const db = isPreview ? createAdminClient() : supabase;
 
   // Get client organization details
-  const { data: clientOrg } = await supabase
+  const { data: clientOrg } = await db
     .from("organizations")
     .select("id, name, type, email, phone")
     .eq("id", resolvedParams.clientId)
@@ -46,7 +48,7 @@ export default async function ClientAccountPage({ params }: PageProps) {
   if (!clientOrg) redirect("/dashboard/billing");
 
   // Get all invoices for this client
-  const { data: invoicesRaw } = await supabase
+  const { data: invoicesRaw } = await db
     .from("invoices")
     .select(`
       *,
@@ -54,14 +56,14 @@ export default async function ClientAccountPage({ params }: PageProps) {
       lab_org:organizations!invoices_lab_org_id_fkey(id, name)
     `)
     .eq(isDentist ? "lab_org_id" : "dentist_org_id", resolvedParams.clientId)
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
+    .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)
     .order("created_at", { ascending: false });
 
   // Fetch order items (with catalog name & extras) for all invoiced orders
   const orderIds = (invoicesRaw || []).map((inv: any) => inv.order_id).filter(Boolean);
   let orderItemsByOrderId: Record<string, any[]> = {};
   if (orderIds.length > 0) {
-    const { data: itemsData } = await supabase
+    const { data: itemsData } = await db
       .from("lab_order_items")
       .select("id, order_id, work_type, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price)")
       .in("order_id", orderIds);
@@ -78,21 +80,18 @@ export default async function ClientAccountPage({ params }: PageProps) {
   }));
 
   // Get ledger movements for this client
-  const { data: movements } = await supabase
+  const { data: movements } = await db
     .from("ledger_movements")
     .select("*")
     .eq(isDentist ? "lab_org_id" : "dentist_org_id", resolvedParams.clientId)
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
+    .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)
     .order("created_at", { ascending: false });
 
-  // Calculate balance — same logic as UnifiedAccountStatement:
-  // charges add to balance, everything else (payments + any other type) reduces it
+  // Calculate balance
   const totalInvoiced = (invoices || []).reduce((sum, inv) => sum + Number(inv.total), 0);
-  const totalPaid     = (movements || []).filter(m => m.type === "payment").reduce((sum, m) => sum + Number(m.amount), 0);
-  const totalCharges  = (movements || []).filter(m => m.type === "charge").reduce((sum, m) => sum + Number(m.amount), 0);
-  const otherCredits  = (movements || []).filter(m => m.type !== "payment" && m.type !== "charge").reduce((sum, m) => sum + Number(m.amount), 0);
-
-  // Mirrors the running balance in UnifiedAccountStatement
+  const totalPaid     = (movements || []).filter((m: any) => m.type === "payment").reduce((sum, m: any) => sum + Number(m.amount), 0);
+  const totalCharges  = (movements || []).filter((m: any) => m.type === "charge").reduce((sum, m: any) => sum + Number(m.amount), 0);
+  const otherCredits  = (movements || []).filter((m: any) => m.type !== "payment" && m.type !== "charge").reduce((sum, m: any) => sum + Number(m.amount), 0);
   const balance = totalInvoiced + totalCharges - totalPaid - otherCredits;
 
   return (
@@ -114,7 +113,8 @@ export default async function ClientAccountPage({ params }: PageProps) {
           balance={balance}
           totalInvoiced={totalInvoiced}
           totalPaid={totalPaid}
-          organizationId={org.id}
+          organizationId={effectiveOrgId}
+          isReadOnly={isPreview}
         />
       </div>
     </div>

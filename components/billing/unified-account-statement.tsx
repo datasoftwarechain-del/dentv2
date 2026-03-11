@@ -106,6 +106,7 @@ interface UnifiedAccountStatementProps {
   organizationId: string;
   clientId: string;
   clientName?: string;
+  isReadOnly?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -121,6 +122,7 @@ export function UnifiedAccountStatement({
   organizationId,
   clientId,
   clientName = "Cliente",
+  isReadOnly = false,
 }: UnifiedAccountStatementProps) {
   const router = useRouter();
   const { csrfToken } = useCSRF();
@@ -588,42 +590,48 @@ export function UnifiedAccountStatement({
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                              onClick={() => {
-                                const invoice = invoices.find(inv => inv.id === transaction.id);
-                                if (invoice) handleEditInvoiceClick(invoice);
-                              }}
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {!isReadOnly && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                onClick={() => {
+                                  const invoice = invoices.find(inv => inv.id === transaction.id);
+                                  if (invoice) handleEditInvoiceClick(invoice);
+                                }}
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                           </>
                         ) : (
                           <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                              onClick={() => {
-                                const movement = movements.find(m => m.id === transaction.id);
-                                if (movement) handleEditClick(movement);
-                              }}
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                              onClick={() => {
-                                const movement = movements.find(m => m.id === transaction.id);
-                                if (movement) handleDeleteClick(movement);
-                              }}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {!isReadOnly && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                  onClick={() => {
+                                    const movement = movements.find(m => m.id === transaction.id);
+                                    if (movement) handleEditClick(movement);
+                                  }}
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                  onClick={() => {
+                                    const movement = movements.find(m => m.id === transaction.id);
+                                    if (movement) handleDeleteClick(movement);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            )}
                           </>
                         )}
                       </div>
@@ -752,36 +760,42 @@ export function UnifiedAccountStatement({
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                          onClick={() => {
-                            const invoice = invoices.find(inv => inv.id === transaction.id);
-                            if (invoice) handleEditInvoiceClick(invoice);
-                          }}
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
+                        {!isReadOnly && (
+                          <button
+                            className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                            onClick={() => {
+                              const invoice = invoices.find(inv => inv.id === transaction.id);
+                              if (invoice) handleEditInvoiceClick(invoice);
+                            }}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </>
                     ) : (
                       <>
-                        <button
-                          className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                          onClick={() => {
-                            const movement = movements.find(m => m.id === transaction.id);
-                            if (movement) handleEditClick(movement);
-                          }}
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-                          onClick={() => {
-                            const movement = movements.find(m => m.id === transaction.id);
-                            if (movement) handleDeleteClick(movement);
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {!isReadOnly && (
+                          <>
+                            <button
+                              className="p-1.5 rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                              onClick={() => {
+                                const movement = movements.find(m => m.id === transaction.id);
+                                if (movement) handleEditClick(movement);
+                              }}
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                              onClick={() => {
+                                const movement = movements.find(m => m.id === transaction.id);
+                                if (movement) handleDeleteClick(movement);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                   </div>

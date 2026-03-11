@@ -16,7 +16,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar
-        orgType={org.type as "dentist" | "lab"}
+        orgType={org.type}
         orgName={org.name}
         isCollaborator={isCollaborator}
         permissions={permissions}

@@ -37,7 +37,7 @@ export function SupportWidget() {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (data?.user) setUserId(data.user.id);
-    });
+    }).catch(() => {});
   }, []);
 
   const loadMessages = useCallback(async () => {
@@ -78,7 +78,9 @@ export function SupportWidget() {
           });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (err) console.warn("[SupportWidget] Realtime:", err);
+      });
 
     return () => {
       supabase.removeChannel(channel);

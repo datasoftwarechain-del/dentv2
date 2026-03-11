@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { OrdersList } from "@/components/orders/orders-list";
 import { getUserOrg } from "@/lib/get-user-org";
@@ -8,25 +9,44 @@ export default async function OrdersPage() {
   const { user, org, isCollaborator, permissions } = await getUserOrg();
   if (isCollaborator && !permissions?.view_orders) redirect("/dashboard");
 
-  const canCreate = !isCollaborator || !!permissions?.create_orders;
-  const canUpdateStatus = !isCollaborator || !!permissions?.update_order_status;
+  const isPreview = org.type === "dentist_preview";
+  const isDentist = org.type === "dentist" || isPreview;
+
+  // Preview orgs are view-only — no creating or updating
+  const canCreate = isPreview ? false : (!isCollaborator || !!permissions?.create_orders);
+  const canUpdateStatus = isPreview ? false : (!isCollaborator || !!permissions?.update_order_status);
   const showPrices = !isCollaborator || !!permissions?.view_prices;
 
   const supabase = await createClient();
 
-  const isDentist = org.type === "dentist";
+  // For preview orgs, resolve the real dentist org ID from the invitation record
+  let effectiveOrgId = org.id;
+  if (isPreview) {
+    const { data: invitation } = await supabase
+      .from("client_invitations")
+      .select("dentist_org_id")
+      .eq("preview_org_id", org.id)
+      .eq("status", "active")
+      .single();
+    if (!invitation) redirect("/dashboard");
+    effectiveOrgId = invitation.dentist_org_id;
+  }
+
+  // Preview users' JWT belongs to the preview org — RLS blocks access to lab/dentist data.
+  // Use admin client for authorized preview reads.
+  const db = isPreview ? createAdminClient() : supabase;
 
   // Get orders based on org type — limit prevents unbounded result sets
-  const { data: orders } = await supabase
+  const { data: orders } = await db
     .from("lab_orders")
     .select(`
       *,
-      items:lab_order_items(work_type, catalog_item:price_catalog(name)),
+      items:lab_order_items(work_type, arancel_type, catalog_item:price_catalog(name)),
       patient:patients(id, first_name, last_name),
       dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
       lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
     `)
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
+    .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -41,15 +61,15 @@ export default async function OrdersPage() {
 
     // Both queries are independent — run in parallel
     const [{ data: patientsData }, { data: labRelationsRaw }] = await Promise.all([
-      supabase
+      db
         .from("patients")
         .select("id, first_name, last_name")
-        .eq("dentist_org_id", org.id)
+        .eq("dentist_org_id", effectiveOrgId)
         .order("first_name"),
-      supabase
+      db
         .from("lab_dentist_relations")
         .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
-        .eq("dentist_org_id", org.id)
+        .eq("dentist_org_id", effectiveOrgId)
         .eq("status", "active"),
     ]);
 
@@ -139,7 +159,7 @@ export default async function OrdersPage() {
         <OrdersList
           orders={orders || []}
           isDentist={isDentist}
-          organizationId={org.id}
+          organizationId={effectiveOrgId}
           patients={patients}
           labs={labs}
           defaultLabId={defaultLabId}

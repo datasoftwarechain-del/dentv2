@@ -1,33 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserOrg } from "@/lib/get-user-org";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { formatShortDate } from "@/lib/date-utils";
-import {
-  ORDER_STATUS_ACTIVE,
-  ORDER_STATUS_BADGE_CLASSES,
-  ORDER_STATUS_LABELS,
-} from "@/lib/order-status";
-import {
-  FileText,
-  Users,
-  Calendar,
-  DollarSign,
-  Clock,
-  TrendingUp,
-  PlusCircle,
-  ArrowRight,
-  ClipboardList,
-  UserPlus
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
-import { QuickActions } from "@/components/dashboard/quick-actions";
-import { DeliveryAlerts } from "@/components/dashboard/delivery-alerts";
+import { redirect } from "next/navigation";
 import { LabDashboard } from "@/components/dashboard/lab-dashboard";
 import { DentistDashboard } from "@/components/dashboard/dentist-dashboard";
-// Legacy laboratory components (dentist dashboard still uses these)
 import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog";
 
 export default async function DashboardPage() {
@@ -36,8 +13,26 @@ export default async function DashboardPage() {
   const { user, org } = await getUserOrg();
   const supabase = await createClient();
 
-  const isDentist = org.type === "dentist";
+  const isPreview = org.type === "dentist_preview";
+  const isDentist = org.type === "dentist" || isPreview;
   const isLab = org.type === "lab";
+
+  // Para orgs preview, resolver el ID real de la clínica desde client_invitations
+  let effectiveDentistOrgId = org.id;
+  if (isPreview) {
+    const { data: invitation } = await supabase
+      .from("client_invitations")
+      .select("dentist_org_id")
+      .eq("preview_org_id", org.id)
+      .eq("status", "active")
+      .single();
+    if (!invitation) redirect("/auth/login");
+    effectiveDentistOrgId = invitation.dentist_org_id;
+  }
+
+  // Preview users belong to a preview org (not lab/dentist) — RLS blocks their access
+  // to invoices/orders/patients. Use admin client to bypass RLS for authorized preview reads.
+  const db = isPreview ? createAdminClient() : supabase;
 
   // Laboratory dashboard
   if (isLab) {
@@ -154,24 +149,26 @@ export default async function DashboardPage() {
     { data: todayOrders },
     { data: tomorrowOrders },
   ] = await Promise.all([
-    supabase
+    db
       .from("patients")
       .select("id, first_name, last_name, created_at")
-      .eq("dentist_org_id", org.id)
+      .eq("dentist_org_id", effectiveDentistOrgId)
       .order("created_at", { ascending: false }),
-    supabase
-      .from("appointments")
-      .select(`
-        id,
-        scheduled_at,
-        notes,
-        status,
-        patient:patients(id, first_name, last_name, created_at)
-      `)
-      .eq("dentist_org_id", org.id)
-      .gte("scheduled_at", new Date().toISOString())
-      .order("scheduled_at", { ascending: true }),
-    supabase
+    isPreview
+      ? Promise.resolve({ data: [] })
+      : supabase
+          .from("appointments")
+          .select(`
+            id,
+            scheduled_at,
+            notes,
+            status,
+            patient:patients(id, first_name, last_name, created_at)
+          `)
+          .eq("dentist_org_id", effectiveDentistOrgId)
+          .gte("scheduled_at", new Date().toISOString())
+          .order("scheduled_at", { ascending: true }),
+    db
       .from("lab_orders")
       .select(`
         id,
@@ -181,17 +178,17 @@ export default async function DashboardPage() {
         due_date,
         patient:patients(id, first_name, last_name),
         lab_org:organizations!lab_orders_lab_org_id_fkey(id, name),
-        items:lab_order_items(work_type, catalog_item:price_catalog(name))
+        items:lab_order_items(work_type, arancel_type, catalog_item:price_catalog(name))
       `)
-      .eq("dentist_org_id", org.id)
+      .eq("dentist_org_id", effectiveDentistOrgId)
       .order("created_at", { ascending: false })
       .limit(200),
-    supabase
+    db
       .from("lab_dentist_relations")
       .select("lab_org:organizations!lab_dentist_relations_lab_org_id_fkey(id, name)")
-      .eq("dentist_org_id", org.id)
+      .eq("dentist_org_id", effectiveDentistOrgId)
       .eq("status", "active"),
-    supabase
+    db
       .from("lab_orders")
       .select(`
         id,
@@ -202,12 +199,12 @@ export default async function DashboardPage() {
         dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
         lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
       `)
-      .eq("dentist_org_id", org.id)
+      .eq("dentist_org_id", effectiveDentistOrgId)
       .not("due_date", "is", null)
       .gte("due_date", today.toISOString())
       .lte("due_date", todayEnd.toISOString())
       .order("due_date", { ascending: true }),
-    supabase
+    db
       .from("lab_orders")
       .select(`
         id,
@@ -218,7 +215,7 @@ export default async function DashboardPage() {
         dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
         lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
       `)
-      .eq("dentist_org_id", org.id)
+      .eq("dentist_org_id", effectiveDentistOrgId)
       .not("due_date", "is", null)
       .gte("due_date", tomorrow.toISOString())
       .lte("due_date", tomorrowEnd.toISOString())
@@ -247,7 +244,7 @@ export default async function DashboardPage() {
         }}
       />
       <DentistDashboard
-        orgId={org.id}
+        orgId={effectiveDentistOrgId}
         orgName={org.name}
         patients={patients}
         appointments={appointments || []}
@@ -255,6 +252,7 @@ export default async function DashboardPage() {
         todayOrders={(todayOrders as any) || []}
         tomorrowOrders={(tomorrowOrders as any) || []}
         labs={labs}
+        isReadOnly={isPreview}
       />
     </div>
   );

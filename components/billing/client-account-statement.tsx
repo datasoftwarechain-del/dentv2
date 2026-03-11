@@ -112,6 +112,7 @@ interface ClientAccountStatementProps {
   totalInvoiced: number;
   totalPaid: number;
   organizationId: string;
+  isReadOnly?: boolean;
 }
 
 const statusLabels: Record<string, string> = {
@@ -137,6 +138,7 @@ export function ClientAccountStatement({
   totalInvoiced,
   totalPaid,
   organizationId,
+  isReadOnly = false,
 }: ClientAccountStatementProps) {
   const router = useRouter();
   const { csrfToken } = useCSRF();
@@ -453,16 +455,18 @@ export function ClientAccountStatement({
               Saldo Actual
             </p>
             <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => {
-                  setAdjustFormData({ targetBalance: String(balance), description: "" });
-                  setAdjustDialogOpen(true);
-                }}
-                className="p-1.5 rounded-lg hover:bg-primary/15 transition-colors group"
-                title="Ajustar saldo manualmente"
-              >
-                <Pencil className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary transition-colors" />
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={() => {
+                    setAdjustFormData({ targetBalance: String(balance), description: "" });
+                    setAdjustDialogOpen(true);
+                  }}
+                  className="p-1.5 rounded-lg hover:bg-primary/15 transition-colors group"
+                  title="Ajustar saldo manualmente"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-primary/60 group-hover:text-primary transition-colors" />
+                </button>
+              )}
               <div className="p-2 rounded-xl bg-primary/20">
                 <Clock className="h-4 w-4 text-primary" />
               </div>
@@ -609,12 +613,14 @@ export function ClientAccountStatement({
 
         {/* Register Payment Button */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="font-bold text-xs uppercase tracking-wider bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg">
-              <Plus className="mr-2 h-4 w-4" />
-              Registrar {isDentist ? "Pago" : "Cobro"}
-            </Button>
-          </DialogTrigger>
+          {!isReadOnly && (
+            <DialogTrigger asChild>
+              <Button className="font-bold text-xs uppercase tracking-wider bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg">
+                <Plus className="mr-2 h-4 w-4" />
+                Registrar {isDentist ? "Pago" : "Cobro"}
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent className="sm:max-w-[425px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
             <DialogHeader>
               <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
@@ -699,6 +705,7 @@ export function ClientAccountStatement({
           organizationId={organizationId}
           clientId={client.id}
           clientName={client.name}
+          isReadOnly={isReadOnly}
         />
       )}
 

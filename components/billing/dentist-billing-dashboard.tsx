@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
+import { formatWorkType } from "@/lib/work-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,6 +72,7 @@ interface LabInvoice {
   patient_name?: string | null;
   work_type?: string | null;
   lab_org: { id: string; name: string } | null;
+  order_items?: { work_type?: string | null; catalog_item?: { name: string } | null }[];
 }
 
 interface DentistBillingDashboardProps {
@@ -85,6 +87,7 @@ interface DentistBillingDashboardProps {
     totalPatientPending: number;
     totalLabPending: number;
   };
+  isReadOnly?: boolean;
 }
 
 /* ─────────────── Status helpers ─────────────── */
@@ -108,11 +111,12 @@ export function DentistBillingDashboard({
   labClients,
   labInvoices,
   stats,
+  isReadOnly = false,
 }: DentistBillingDashboardProps) {
   const router = useRouter();
   const { csrfToken } = useCSRF();
 
-  const [activeTab, setActiveTab] = useState<"patients" | "lab">("patients");
+  const [activeTab, setActiveTab] = useState<"patients" | "lab">(isReadOnly ? "lab" : "patients");
   const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [patientInvoices, setPatientInvoices] = useState(initialPatientInvoices);
@@ -281,16 +285,16 @@ export function DentistBillingDashboard({
 
         <Card className={cn(
           "border shadow-sm bg-background/50",
-          stats.totalLabPending > 0 ? "border-rose-200" : "border-border/50"
+          stats.totalLabPending > 0 ? "border-primary/30" : "border-border/50"
         )}>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">A Pagar Lab</p>
-            <div className={cn("p-2 rounded-xl", stats.totalLabPending > 0 ? "bg-rose-500/10" : "bg-muted/30")}>
-              <Building2 className={cn("h-4 w-4", stats.totalLabPending > 0 ? "text-rose-600" : "text-muted-foreground")} />
+            <div className={cn("p-2 rounded-xl", stats.totalLabPending > 0 ? "bg-primary/10" : "bg-muted/30")}>
+              <Building2 className={cn("h-4 w-4", stats.totalLabPending > 0 ? "text-primary" : "text-muted-foreground")} />
             </div>
           </CardHeader>
           <CardContent>
-            <div className={cn("text-3xl font-bold", stats.totalLabPending > 0 ? "text-rose-600" : "")}>
+            <div className={cn("text-3xl font-bold", stats.totalLabPending > 0 ? "text-primary" : "")}>
               ${formatNumber(stats.totalLabPending)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-1 font-medium">{labClients.length} laboratorio(s)</p>
@@ -394,11 +398,13 @@ export function DentistBillingDashboard({
                     className="h-9 w-48 text-sm bg-background"
                   />
                   <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="h-9 font-bold text-xs uppercase tracking-wider bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">
-                        <Plus className="mr-2 h-4 w-4" /> Nueva Factura
-                      </Button>
-                    </DialogTrigger>
+                    {!isReadOnly && (
+                      <DialogTrigger asChild>
+                        <Button className="h-9 font-bold text-xs uppercase tracking-wider bg-primary hover:bg-primary/90 text-primary-foreground shadow-md">
+                          <Plus className="mr-2 h-4 w-4" /> Nueva Factura
+                        </Button>
+                      </DialogTrigger>
+                    )}
                     <DialogContent className="sm:max-w-[480px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
                       <DialogHeader>
                         <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary/70">
@@ -640,7 +646,7 @@ export function DentistBillingDashboard({
                         {lab.pendingAmount > 0 ? (
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Saldo pendiente</span>
-                            <span className="font-bold text-rose-600">${formatNumber(lab.pendingAmount)}</span>
+                            <span className="font-bold text-primary">${formatNumber(lab.pendingAmount)}</span>
                           </div>
                         ) : (
                           <div className="flex items-center gap-1.5 text-xs text-secondary">
@@ -686,8 +692,14 @@ export function DentistBillingDashboard({
                               <TableCell>
                                 <div className="text-sm">
                                   {inv.patient_name && <p className="font-medium">{inv.patient_name}</p>}
-                                  {inv.work_type && <p className="text-xs text-muted-foreground">{inv.work_type}</p>}
-                                  {!inv.patient_name && !inv.work_type && <span className="text-muted-foreground text-xs">-</span>}
+                                  {(() => {
+                                    const catalogName = inv.order_items?.[0]?.catalog_item?.name;
+                                    const label = catalogName || formatWorkType(inv.work_type);
+                                    return label && label !== "—"
+                                      ? <p className="text-xs text-muted-foreground">{label}</p>
+                                      : null;
+                                  })()}
+                                  {!inv.patient_name && !inv.order_items?.[0]?.catalog_item?.name && !inv.work_type && <span className="text-muted-foreground text-xs">-</span>}
                                 </div>
                               </TableCell>
                               <TableCell className="font-bold">${formatNumber(inv.total)}</TableCell>

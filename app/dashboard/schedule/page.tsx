@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { WeeklySchedule } from "@/components/schedule/weekly-schedule";
 import { getUserOrg } from "@/lib/get-user-org";
@@ -12,7 +13,24 @@ export default async function SchedulePage(props: any) {
   if (isCollaborator && !permissions?.view_schedule) redirect("/dashboard");
   const supabase = await createClient();
 
-  const isDentist = org.type === "dentist";
+  const isPreview = org.type === "dentist_preview";
+  const isDentist = org.type === "dentist" || isPreview;
+
+  // Para preview: resolver el org ID real de la clínica y el lab
+  let effectiveOrgId = org.id;
+  if (isPreview) {
+    const { data: invitation } = await supabase
+      .from("client_invitations")
+      .select("dentist_org_id")
+      .eq("preview_org_id", org.id)
+      .eq("status", "active")
+      .single();
+    if (!invitation) redirect("/dashboard/billing");
+    effectiveOrgId = invitation.dentist_org_id;
+  }
+
+  // Preview users' JWT belongs to the preview org — RLS blocks access to lab data.
+  const db = isPreview ? createAdminClient() : supabase;
 
   // ── Read week param (supports both sync & async searchParams) ─────────────
   const searchParams = await Promise.resolve(props.searchParams ?? {});
@@ -46,7 +64,7 @@ export default async function SchedulePage(props: any) {
 
   // ── Fetch orders + appointments in parallel ────────────────────────────────
   const [{ data: orders }, { data: appointmentsData }] = await Promise.all([
-    supabase
+    db
       .from("lab_orders")
       .select(`
         *,
@@ -55,7 +73,7 @@ export default async function SchedulePage(props: any) {
         dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
         lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
       `)
-      .eq(isDentist ? "dentist_org_id" : "lab_org_id", org.id)
+      .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)
       .not("due_date", "is", null)
       .gte("due_date", weekStart.toISOString())
       .lte("due_date", weekEnd.toISOString())
@@ -63,10 +81,10 @@ export default async function SchedulePage(props: any) {
 
     // Always run this query; ignore result for lab users (avoids an if/await waterfall)
     isDentist
-      ? supabase
+      ? db
           .from("appointments")
           .select(`id, scheduled_at, notes, status, patient:patients(id, first_name, last_name)`)
-          .eq("dentist_org_id", org.id)
+          .eq("dentist_org_id", effectiveOrgId)
           .gte("scheduled_at", weekStart.toISOString())
           .lte("scheduled_at", weekEnd.toISOString())
           .order("scheduled_at", { ascending: true })

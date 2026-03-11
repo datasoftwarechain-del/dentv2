@@ -4,7 +4,8 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatShortDate, formatTime } from "@/lib/date-utils";
-import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS, STATUS_PIE_COLORS } from "@/lib/order-status";
+import { ORDER_STATUS_LABELS, STATUS_PIE_COLORS } from "@/lib/order-status";
+import { StatusBadge } from "@/components/orders/status-badge";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell,
@@ -18,6 +19,7 @@ import {
   Calendar, ArrowRight, TrendingUp, Building2, Package, Clock, CalendarClock,
 } from "lucide-react";
 import { formatWorkType } from "@/lib/work-types";
+import { getArancelLabel } from "@/lib/catalog-types";
 
 interface Patient { id: string; first_name: string; last_name: string; created_at?: string; }
 interface Lab { id: string; name: string; }
@@ -36,7 +38,7 @@ interface Order {
   due_date: string | null;
   patient: Patient | Patient[] | null;
   lab_org: Lab | Lab[] | null;
-  items?: Array<{ work_type: string; catalog_item: { name: string } | null }> | null;
+  items?: Array<{ work_type: string; arancel_type?: string | null; catalog_item: { name: string } | null }> | null;
 }
 
 interface DentistDashboardProps {
@@ -48,6 +50,7 @@ interface DentistDashboardProps {
   todayOrders: Order[];
   tomorrowOrders: Order[];
   labs: Lab[];
+  isReadOnly?: boolean;
 }
 
 // ── SVG Ring progress ─────────────────────────────────────────────────────────
@@ -74,10 +77,9 @@ function shortDay(d: Date) {
 }
 
 export function DentistDashboard({
-  orgId, orgName, patients, appointments, orders, todayOrders, tomorrowOrders, labs,
+  orgId, orgName, patients, appointments, orders, todayOrders, tomorrowOrders, labs, isReadOnly = false,
 }: DentistDashboardProps) {
   const statusLabels = ORDER_STATUS_LABELS;
-  const statusColors = ORDER_STATUS_BADGE_CLASSES;
   const now = new Date();
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
@@ -171,7 +173,7 @@ export function DentistDashboard({
             })}
           </p>
         </div>
-        <QuickActions organizationId={orgId} patients={patients} labs={labs} />
+        {!isReadOnly && <QuickActions organizationId={orgId} patients={patients} labs={labs} />}
       </div>
 
       {/* ── Delivery Alerts ──────────────────────────────────────────────── */}
@@ -572,8 +574,11 @@ export function DentistDashboard({
                 const p   = Array.isArray(order.patient) ? order.patient[0] : order.patient;
                 const lab = Array.isArray(order.lab_org)  ? order.lab_org[0]  : order.lab_org;
                 const firstItem = order.items?.[0];
+                const arancelSuffix = firstItem?.arancel_type ? ` · ${getArancelLabel(firstItem.arancel_type)}` : "";
                 const workLabel = firstItem
-                  ? (firstItem.catalog_item?.name || formatWorkType(firstItem.work_type))
+                  ? (firstItem.catalog_item?.name
+                      ? `${firstItem.catalog_item.name}${arancelSuffix}`
+                      : `${formatWorkType(firstItem.work_type)}${arancelSuffix}`)
                   : null;
                 return (
                   <Link
@@ -624,12 +629,7 @@ export function DentistDashboard({
                       ) : (
                         <span className="hidden sm:block text-[10px] text-muted-foreground/50">Sin fecha</span>
                       )}
-                      <Badge
-                        variant="outline"
-                        className={cn("text-[9px] font-semibold uppercase tracking-wide shrink-0", statusColors[order.status])}
-                      >
-                        {statusLabels[order.status] || order.status}
-                      </Badge>
+                      <StatusBadge status={order.status} className="text-[9px] shrink-0" />
                     </div>
                   </Link>
                 );

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { BillingDashboard } from "@/components/billing/billing-dashboard";
 import { DentistBillingDashboard } from "@/components/billing/dentist-billing-dashboard";
@@ -12,45 +13,110 @@ export default async function BillingPage() {
   const showAmounts = !isCollaborator || !!permissions?.view_billing_amounts;
   const supabase = await createClient();
 
-  const isDentist = org.type === "dentist";
+  const isPreview = org.type === "dentist_preview";
+  const isDentist = org.type === "dentist" || isPreview;
+
+  // Para preview: resolver org real + lab org desde client_invitations
+  let effectiveOrgId = org.id;
+  let previewLabOrgId: string | null = null;
+
+  if (isPreview) {
+    const { data: invitation } = await supabase
+      .from("client_invitations")
+      .select("dentist_org_id, lab_org_id")
+      .eq("preview_org_id", org.id)
+      .eq("status", "active")
+      .single();
+    if (!invitation) redirect("/dashboard");
+    effectiveOrgId = invitation.dentist_org_id;
+    previewLabOrgId = invitation.lab_org_id;
+  }
+
+  // Preview users' JWT belongs to the preview org — RLS blocks access to lab/dentist data.
+  // Use admin client for authorized preview reads.
+  const db = isPreview ? createAdminClient() : supabase;
 
   // ─── DENTIST BILLING ───────────────────────────────────────
   if (isDentist) {
-    // All three queries are independent — run in parallel to eliminate waterfall
+    // Queries paralelas según tipo de org
     const [
       { data: patientInvoices },
       { data: patients },
       { data: labInvoices },
+      ledgerResult,
+      labOrgResult,
     ] = await Promise.all([
-      // Patient invoices (dentist → patient)
-      supabase
-        .from("patient_invoices")
-        .select("*, patient:patients(id, first_name, last_name)")
-        .eq("dentist_org_id", org.id)
-        .order("created_at", { ascending: false }),
+      // Facturas a pacientes — vacío para preview (ellos no facturan pacientes)
+      isPreview
+        ? Promise.resolve({ data: [] })
+        : supabase
+            .from("patient_invoices")
+            .select("*, patient:patients(id, first_name, last_name)")
+            .eq("dentist_org_id", effectiveOrgId)
+            .order("created_at", { ascending: false }),
 
-      // Patients list for the create dialog
-      supabase
-        .from("patients")
-        .select("id, first_name, last_name")
-        .eq("dentist_org_id", org.id)
-        .order("first_name"),
+      // Listado de pacientes — vacío para preview
+      isPreview
+        ? Promise.resolve({ data: [] })
+        : supabase
+            .from("patients")
+            .select("id, first_name, last_name")
+            .eq("dentist_org_id", effectiveOrgId)
+            .order("first_name"),
 
-      // Lab invoices (lab → dentist)
-      supabase
+      // Facturas formales (lab → clínica)
+      db
         .from("invoices")
         .select(`
           *,
           lab_org:organizations!invoices_lab_org_id_fkey(id, name)
         `)
-        .eq("dentist_org_id", org.id)
+        .eq("dentist_org_id", effectiveOrgId)
         .order("created_at", { ascending: false }),
+
+      // Movimientos del libro mayor — saldo real de la cuenta con el lab (solo preview)
+      isPreview && previewLabOrgId
+        ? db
+            .from("ledger_movements")
+            .select("*")
+            .eq("dentist_org_id", effectiveOrgId)
+            .eq("lab_org_id", previewLabOrgId)
+            .order("created_at", { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: [] }),
+
+      // Nombre del lab para preview (para mostrar en el card de cuenta)
+      isPreview && previewLabOrgId
+        ? db
+            .from("organizations")
+            .select("id, name")
+            .eq("id", previewLabOrgId)
+            .single()
+        : Promise.resolve({ data: null }),
     ]);
 
-    // Build lab clients summary
+    // Enriquecer labInvoices con order_items (para mostrar nombre del catálogo)
+    const labOrderIds = (labInvoices || []).map((inv: any) => inv.order_id).filter(Boolean);
+    let labOrderItemsByOrderId: Record<string, any[]> = {};
+    if (labOrderIds.length > 0) {
+      const { data: labItemsData } = await db
+        .from("lab_order_items")
+        .select("id, order_id, work_type, catalog_item:price_catalog(name)")
+        .in("order_id", labOrderIds);
+      for (const item of (labItemsData || [])) {
+        if (!labOrderItemsByOrderId[item.order_id]) labOrderItemsByOrderId[item.order_id] = [];
+        labOrderItemsByOrderId[item.order_id].push(item);
+      }
+    }
+    const labInvoicesEnriched = (labInvoices || []).map((inv: any) => ({
+      ...inv,
+      order_items: labOrderItemsByOrderId[inv.order_id] || [],
+    }));
+
+    // Construir resumen por lab desde facturas formales
     const labClientsMap = new Map<string, any>();
     (labInvoices || []).forEach((inv: any) => {
-      const lab = inv.lab_org;
+      const lab = Array.isArray(inv.lab_org) ? inv.lab_org[0] : inv.lab_org;
       if (!lab) return;
       const existing = labClientsMap.get(lab.id) || {
         id: lab.id, name: lab.name, invoiceCount: 0, totalAmount: 0, pendingAmount: 0,
@@ -60,6 +126,24 @@ export default async function BillingPage() {
       if (inv.status === "pending") existing.pendingAmount += Number(inv.total);
       labClientsMap.set(lab.id, existing);
     });
+
+    // Para preview: si no hay facturas formales, usar el saldo del libro mayor
+    if (isPreview && labClientsMap.size === 0 && previewLabOrgId) {
+      const labOrg = labOrgResult.data as { id: string; name: string } | null;
+      const movements = (ledgerResult.data || []) as any[];
+      // El primer movimiento (más reciente) tiene el saldo actual
+      const latestBalance = movements.length > 0 ? Number(movements[0].balance) : 0;
+      if (labOrg) {
+        labClientsMap.set(labOrg.id, {
+          id: labOrg.id,
+          name: labOrg.name,
+          invoiceCount: 0,
+          totalAmount: latestBalance,
+          pendingAmount: latestBalance,
+        });
+      }
+    }
+
     const labClients = Array.from(labClientsMap.values());
 
     // Stats
@@ -77,12 +161,13 @@ export default async function BillingPage() {
         />
         <div className="flex-1 p-6">
           <DentistBillingDashboard
-            organizationId={org.id}
+            organizationId={effectiveOrgId}
             patients={patients || []}
             patientInvoices={piList}
             labClients={labClients}
-            labInvoices={labInvoices || []}
+            labInvoices={labInvoicesEnriched}
             stats={{ totalPatientInvoiced, totalPatientPaid, totalPatientPending, totalLabPending }}
+            isReadOnly={isPreview}
           />
         </div>
       </div>
@@ -128,6 +213,24 @@ export default async function BillingPage() {
     ? await supabase.from("organizations").select("id, name").in("id", dentistOrgIds).order("name")
     : { data: [] };
   const connectedDentists = (dentistOrgsData || []) as { id: string; name: string }[];
+
+  // Fetch order items for invoices — enables extras display in InvoiceDetail
+  const invoiceOrderIds = (invoices || []).map((inv: any) => inv.order_id).filter(Boolean) as string[];
+  let orderItemsByOrderId: Record<string, any[]> = {};
+  if (invoiceOrderIds.length > 0) {
+    const { data: orderItemsData } = await supabase
+      .from("lab_order_items")
+      .select("id, order_id, work_type, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price)")
+      .in("order_id", invoiceOrderIds);
+    for (const item of (orderItemsData || [])) {
+      if (!orderItemsByOrderId[item.order_id]) orderItemsByOrderId[item.order_id] = [];
+      orderItemsByOrderId[item.order_id].push(item);
+    }
+  }
+  const invoicesWithItems = (invoices || []).map((inv: any) => ({
+    ...inv,
+    order_items: orderItemsByOrderId[inv.order_id] || [],
+  }));
 
   // Latest ledger balance per client (movements already ordered by created_at desc)
   const balanceMap = new Map<string, number>();
@@ -184,7 +287,7 @@ export default async function BillingPage() {
       />
       <div className="flex-1 p-6">
         <BillingDashboard
-          invoices={invoices || []}
+          invoices={invoicesWithItems}
           movements={movements || []}
           isDentist={false}
           organizationId={org.id}

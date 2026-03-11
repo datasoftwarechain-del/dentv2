@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect, notFound } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { notFound } from "next/navigation";
+import { getUserOrg } from "@/lib/get-user-org";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,18 +15,17 @@ import {
     Printer,
     MessageSquare,
     AlertCircle,
-    Download,
-    File,
     Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { ORDER_STATUS_BADGE_CLASSES, ORDER_STATUS_LABELS } from "@/lib/order-status";
 import { formatSimpleDate, formatDateTime } from "@/lib/date-utils";
 import { EditDueDateButton } from "@/components/orders/edit-due-date-button";
 import { CaseFilesSection } from "@/components/orders/case-files-section";
 import { formatWorkType } from "@/lib/work-types";
+import { canViewPrices, isCollaboratorRole, hasPermission } from "@/lib/permissions";
+import { OrderStatusSelect } from "@/components/orders/order-status-select";
+import { DeleteOrderButton } from "@/components/orders/delete-order-button";
 
 export default async function OrderDetailsPage({
     params,
@@ -32,32 +33,34 @@ export default async function OrderDetailsPage({
     params: { id: string };
 }) {
     const { id } = await params;
+    const { user, org, role, permissions } = await getUserOrg();
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) redirect("/auth/login");
+    const isPreview = org.type === "dentist_preview";
+    const isDentist = org.type === "dentist" || isPreview;
 
-    // Get user's organizations (handle multiple orgs like layout does)
-    const { data: memberships } = await supabase
-        .from("org_members")
-        .select("organization:org_id(id, name, type, is_system_account)")
-        .eq("user_id", user.id);
+    // Para preview: resolver el org ID real de la clínica
+    let effectiveOrgId = org.id;
+    if (isPreview) {
+        const { data: invitation } = await supabase
+            .from("client_invitations")
+            .select("dentist_org_id")
+            .eq("preview_org_id", org.id)
+            .eq("status", "active")
+            .single();
+        if (!invitation) notFound();
+        effectiveOrgId = invitation.dentist_org_id;
+    }
 
-    // Filter for system accounts only and get the first one
-    const orgs = (memberships || [])
-        .map((m: any) => {
-            const orgData = m.organization;
-            return Array.isArray(orgData) ? orgData[0] : orgData;
-        })
-        .filter((o: any) => o && o.is_system_account !== false);
+    const showPrices = isPreview ? true : canViewPrices(permissions);
+    const canDelete = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "create_orders"));
+    const canUpdateStatus = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "update_order_status"));
 
-    const org = orgs[0] || null;
-    if (!org) redirect("/dashboard");
-
-    const isDentist = org.type === "dentist";
+    // Preview users' JWT belongs to the preview org — use admin client to bypass RLS.
+    const db = isPreview ? createAdminClient() : supabase;
 
     // Fetch order details with related data
-    const { data: order } = await supabase
+    const { data: order } = await db
         .from("lab_orders")
         .select(`
       *,
@@ -69,15 +72,11 @@ export default async function OrderDetailsPage({
         .eq("id", id)
         .single();
 
-
     if (!order) notFound();
 
-    // Security check: must belong to the org
-    if (isDentist && order.dentist_org_id !== org.id) notFound();
+    // Verificación de seguridad: la orden debe pertenecer a la org del usuario
+    if (isDentist && order.dentist_org_id !== effectiveOrgId) notFound();
     if (!isDentist && order.lab_org_id !== org.id) notFound();
-
-    const statusLabels = ORDER_STATUS_LABELS;
-    const statusColors = ORDER_STATUS_BADGE_CLASSES;
 
     return (
         <div className="flex flex-col min-h-screen bg-background/50">
@@ -104,11 +103,14 @@ export default async function OrderDetailsPage({
                         <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-xs">
                             <Printer className="mr-2 h-4 w-4" /> Imprimir
                         </Button>
-                        <Link href={`/dashboard/orders/${order.id}/edit`}>
+                        {!isPreview && (
+                          <Link href={`/dashboard/orders/${order.id}/edit`}>
                             <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-xs border-[#09919b] text-[#09919b] hover:bg-[#09919b]/10">
                                 <Pencil className="mr-2 h-4 w-4" /> Editar
                             </Button>
-                        </Link>
+                          </Link>
+                        )}
+                        {canDelete && <DeleteOrderButton orderId={order.id} />}
                         <Button className="h-9 px-4 font-bold text-xs bg-primary hover:bg-primary/90">
                             <MessageSquare className="mr-2 h-4 w-4" /> Chat Lab
                         </Button>
@@ -127,9 +129,11 @@ export default async function OrderDetailsPage({
                                         Creada el {formatSimpleDate(order.created_at)}
                                     </CardDescription>
                                 </div>
-                                <Badge className={cn("px-4 py-1 text-xs font-bold uppercase", statusColors[order.status])}>
-                                    {statusLabels[order.status] || order.status}
-                                </Badge>
+                                <OrderStatusSelect
+                                    orderId={order.id}
+                                    currentStatus={order.status}
+                                    canUpdate={canUpdateStatus}
+                                />
                             </CardHeader>
                             <CardContent className="grid gap-8 py-6 border-t border-border/40">
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
@@ -192,7 +196,7 @@ export default async function OrderDetailsPage({
                                                                             {extras.map((e, i) => (
                                                                                 <p key={i} className="text-xs text-muted-foreground font-normal flex items-center gap-1.5">
                                                                                     <span>+ {e.name}{e.qty > 1 ? ` ×${e.qty}` : ""}</span>
-                                                                                    {e.price != null && e.price > 0 && (
+                                                                                    {showPrices && e.price != null && e.price > 0 && (
                                                                                         <span className="text-[#09919b] font-medium">${e.price * e.qty}</span>
                                                                                     )}
                                                                                 </p>
