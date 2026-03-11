@@ -21,6 +21,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatSimpleDate, formatDateTime } from "@/lib/date-utils";
 import { EditDueDateButton } from "@/components/orders/edit-due-date-button";
+import { EditPatientButton } from "@/components/orders/edit-patient-button";
 import { CaseFilesSection } from "@/components/orders/case-files-section";
 import { formatWorkType } from "@/lib/work-types";
 import { canViewPrices, isCollaboratorRole, hasPermission } from "@/lib/permissions";
@@ -141,13 +142,18 @@ export default async function OrderDetailsPage({
                                         <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
                                             <User className="h-3 w-3" /> Paciente
                                         </p>
-                                        <p className="font-bold text-sm">
-                                            {order.patient ? (
-                                                <Link href={`/dashboard/patients/${order.patient.id}`} className="hover:text-primary transition-colors">
-                                                    {order.patient.first_name} {order.patient.last_name}
-                                                </Link>
-                                            ) : "Sin paciente"}
-                                        </p>
+                                        {!isPreview ? (
+                                            <EditPatientButton
+                                                orderId={order.id}
+                                                currentPatientId={order.patient?.id ?? null}
+                                                currentPatientName={order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : null}
+                                                dentistOrgId={order.dentist_org_id}
+                                            />
+                                        ) : (
+                                            <p className="font-bold text-sm">
+                                                {order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : "Sin paciente"}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
