@@ -1,74 +1,56 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Combobox } from "@/components/ui/combobox";
 import { Pencil, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
 interface EditPatientButtonProps {
-  orderId: string;
-  currentPatientId: string | null;
-  currentPatientName: string | null;
-  dentistOrgId: string;
+  patientId: string;
+  firstName: string;
+  lastName: string;
 }
 
 export function EditPatientButton({
-  orderId,
-  currentPatientId,
-  currentPatientName,
-  dentistOrgId,
+  patientId,
+  firstName,
+  lastName,
 }: EditPatientButtonProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [patientsLoading, setPatientsLoading] = useState(false);
-  const [patients, setPatients] = useState<{ value: string; label: string }[]>([]);
-  const [selectedPatientId, setSelectedPatientId] = useState(currentPatientId || "");
+  const [first, setFirst] = useState(firstName);
+  const [last, setLast] = useState(lastName);
 
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setPatientsLoading(true);
-    const supabase = createClient();
-    supabase
-      .from("patients")
-      .select("id, first_name, last_name")
-      .eq("dentist_org_id", dentistOrgId)
-      .order("first_name")
-      .then(({ data }) => {
-        if (!cancelled) {
-          setPatients(
-            (data || []).map((p) => ({
-              value: p.id,
-              label: `${p.first_name} ${p.last_name}`,
-            }))
-          );
-          setPatientsLoading(false);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [open, dentistOrgId]);
+  function handleOpen() {
+    setFirst(firstName);
+    setLast(lastName);
+    setOpen(true);
+  }
 
-  async function handleSave() {
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!first.trim() || !last.trim()) return;
     setLoading(true);
     try {
       const supabase = createClient();
       const { error } = await supabase
-        .from("lab_orders")
-        .update({ patient_id: selectedPatientId || null })
-        .eq("id", orderId);
+        .from("patients")
+        .update({ first_name: first.trim(), last_name: last.trim() })
+        .eq("id", patientId);
 
       if (error) throw error;
-      toast.success("Paciente actualizado");
+      toast.success("Nombre del paciente actualizado");
       setOpen(false);
       router.refresh();
     } catch (err: any) {
@@ -81,12 +63,12 @@ export function EditPatientButton({
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         className="inline-flex items-center gap-1.5 group cursor-pointer"
-        title="Editar paciente"
+        title="Editar nombre del paciente"
       >
         <span className="font-bold text-sm group-hover:text-primary transition-colors">
-          {currentPatientName || "Sin paciente"}
+          {firstName} {lastName}
         </span>
         <Pencil className="h-3.5 w-3.5 text-muted-foreground/50 group-hover:text-primary transition-colors" />
       </button>
@@ -94,32 +76,36 @@ export function EditPatientButton({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[360px] border-border bg-background/95 backdrop-blur-xl shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Cambiar paciente</DialogTitle>
+            <DialogTitle className="text-lg font-bold">Editar nombre del paciente</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-2">
-            {patientsLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Cargando pacientes...
-              </div>
-            ) : (
-              <Combobox
-                options={patients}
-                value={selectedPatientId}
-                onValueChange={setSelectedPatientId}
-                placeholder="Seleccionar paciente"
-                searchPlaceholder="Buscar paciente..."
-                emptyText="No se encontraron pacientes."
+          <form onSubmit={handleSave} className="space-y-4 mt-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Nombre</Label>
+              <Input
+                value={first}
+                onChange={(e) => setFirst(e.target.value)}
+                placeholder="Nombre"
+                required
+                autoFocus
               />
-            )}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Apellido</Label>
+              <Input
+                value={last}
+                onChange={(e) => setLast(e.target.value)}
+                placeholder="Apellido"
+                required
+              />
+            </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
               <Button
+                type="submit"
                 size="sm"
-                disabled={loading || patientsLoading}
-                onClick={handleSave}
+                disabled={loading}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {loading ? (
@@ -129,7 +115,7 @@ export function EditPatientButton({
                 )}
               </Button>
             </div>
-          </div>
+          </form>
         </DialogContent>
       </Dialog>
     </>

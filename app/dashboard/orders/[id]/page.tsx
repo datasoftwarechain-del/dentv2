@@ -142,16 +142,15 @@ export default async function OrderDetailsPage({
                                         <p className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1.5">
                                             <User className="h-3 w-3" /> Paciente
                                         </p>
-                                        {!isPreview ? (
+                                        {!isPreview && order.patient ? (
                                             <EditPatientButton
-                                                orderId={order.id}
-                                                currentPatientId={order.patient?.id ?? null}
-                                                currentPatientName={order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : null}
-                                                dentistOrgId={order.dentist_org_id}
+                                                patientId={order.patient.id}
+                                                firstName={order.patient.first_name}
+                                                lastName={order.patient.last_name}
                                             />
                                         ) : (
                                             <p className="font-bold text-sm">
-                                                {order.patient ? `${order.patient.first_name} ${order.patient.last_name}` : "Sin paciente"}
+                                                {order.patient ? `${(order.patient as any).first_name} ${(order.patient as any).last_name}` : "Sin paciente"}
                                             </p>
                                         )}
                                     </div>
