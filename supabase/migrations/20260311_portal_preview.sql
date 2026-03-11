@@ -3,7 +3,11 @@
 -- No "clients" table — dentist orgs from lab_dentist_relations are the "clients".
 -- lab_orders gets a client_preview_org_id for linking preview org orders.
 
--- 1. Extend organizations type constraint to include dentist_preview
+-- 1a. Add is_system_account column (used by preview orgs)
+ALTER TABLE organizations
+  ADD COLUMN IF NOT EXISTS is_system_account BOOLEAN DEFAULT false;
+
+-- 1b. Extend organizations type constraint to include dentist_preview
 ALTER TABLE organizations
   DROP CONSTRAINT IF EXISTS organizations_type_check;
 ALTER TABLE organizations
@@ -11,7 +15,7 @@ ALTER TABLE organizations
   CHECK (type IN ('dentist', 'lab', 'dentist_preview'));
 
 -- 2. client_invitations: tracks portal access granted by a lab to a connected dentist
-CREATE TABLE client_invitations (
+CREATE TABLE IF NOT EXISTS client_invitations (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lab_org_id      UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   dentist_org_id  UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -33,21 +37,18 @@ ALTER TABLE lab_orders
   REFERENCES organizations(id) ON DELETE SET NULL;
 
 -- 4. Indexes for frequent lookups
-CREATE INDEX idx_invitations_lab ON client_invitations(lab_org_id);
-CREATE INDEX idx_invitations_dentist_org ON client_invitations(dentist_org_id);
-CREATE INDEX idx_invitations_preview_org ON client_invitations(preview_org_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_lab ON client_invitations(lab_org_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_dentist_org ON client_invitations(dentist_org_id);
+CREATE INDEX IF NOT EXISTS idx_invitations_preview_org ON client_invitations(preview_org_id);
 
 -- 5. RLS: allow authenticated users to read (app-level multi-tenancy like all other tables)
 ALTER TABLE client_invitations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "authenticated can read invitations" ON client_invitations;
+DROP POLICY IF EXISTS "authenticated can insert invitations" ON client_invitations;
+DROP POLICY IF EXISTS "authenticated can update invitations" ON client_invitations;
 CREATE POLICY "authenticated can read invitations"
-  ON client_invitations FOR SELECT
-  TO authenticated
-  USING (true);
+  ON client_invitations FOR SELECT TO authenticated USING (true);
 CREATE POLICY "authenticated can insert invitations"
-  ON client_invitations FOR INSERT
-  TO authenticated
-  WITH CHECK (true);
+  ON client_invitations FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "authenticated can update invitations"
-  ON client_invitations FOR UPDATE
-  TO authenticated
-  USING (true);
+  ON client_invitations FOR UPDATE TO authenticated USING (true);
