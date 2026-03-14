@@ -65,6 +65,19 @@ export default async function EditOrderPage({
 
   const patients = patientsRaw || [];
 
+  // Fetch lab's price catalog for the work type selector
+  const labOrgId = isDentist ? order.lab_org_id : org.id;
+  const { data: catalogRaw } = labOrgId
+    ? await supabase
+        .from("price_catalog")
+        .select("id, name, base_price, category")
+        .eq("org_id", labOrgId)
+        .eq("is_active", true)
+        .order("category")
+        .order("name")
+    : { data: [] };
+  const catalogItems = (catalogRaw || []) as { id: string; name: string; base_price: number; category: string }[];
+
   // Normalize items: flatten catalog_item join
   const items = (order.items || []).map((item: any) => ({
     id: item.id,
@@ -116,6 +129,7 @@ export default async function EditOrderPage({
           organizationId={org.id}
           isDentist={isDentist}
           showPrices={showPrices}
+          catalogItems={catalogItems}
         />
       </main>
     </div>

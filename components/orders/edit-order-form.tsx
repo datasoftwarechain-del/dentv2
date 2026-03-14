@@ -39,6 +39,13 @@ interface Extra {
   qty: number;
 }
 
+interface CatalogItem {
+  id: string;
+  name: string;
+  base_price: number;
+  category: string;
+}
+
 interface OrderItem {
   id: string;
   work_type: string | null;
@@ -48,6 +55,7 @@ interface OrderItem {
   unit_price: number | null;
   selected_extras: Extra[];
   catalog_item_name?: string | null;
+  catalog_item_id?: string | null;
 }
 
 interface OrderData {
@@ -66,6 +74,7 @@ interface EditOrderFormProps {
   organizationId: string;
   isDentist: boolean;
   showPrices?: boolean;
+  catalogItems?: CatalogItem[];
 }
 
 const STATUS_OPTIONS = [
@@ -101,7 +110,24 @@ function blankItem(): Omit<OrderItem, "id"> & { _tempId: string } {
     unit_price: null,
     selected_extras: [],
     catalog_item_name: null,
+    catalog_item_id: null,
   };
+}
+
+function guessWorkType(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes("zirconia")) return "corona_zirconia";
+  if (n.includes("emax") || n.includes("disilicato")) return "corona_emax";
+  if (n.includes("carilla")) return "carilla";
+  if (n.includes("puente")) return "puente_fijo";
+  if (n.includes("implante")) return "implante_corona";
+  if (n.includes("completa")) return "protesis_total";
+  if (n.includes("corona") || n.includes("perno")) return "corona_metal_ceramica";
+  if (n.includes("protesis") || n.includes("prótesis") || n.includes("terminacion") || n.includes("removible") || n.includes("ppr")) return "protesis_removible";
+  if (n.includes("ferula") || n.includes("férula")) return "ferula";
+  if (n.includes("retenedor")) return "retenedor";
+  if (n.includes("reparacion") || n.includes("reparación")) return "reparacion";
+  return "otro";
 }
 
 export function EditOrderForm({
@@ -110,6 +136,7 @@ export function EditOrderForm({
   organizationId,
   isDentist,
   showPrices = true,
+  catalogItems = [],
 }: EditOrderFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -226,9 +253,10 @@ export function EditOrderForm({
 
       // 4. Insert new items
       const itemsToInsert = newItems
-        .filter((i) => i.work_type)
+        .filter((i) => i.work_type || i.catalog_item_id)
         .map(({ _tempId: _, ...item }) => ({
           order_id: order.id,
+          catalog_item_id: item.catalog_item_id || null,
           work_type: item.work_type || null,
           tooth_positions: toToothArray(item.tooth_positions),
           shade: item.shade || null,
@@ -426,18 +454,26 @@ export function EditOrderForm({
               index={existingItems.length + idx}
               isNew
               workType={item.work_type || ""}
-              catalogName={null}
+              catalogName={item.catalog_item_name || null}
+              selectedCatalogId={item.catalog_item_id || null}
               toothPositions={item.tooth_positions || ""}
               shade={item.shade || ""}
               quantity={item.quantity}
               extras={item.selected_extras}
               showPrices={showPrices}
+              catalogItems={catalogItems}
               onWorkTypeChange={(v) => updateNewItem(item._tempId, "work_type", v)}
               onToothChange={(v) => updateNewItem(item._tempId, "tooth_positions", v)}
               onShadeChange={(v) => updateNewItem(item._tempId, "shade", v)}
               onQuantityChange={(v) => updateNewItem(item._tempId, "quantity", v)}
               onExtrasChange={(extras) => setNewItems((prev) =>
                 prev.map((i) => i._tempId === item._tempId ? { ...i, selected_extras: extras } : i)
+              )}
+              onCatalogSelect={(catalogId, name, basePrice, wt) => setNewItems((prev) =>
+                prev.map((i) => i._tempId === item._tempId
+                  ? { ...i, catalog_item_id: catalogId, catalog_item_name: name, unit_price: basePrice, work_type: wt }
+                  : i
+                )
               )}
               onRemove={() => removeNewItem(item._tempId)}
             />
@@ -476,16 +512,19 @@ interface ItemRowProps {
   isNew?: boolean;
   workType: string;
   catalogName: string | null;
+  selectedCatalogId?: string | null;
   toothPositions: string;
   shade: string;
   quantity: number;
   extras: Extra[];
   showPrices?: boolean;
+  catalogItems?: CatalogItem[];
   onWorkTypeChange: (v: string) => void;
   onToothChange: (v: string) => void;
   onShadeChange: (v: string) => void;
   onQuantityChange: (v: number) => void;
   onExtrasChange: (extras: Extra[]) => void;
+  onCatalogSelect?: (catalogId: string, name: string, basePrice: number, workType: string) => void;
   onRemove: () => void;
 }
 
@@ -494,16 +533,19 @@ function ItemRow({
   isNew,
   workType,
   catalogName,
+  selectedCatalogId,
   toothPositions,
   shade,
   quantity,
   extras,
   showPrices = true,
+  catalogItems = [],
   onWorkTypeChange,
   onToothChange,
   onShadeChange,
   onQuantityChange,
   onExtrasChange,
+  onCatalogSelect,
   onRemove,
 }: ItemRowProps) {
   const [newExtraName, setNewExtraName] = useState("");
@@ -559,6 +601,20 @@ function ItemRow({
               Clasificación: {formatWorkType(workType)}
             </p>
           </div>
+        ) : isNew && catalogItems.length > 0 ? (
+          <Combobox
+            options={catalogItems.map((c) => ({ value: c.id, label: c.name }))}
+            value={selectedCatalogId || ""}
+            onValueChange={(id) => {
+              const cat = catalogItems.find((c) => c.id === id);
+              if (cat && onCatalogSelect) {
+                onCatalogSelect(cat.id, cat.name, cat.base_price, guessWorkType(cat.name));
+              }
+            }}
+            placeholder="Seleccionar del arancel..."
+            searchPlaceholder="Buscar trabajo..."
+            emptyText="No se encontró el trabajo."
+          />
         ) : (
           <Select value={workType || undefined} onValueChange={onWorkTypeChange}>
             <SelectTrigger className="h-9 text-sm">
