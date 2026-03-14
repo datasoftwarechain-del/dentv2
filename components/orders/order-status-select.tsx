@@ -76,8 +76,8 @@ export function OrderStatusSelect({
   }
 
   return (
-    <Select value={status} onValueChange={handleChange} disabled={updating}>
-      <SelectTrigger className="h-7 w-auto min-w-[130px] border border-border/40 rounded-lg px-2.5 gap-1.5 bg-background hover:bg-muted/20 focus:ring-1 focus:ring-primary/20 transition-colors shadow-sm">
+    <Select value={status} onValueChange={handleChange}>
+      <SelectTrigger disabled={updating} className="h-7 w-auto min-w-[130px] border border-border/40 rounded-lg px-2.5 gap-1.5 bg-background hover:bg-muted/20 focus:ring-1 focus:ring-primary/20 transition-colors shadow-sm">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {updating ? (
             <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
