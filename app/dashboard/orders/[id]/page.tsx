@@ -166,6 +166,7 @@ export default async function OrderDetailsPage({
                                         ) : !isPreview && !order.patient ? (
                                             <AssignPatientButton
                                                 orderId={order.id}
+                                                dentistOrgId={isDentist ? effectiveOrgId : (order.dentist_org_id ?? "")}
                                                 patients={assignablePatients}
                                             />
                                         ) : (
