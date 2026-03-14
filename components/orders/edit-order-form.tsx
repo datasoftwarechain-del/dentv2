@@ -298,7 +298,7 @@ export function EditOrderForm({
                   </span>
                   <SelectValue className="hidden" />
                 </SelectTrigger>
-                <SelectContent position="popper">
+                <SelectContent>
                   {STATUS_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -316,7 +316,7 @@ export function EditOrderForm({
                   </span>
                   <SelectValue className="hidden" />
                 </SelectTrigger>
-                <SelectContent position="popper">
+                <SelectContent>
                   {PRIORITY_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
