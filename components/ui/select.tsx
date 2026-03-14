@@ -140,8 +140,8 @@ const SelectContent = React.forwardRef<
     if (context?.open && context.triggerRef.current) {
       const rect = context.triggerRef.current.getBoundingClientRect()
       setPosition({
-        top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX,
+        top: rect.bottom + 8,
+        left: rect.left,
         width: rect.width,
       })
     }
