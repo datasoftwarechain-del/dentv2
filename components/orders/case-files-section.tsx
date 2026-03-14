@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Download, FileText, File, AlertCircle, Loader2 } from "lucide-react";
+import { Download, FileText, File, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface CaseFile {
@@ -36,31 +36,20 @@ export function CaseFilesSection({ orderId, orderNumber }: CaseFilesSectionProps
 
       const supabase = createClient();
 
-      console.log("🔍 [CaseFiles] Iniciando carga de archivos");
-      console.log("🔍 [CaseFiles] Order ID:", orderId);
-
       const { data, error: fetchError } = await supabase
         .from("case_files")
         .select("*")
         .eq("order_id", orderId)
         .order("created_at", { ascending: false });
 
-      console.log("🔍 [CaseFiles] Resultado query:", {
-        encontrados: data?.length || 0,
-        data,
-        error: fetchError
-      });
-
       if (fetchError) {
-        console.error("❌ [CaseFiles] Error cargando archivos:", fetchError);
+        // Table may not exist yet — fail silently
         setError(fetchError.message);
         return;
       }
 
-      console.log("✅ [CaseFiles] Archivos cargados exitosamente:", data?.length || 0);
       setFiles(data || []);
     } catch (err: any) {
-      console.error("❌ [CaseFiles] Error en loadFiles:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -92,33 +81,7 @@ export function CaseFilesSection({ orderId, orderNumber }: CaseFilesSectionProps
   }
 
   if (error) {
-    return (
-      <div className="space-y-4 pt-4 border-t border-border/40">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-          <File className="h-4 w-4 text-[#09919b]" />
-          Archivos del Caso Digital
-        </h3>
-        <div className="p-4 rounded-xl border border-amber-200 bg-amber-50">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-900 mb-1">
-                Error al cargar archivos
-              </p>
-              <p className="text-xs text-amber-700">
-                {error}
-              </p>
-              {error.includes("relation") && (
-                <p className="text-xs text-amber-700 mt-2">
-                  La tabla <code className="bg-amber-100 px-1 rounded">case_files</code> no existe.
-                  Por favor ejecuta el SQL de configuración en Supabase.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // Temporalmente mostrar siempre la sección para depuración

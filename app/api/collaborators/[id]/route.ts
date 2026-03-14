@@ -98,6 +98,7 @@ export async function PUT(
     const updated = Array.isArray(data) ? data[0] : data;
 
     revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard", "layout");
 
     return NextResponse.json({
       success: true,
