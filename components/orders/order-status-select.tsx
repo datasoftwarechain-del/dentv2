@@ -12,13 +12,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatusBadge } from "./status-badge";
+import { cn } from "@/lib/utils";
 
 const EDITABLE_STATUSES = [
-  { value: "received",    label: "Recibido" },
-  { value: "in_progress", label: "En Curso" },
-  { value: "ready",       label: "Listo" },
-  { value: "delivered",   label: "Entregado" },
-  { value: "cancelled",   label: "Cancelado" },
+  { value: "received",      label: "Recibido",       dot: "bg-[#0d687d]" },
+  { value: "in_production", label: "En Producción",  dot: "bg-[#09919b]" },
+  { value: "ready",         label: "Listo",          dot: "bg-[#044c64]" },
+  { value: "delivered",     label: "Entregado",      dot: "bg-emerald-500" },
+  { value: "cancelled",     label: "Cancelado",      dot: "bg-slate-400" },
 ] as const;
 
 function getCsrfToken(): string {
@@ -45,6 +46,8 @@ export function OrderStatusSelect({
   if (!canUpdate) {
     return <StatusBadge status={status} />;
   }
+
+  const current = EDITABLE_STATUSES.find((s) => s.value === status);
 
   async function handleChange(newStatus: string) {
     if (newStatus === status) return;
@@ -73,22 +76,34 @@ export function OrderStatusSelect({
   }
 
   return (
-    <div className="flex items-center gap-2">
-      {updating && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-      <Select value={status} onValueChange={handleChange}>
-        <SelectTrigger className="h-8 w-auto gap-2 border-border/60 bg-background text-xs font-medium pr-2 focus:ring-1 focus:ring-primary/30">
-          <SelectValue>
-            <StatusBadge status={status} />
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent>
-          {EDITABLE_STATUSES.map((s) => (
-            <SelectItem key={s.value} value={s.value}>
-              <StatusBadge status={s.value} />
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <Select value={status} onValueChange={handleChange} disabled={updating}>
+      <SelectTrigger className="h-7 w-auto min-w-[130px] border border-border/40 rounded-lg px-2.5 gap-1.5 bg-background hover:bg-muted/20 focus:ring-1 focus:ring-primary/20 transition-colors shadow-sm">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {updating ? (
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+          ) : (
+            <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", current?.dot ?? "bg-slate-300")} />
+          )}
+          <span className="text-xs font-semibold truncate">
+            {current?.label ?? status}
+          </span>
+        </div>
+        <SelectValue className="hidden" />
+      </SelectTrigger>
+      <SelectContent className="min-w-[170px] rounded-xl p-1 shadow-lg border border-border/50">
+        {EDITABLE_STATUSES.map((s) => (
+          <SelectItem
+            key={s.value}
+            value={s.value}
+            className="rounded-lg cursor-pointer focus:bg-muted/50 data-[state=checked]:bg-muted/40"
+          >
+            <div className="flex items-center gap-2.5 py-0.5">
+              <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", s.dot)} />
+              <span className="text-sm font-medium">{s.label}</span>
+            </div>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

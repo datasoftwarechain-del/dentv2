@@ -293,9 +293,12 @@ export function EditOrderForm({
               <Label className="text-sm font-semibold">Estado</Label>
               <Select value={status} onValueChange={setStatus}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <span className="flex-1 text-left truncate text-sm">
+                    {STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status}
+                  </span>
+                  <SelectValue className="hidden" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   {STATUS_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -308,9 +311,12 @@ export function EditOrderForm({
               <Label className="text-sm font-semibold">Prioridad</Label>
               <Select value={priority} onValueChange={setPriority}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <span className="flex-1 text-left truncate text-sm">
+                    {PRIORITY_OPTIONS.find((o) => o.value === priority)?.label ?? priority}
+                  </span>
+                  <SelectValue className="hidden" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   {PRIORITY_OPTIONS.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
@@ -506,8 +512,9 @@ function ItemRow({
 
   function addExtra() {
     const name = newExtraName.trim();
-    const price = parseFloat(newExtraPrice);
-    if (!name || isNaN(price) || price < 0) return;
+    if (!name) return;
+    const parsed = parseFloat(newExtraPrice);
+    const price = isNaN(parsed) || parsed < 0 ? 0 : parsed;
     onExtrasChange([...extras, { name, price, qty: 1 }]);
     setNewExtraName("");
     setNewExtraPrice("");

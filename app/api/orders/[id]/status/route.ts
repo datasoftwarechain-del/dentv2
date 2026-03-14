@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const StatusSchema = z.object({
-  status: z.enum(["received", "in_progress", "ready", "delivered", "cancelled"]),
+  status: z.enum(["received", "in_production", "ready", "delivered", "cancelled"]),
 });
 
 export async function PATCH(

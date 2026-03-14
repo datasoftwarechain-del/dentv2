@@ -28,7 +28,13 @@ import {
   MessageCircle,
   MoreVertical,
   Loader2,
+  Edit2,
+  DollarSign,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useCSRF } from "@/hooks/useCSRF";
+import { formatNumber } from "@/lib/date-utils";
 import { toast } from "sonner";
 
 interface Organization {
@@ -74,6 +80,42 @@ interface InvoiceActionsProps {
 export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter }: InvoiceActionsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSubtotal, setEditSubtotal] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+  const { csrfToken } = useCSRF();
+
+  function openEdit() {
+    const taxAmt = Number(invoice.tax_amount) || 0;
+    const subtotalVal = taxAmt > 0 ? invoice.total - taxAmt : invoice.total;
+    setEditSubtotal(subtotalVal.toFixed(2));
+    setEditOpen(true);
+  }
+
+  async function handleSaveTotal(e: React.FormEvent) {
+    e.preventDefault();
+    const parsedSubtotal = parseFloat(editSubtotal) || 0;
+    const taxAmt = Number(invoice.tax_amount) || 0;
+    const taxRate = invoice.tax_rate || 0;
+    const newTaxAmt = taxRate > 0 ? parseFloat((parsedSubtotal * taxRate / 100).toFixed(2)) : taxAmt;
+    const newTotal = parseFloat((parsedSubtotal + newTaxAmt).toFixed(2));
+    setEditLoading(true);
+    try {
+      const res = await fetch("/api/billing/update-invoice", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ invoiceId: invoice.id, total: newTotal, subtotal: parsedSubtotal, tax_amount: newTaxAmt }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || "Error");
+      toast.success("Factura actualizada");
+      setEditOpen(false);
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err.message || "Error al actualizar");
+    } finally {
+      setEditLoading(false);
+    }
+  }
 
   const invoiceWithBalance = { ...invoice, balanceBefore, balanceAfter };
 
@@ -225,6 +267,14 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
             />
           </div>
 
+          {/* Edit button */}
+          <div className="flex justify-end mt-4">
+            <Button variant="outline" size="sm" onClick={openEdit} className="border-[#b0dde0] text-[#044c64] hover:bg-[#f0fafb] font-semibold">
+              <Edit2 className="mr-2 h-3.5 w-3.5" />
+              Editar factura
+            </Button>
+          </div>
+
           {/* Action buttons in dialog */}
           <div className="flex flex-wrap gap-2 mt-6 pt-4 border-t">
             <Button
@@ -277,6 +327,49 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
               Email
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Invoice Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Editar Factura #{invoice.invoice_number}</DialogTitle>
+            <DialogDescription>Modificá el subtotal de la factura.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveTotal} className="space-y-4 mt-2">
+            <div className="space-y-2">
+              <Label htmlFor="ia-subtotal">Subtotal</Label>
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="ia-subtotal"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="pl-9 font-bold"
+                  value={editSubtotal}
+                  onChange={(e) => setEditSubtotal(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            {editSubtotal && !isNaN(parseFloat(editSubtotal)) && (
+              <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 text-sm">
+                <div className="flex justify-between font-bold text-[#044c64]">
+                  <span>Total</span>
+                  <span>${formatNumber(parseFloat(editSubtotal) || 0)}</span>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={editLoading} className="bg-primary hover:bg-primary/90">
+                {editLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Guardar
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
 

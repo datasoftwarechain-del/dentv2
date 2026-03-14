@@ -74,6 +74,8 @@ interface Invoice {
   patient_name?: string | null;
   work_type?: string | null;
   order_items?: OrderItem[];
+  dentist_org?: Organization | null;
+  lab_org?: Organization | null;
 }
 
 interface LedgerMovement {
@@ -149,6 +151,9 @@ export function UnifiedAccountStatement({
     work_type: "",
     applyIva: false,
     ivaRate: "10",
+    applyDiscount: false,
+    discountType: "percent" as "percent" | "amount",
+    discountValue: "",
   });
 
   // Crear transacciones unificadas
@@ -255,6 +260,9 @@ export function UnifiedAccountStatement({
       work_type: invoice.work_type || "",
       applyIva: hasTax,
       ivaRate: computedRate,
+      applyDiscount: false,
+      discountType: "percent",
+      discountValue: "",
     });
     setEditInvoiceDialogOpen(true);
   }
@@ -306,9 +314,15 @@ export function UnifiedAccountStatement({
     if (!selectedInvoice) return;
 
     const parsedSubtotal = parseFloat(editInvoiceFormData.subtotal) || 0;
+    const discountAmt = editInvoiceFormData.applyDiscount
+      ? editInvoiceFormData.discountType === "percent"
+        ? parseFloat((parsedSubtotal * (parseFloat(editInvoiceFormData.discountValue) || 0) / 100).toFixed(2))
+        : parseFloat(editInvoiceFormData.discountValue) || 0
+      : 0;
+    const subtotalAfterDiscount = parseFloat((parsedSubtotal - discountAmt).toFixed(2));
     const parsedIvaRate  = editInvoiceFormData.applyIva ? parseFloat(editInvoiceFormData.ivaRate) || 10 : 0;
-    const parsedIvaAmt   = editInvoiceFormData.applyIva ? parseFloat((parsedSubtotal * parsedIvaRate / 100).toFixed(2)) : 0;
-    const parsedTotal    = parseFloat((parsedSubtotal + parsedIvaAmt).toFixed(2));
+    const parsedIvaAmt   = editInvoiceFormData.applyIva ? parseFloat((subtotalAfterDiscount * parsedIvaRate / 100).toFixed(2)) : 0;
+    const parsedTotal    = parseFloat((subtotalAfterDiscount + parsedIvaAmt).toFixed(2));
 
     setLoading(true);
     try {
@@ -857,28 +871,46 @@ export function UnifiedAccountStatement({
             <DialogDescription>Detalle de la factura</DialogDescription>
           </DialogHeader>
           {viewInvoiceData && (
-            <InvoiceDetail
-              invoice={{
-                ...viewInvoiceData.invoice,
-                subtotal: viewInvoiceData.invoice.total - viewInvoiceData.invoice.tax_amount,
-                dentist_org: null,
-                lab_org: null,
-                due_date: null,
-                order_items: (viewInvoiceData.invoice.order_items || []).map((item) => ({
-                  id: item.id ?? "",
-                  work_type: item.work_type,
-                  unit_price: item.unit_price ?? null,
-                  quantity: item.quantity ?? 1,
-                  selected_extras: item.selected_extras ?? [],
-                  catalog_item: item.catalog_item
-                    ? { name: item.catalog_item.name, base_price: item.catalog_item.base_price }
-                    : null,
-                })),
-              }}
-              isDentist={isDentist}
-              balanceBefore={viewInvoiceData.balanceBefore}
-              balanceAfter={viewInvoiceData.balanceAfter}
-            />
+            <>
+              <InvoiceDetail
+                invoice={{
+                  ...viewInvoiceData.invoice,
+                  subtotal: viewInvoiceData.invoice.total - viewInvoiceData.invoice.tax_amount,
+                  dentist_org: viewInvoiceData.invoice.dentist_org ?? null,
+                  lab_org: viewInvoiceData.invoice.lab_org ?? null,
+                  due_date: null,
+                  order_items: (viewInvoiceData.invoice.order_items || []).map((item) => ({
+                    id: item.id ?? "",
+                    work_type: item.work_type,
+                    unit_price: item.unit_price ?? null,
+                    quantity: item.quantity ?? 1,
+                    selected_extras: item.selected_extras ?? [],
+                    catalog_item: item.catalog_item
+                      ? { name: item.catalog_item.name, base_price: item.catalog_item.base_price }
+                      : null,
+                  })),
+                }}
+                isDentist={isDentist}
+                balanceBefore={viewInvoiceData.balanceBefore}
+                balanceAfter={viewInvoiceData.balanceAfter}
+              />
+              {!isReadOnly && (
+                <div className="flex justify-end mt-3 px-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-white/90 border-[#b0dde0] text-[#044c64] hover:bg-[#f0fafb] font-semibold"
+                    onClick={() => {
+                      setViewInvoiceOpen(false);
+                      handleEditInvoiceClick(viewInvoiceData.invoice);
+                    }}
+                  >
+                    <Edit2 className="mr-2 h-3.5 w-3.5" />
+                    Editar factura
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -1022,6 +1054,77 @@ export function UnifiedAccountStatement({
               )}
             </div>
 
+            {/* Descuento toggle */}
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ArrowDown className="h-4 w-4 text-primary/70" />
+                  <span className="text-sm font-semibold">Aplicar Descuento</span>
+                  <span className="text-[10px] text-muted-foreground">(opcional)</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditInvoiceFormData({ ...editInvoiceFormData, applyDiscount: !editInvoiceFormData.applyDiscount })}
+                  className={cn(
+                    "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none",
+                    editInvoiceFormData.applyDiscount ? "bg-primary" : "bg-muted-foreground/30"
+                  )}
+                >
+                  <span className={cn(
+                    "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform",
+                    editInvoiceFormData.applyDiscount ? "translate-x-4" : "translate-x-1"
+                  )} />
+                </button>
+              </div>
+              {editInvoiceFormData.applyDiscount && (
+                <div className="space-y-3">
+                  {/* Tipo de descuento */}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditInvoiceFormData({ ...editInvoiceFormData, discountType: "percent" })}
+                      className={cn(
+                        "flex-1 py-1.5 text-xs font-semibold rounded-md border transition-colors",
+                        editInvoiceFormData.discountType === "percent"
+                          ? "bg-primary text-white border-primary"
+                          : "bg-background text-muted-foreground border-border/60 hover:border-primary/40"
+                      )}
+                    >
+                      % Porcentaje
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditInvoiceFormData({ ...editInvoiceFormData, discountType: "amount" })}
+                      className={cn(
+                        "flex-1 py-1.5 text-xs font-semibold rounded-md border transition-colors",
+                        editInvoiceFormData.discountType === "amount"
+                          ? "bg-primary text-white border-primary"
+                          : "bg-background text-muted-foreground border-border/60 hover:border-primary/40"
+                      )}
+                    >
+                      $ Monto fijo
+                    </button>
+                  </div>
+                  {/* Valor del descuento */}
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-sm text-muted-foreground font-medium">
+                      {editInvoiceFormData.discountType === "percent" ? "%" : "$"}
+                    </span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={editInvoiceFormData.discountType === "percent" ? "100" : undefined}
+                      placeholder={editInvoiceFormData.discountType === "percent" ? "10" : "0.00"}
+                      className="pl-9 bg-background focus:border-primary font-bold"
+                      value={editInvoiceFormData.discountValue}
+                      onChange={(e) => setEditInvoiceFormData({ ...editInvoiceFormData, discountValue: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Total preview */}
             {editInvoiceFormData.subtotal && !isNaN(parseFloat(editInvoiceFormData.subtotal)) && (
               <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-3 space-y-1.5 text-sm">
@@ -1029,11 +1132,35 @@ export function UnifiedAccountStatement({
                   <span>Subtotal</span>
                   <span>${formatNumber(parseFloat(editInvoiceFormData.subtotal) || 0)}</span>
                 </div>
+                {editInvoiceFormData.applyDiscount && parseFloat(editInvoiceFormData.discountValue) > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>
+                      Descuento{editInvoiceFormData.discountType === "percent" ? ` (${editInvoiceFormData.discountValue}%)` : ""}
+                    </span>
+                    <span>
+                      -${formatNumber(
+                        editInvoiceFormData.discountType === "percent"
+                          ? (parseFloat(editInvoiceFormData.subtotal) || 0) * (parseFloat(editInvoiceFormData.discountValue) || 0) / 100
+                          : parseFloat(editInvoiceFormData.discountValue) || 0
+                      )}
+                    </span>
+                  </div>
+                )}
                 {editInvoiceFormData.applyIva && (
                   <div className="flex justify-between text-muted-foreground">
                     <span>IVA ({editInvoiceFormData.ivaRate || 10}%)</span>
                     <span>
-                      ${formatNumber((parseFloat(editInvoiceFormData.subtotal) || 0) * (parseFloat(editInvoiceFormData.ivaRate) || 10) / 100)}
+                      ${formatNumber(
+                        (() => {
+                          const sub = parseFloat(editInvoiceFormData.subtotal) || 0;
+                          const disc = editInvoiceFormData.applyDiscount
+                            ? editInvoiceFormData.discountType === "percent"
+                              ? sub * (parseFloat(editInvoiceFormData.discountValue) || 0) / 100
+                              : parseFloat(editInvoiceFormData.discountValue) || 0
+                            : 0;
+                          return (sub - disc) * (parseFloat(editInvoiceFormData.ivaRate) || 10) / 100;
+                        })()
+                      )}
                     </span>
                   </div>
                 )}
@@ -1041,10 +1168,19 @@ export function UnifiedAccountStatement({
                   <span>Total</span>
                   <span>
                     ${formatNumber(
-                      (parseFloat(editInvoiceFormData.subtotal) || 0) +
-                      (editInvoiceFormData.applyIva
-                        ? (parseFloat(editInvoiceFormData.subtotal) || 0) * (parseFloat(editInvoiceFormData.ivaRate) || 10) / 100
-                        : 0)
+                      (() => {
+                        const sub = parseFloat(editInvoiceFormData.subtotal) || 0;
+                        const disc = editInvoiceFormData.applyDiscount
+                          ? editInvoiceFormData.discountType === "percent"
+                            ? sub * (parseFloat(editInvoiceFormData.discountValue) || 0) / 100
+                            : parseFloat(editInvoiceFormData.discountValue) || 0
+                          : 0;
+                        const subAfterDisc = sub - disc;
+                        const iva = editInvoiceFormData.applyIva
+                          ? subAfterDisc * (parseFloat(editInvoiceFormData.ivaRate) || 10) / 100
+                          : 0;
+                        return subAfterDisc + iva;
+                      })()
                     )}
                   </span>
                 </div>

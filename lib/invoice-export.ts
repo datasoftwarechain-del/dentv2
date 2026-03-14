@@ -7,6 +7,15 @@ interface Organization {
   name: string;
 }
 
+interface OrderItem {
+  id: string;
+  work_type: string;
+  unit_price: number | null;
+  quantity: number;
+  selected_extras: { name: string; price: number; qty?: number }[];
+  catalog_item: { name: string; base_price: number } | null;
+}
+
 interface Invoice {
   id: string;
   invoice_number: string;
@@ -23,6 +32,7 @@ interface Invoice {
   notes?: string | null;
   dentist_org: Organization | null;
   lab_org: Organization | null;
+  order_items?: OrderItem[];
   balanceBefore?: number;
   balanceAfter?: number;
 }
@@ -176,6 +186,48 @@ function generateInvoiceHTML(invoice: Invoice, isDentist: boolean): HTMLElement 
           </div>
         </div>
       </div>
+
+      <!-- Order Items -->
+      ${invoice.order_items && invoice.order_items.length > 0 ? `
+      <div style="border-radius: 12px; overflow: hidden; border: 1.5px solid #d2f2f3; margin-bottom: 28px;">
+        <div style="background: #07667a; padding: 10px 20px;">
+          <p style="margin: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #a8e8ef;">
+            Detalle de Trabajos
+          </p>
+        </div>
+        ${invoice.order_items.map((item) => {
+          const itemName = item.catalog_item?.name || item.work_type;
+          const basePrice = item.catalog_item?.base_price ?? 0;
+          const extras = Array.isArray(item.selected_extras) ? item.selected_extras : [];
+          const extrasTotal = extras.reduce((sum: number, e: any) => sum + e.price * (e.qty ?? 1), 0);
+          const totalPrice = item.unit_price ?? (basePrice + extrasTotal);
+          const qty = item.quantity > 1 ? ` ×${item.quantity}` : "";
+          return `
+          <div style="background: white; padding: 16px 20px; border-bottom: 1px solid #e0f4f6;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px;">
+              <span style="font-size: 14px; font-weight: 700; color: #044c64;">${sanitize(itemName)}${qty}</span>
+              <span style="font-size: 14px; font-weight: 600; color: #044c64; white-space: nowrap;">$${formatNumber(basePrice)}</span>
+            </div>
+            ${extras.length > 0 ? `
+            <div style="margin-top: 8px; padding-left: 16px; border-left: 3px solid rgba(67,234,218,0.4);">
+              ${extras.map((e: any) => {
+                const eQty = e.qty ?? 1;
+                return `
+                <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 4px;">
+                  <span style="font-size: 12px; color: #64748b;">+ ${sanitize(e.name)}${eQty > 1 ? ` ×${eQty}` : ""}</span>
+                  <span style="font-size: 12px; color: #64748b; white-space: nowrap;">$${formatNumber(e.price * eQty)}</span>
+                </div>`;
+              }).join("")}
+              <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e0f4f6;">
+                <span style="font-size: 12px; font-weight: 700; color: #044c64;">Subtotal ítem</span>
+                <span style="font-size: 12px; font-weight: 700; color: #044c64; white-space: nowrap;">$${formatNumber(totalPrice)}</span>
+              </div>
+            </div>
+            ` : ""}
+          </div>`;
+        }).join("")}
+      </div>
+      ` : ""}
 
       <!-- Amounts -->
       <div style="border-radius: 12px; overflow: hidden; border: 1.5px solid #d2f2f3; margin-bottom: 24px;">
