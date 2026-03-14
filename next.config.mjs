@@ -57,11 +57,9 @@ const nextConfig = {
 
     // Experimental features for better performance
     experimental: {
-        // Client-side router cache: keep dynamic pages cached for 30 s so that
-        // navigating back to a dashboard section is instant instead of re-fetching.
         staleTimes: {
-            dynamic: 30,   // seconds — dashboard pages (server-rendered, auth-gated)
-            static: 180,   // seconds — fully-static pages
+            dynamic: 0,    // no client cache — ensures permission changes take effect immediately
+            static: 180,
         },
 
         optimizePackageImports: [
