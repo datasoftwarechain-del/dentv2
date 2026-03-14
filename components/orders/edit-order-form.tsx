@@ -245,8 +245,7 @@ export function EditOrderForm({
       }
 
       toast.success("Orden actualizada correctamente");
-      router.push(`/dashboard/orders/${order.id}`);
-      router.refresh();
+      window.location.href = `/dashboard/orders/${order.id}`;
     } catch (err: any) {
       toast.error(err.message || "Error al actualizar la orden");
     } finally {

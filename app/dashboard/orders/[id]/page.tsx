@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatSimpleDate, formatDateTime } from "@/lib/date-utils";
 import { EditDueDateButton } from "@/components/orders/edit-due-date-button";
 import { EditPatientButton } from "@/components/orders/edit-patient-button";
+import { AssignPatientButton } from "@/components/orders/assign-patient-button";
 import { CaseFilesSection } from "@/components/orders/case-files-section";
 import { formatWorkType } from "@/lib/work-types";
 import { canViewPrices, isCollaboratorRole, hasPermission } from "@/lib/permissions";
@@ -78,6 +79,20 @@ export default async function OrderDetailsPage({
     // Verificación de seguridad: la orden debe pertenecer a la org del usuario
     if (isDentist && order.dentist_org_id !== effectiveOrgId) notFound();
     if (!isDentist && order.lab_org_id !== org.id) notFound();
+
+    // Pacientes disponibles para asignar (solo si no hay paciente en la orden)
+    let assignablePatients: { id: string; first_name: string; last_name: string }[] = [];
+    if (!order.patient_id && !isPreview) {
+        const dentistOrgId = isDentist ? effectiveOrgId : order.dentist_org_id;
+        if (dentistOrgId) {
+            const { data: patientsData } = await db
+                .from("patients")
+                .select("id, first_name, last_name")
+                .eq("dentist_org_id", dentistOrgId)
+                .order("first_name");
+            assignablePatients = patientsData || [];
+        }
+    }
 
     return (
         <div className="flex flex-col min-h-screen bg-background/50">
@@ -147,6 +162,11 @@ export default async function OrderDetailsPage({
                                                 patientId={order.patient.id}
                                                 firstName={order.patient.first_name}
                                                 lastName={order.patient.last_name}
+                                            />
+                                        ) : !isPreview && !order.patient ? (
+                                            <AssignPatientButton
+                                                orderId={order.id}
+                                                patients={assignablePatients}
                                             />
                                         ) : (
                                             <p className="font-bold text-sm">
