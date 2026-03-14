@@ -122,12 +122,16 @@ interface CatalogPickerProps {
     items: CatalogItem[];
     placeholder?: string;
     showPrices?: boolean;
+    organizationId?: string;
+    onItemCreated?: (item: CatalogItem) => void;
 }
 
 function CatalogPicker({
     value, onChange, categories, grouped, items,
     placeholder = "Seleccionar trabajo del arancel",
     showPrices = true,
+    organizationId,
+    onItemCreated,
 }: CatalogPickerProps) {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -136,6 +140,59 @@ function CatalogPicker({
     const dropdownRef = useRef<HTMLDivElement>(null);
     const searchRef = useRef<HTMLInputElement>(null);
     const selected = items.find((i) => i.id === value);
+
+    // Create new catalog item
+    const [creating, setCreating] = useState(false);
+    const [newName, setNewName] = useState("");
+    const [newCategory, setNewCategory] = useState("");
+    const [newPrice, setNewPrice] = useState("");
+    const [saving, setSaving] = useState(false);
+
+    function openCreate() {
+        setNewName(search);
+        setNewCategory(categories[0] || "");
+        setNewPrice("");
+        setCreating(true);
+    }
+
+    function cancelCreate() {
+        setCreating(false);
+        setNewName("");
+        setNewCategory("");
+        setNewPrice("");
+        setTimeout(() => searchRef.current?.focus(), 10);
+    }
+
+    async function handleCreate(e: React.FormEvent) {
+        e.preventDefault();
+        if (!newName.trim() || !organizationId) return;
+        setSaving(true);
+        try {
+            const supabase = createClient();
+            const { data, error } = await supabase
+                .from("price_catalog")
+                .insert({
+                    org_id: organizationId,
+                    name: newName.trim(),
+                    category: newCategory.trim() || "GENERAL",
+                    base_price: parseFloat(newPrice) || 0,
+                    is_active: true,
+                    extras: [],
+                })
+                .select("id, category, name, base_price, extras")
+                .single();
+            if (error) throw error;
+            onItemCreated?.(data as CatalogItem);
+            onChange(data.id);
+            setDropdownOpen(false);
+            setCreating(false);
+        } catch (err: any) {
+            // silently fail — parent handles toast if needed
+            console.error("Error creating catalog item:", err);
+        } finally {
+            setSaving(false);
+        }
+    }
 
     const updatePosition = useCallback(() => {
         if (!buttonRef.current) return;
@@ -189,40 +246,111 @@ function CatalogPicker({
 
     const dropdown = dropdownOpen ? (
         <div ref={dropdownRef} style={dropdownStyle} className="rounded-md border border-border bg-popover shadow-lg">
-            {/* Search input */}
-            <div className="p-2 border-b border-border/40">
-                <input
-                    ref={searchRef}
-                    type="text"
-                    placeholder="Buscar en arancel..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
-                />
-            </div>
-            <div className="max-h-[260px] overflow-y-auto">
-                {filteredCategories.length === 0 ? (
-                    <div className="px-4 py-6 text-center text-xs text-muted-foreground">Sin resultados.</div>
-                ) : (
-                    filteredCategories.map((cat) => (
-                        <React.Fragment key={cat}>
-                            <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 sticky top-0">
-                                {cat}
-                            </div>
-                            {filteredGrouped[cat].map((item) => (
-                                <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => { onChange(item.id); setDropdownOpen(false); }}
-                                    className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-3 hover:bg-muted transition-colors ${value === item.id ? "bg-muted font-medium" : ""}`}
-                                >
-                                    <span>{item.name}</span>
-                                </button>
-                            ))}
-                        </React.Fragment>
-                    ))
-                )}
-            </div>
+            {creating ? (
+                /* ── Formulario crear nuevo ítem ── */
+                <form onSubmit={handleCreate} className="p-3 space-y-2">
+                    <p className="text-xs font-bold text-[#044c64] uppercase tracking-wide mb-1">Nuevo trabajo al arancel</p>
+                    <input
+                        type="text"
+                        placeholder="Nombre del trabajo *"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        required
+                        autoFocus
+                        className="w-full px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
+                    />
+                    <input
+                        type="text"
+                        placeholder="Categoría (ej: ZIRCONIA)"
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                        list="catalog-categories"
+                        className="w-full px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
+                    />
+                    <datalist id="catalog-categories">
+                        {categories.map((c) => <option key={c} value={c} />)}
+                    </datalist>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">$</span>
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Precio base"
+                            value={newPrice}
+                            onChange={(e) => setNewPrice(e.target.value)}
+                            className="flex-1 px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
+                        />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                        <button
+                            type="button"
+                            onClick={cancelCreate}
+                            className="flex-1 h-8 text-xs rounded-md border border-border/60 hover:bg-muted transition-colors"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={!newName.trim() || saving}
+                            className="flex-1 h-8 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-1"
+                        >
+                            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                            Guardar y seleccionar
+                        </button>
+                    </div>
+                </form>
+            ) : (
+                <>
+                    {/* Search input */}
+                    <div className="p-2 border-b border-border/40">
+                        <input
+                            ref={searchRef}
+                            type="text"
+                            placeholder="Buscar en arancel..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="w-full px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
+                        />
+                    </div>
+                    <div className="max-h-[220px] overflow-y-auto">
+                        {filteredCategories.length === 0 ? (
+                            <div className="px-4 py-4 text-center text-xs text-muted-foreground">Sin resultados.</div>
+                        ) : (
+                            filteredCategories.map((cat) => (
+                                <React.Fragment key={cat}>
+                                    <div className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/50 sticky top-0">
+                                        {cat}
+                                    </div>
+                                    {filteredGrouped[cat].map((item) => (
+                                        <button
+                                            key={item.id}
+                                            type="button"
+                                            onClick={() => { onChange(item.id); setDropdownOpen(false); }}
+                                            className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-3 hover:bg-muted transition-colors ${value === item.id ? "bg-muted font-medium" : ""}`}
+                                        >
+                                            <span>{item.name}</span>
+                                        </button>
+                                    ))}
+                                </React.Fragment>
+                            ))
+                        )}
+                    </div>
+                    {/* Agregar nuevo al arancel */}
+                    {organizationId && (
+                        <div className="border-t border-border/40 p-2">
+                            <button
+                                type="button"
+                                onClick={openCreate}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-primary hover:bg-primary/5 rounded-md transition-colors font-medium"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                {search.trim() ? `Agregar "${search.trim()}" al arancel` : "Agregar nuevo al arancel"}
+                            </button>
+                        </div>
+                    )}
+                </>
+            )}
         </div>
     ) : null;
 
@@ -790,6 +918,11 @@ export function CreateOrderDialog({
                                                 grouped={catalogGrouped}
                                                 items={catalogItems}
                                                 showPrices={showPrices}
+                                                organizationId={organizationId}
+                                                onItemCreated={(item) => {
+                                                    setCatalogItems((prev) => [...prev, item]);
+                                                    handleCatalogSelect(item.id);
+                                                }}
                                             />
                                         </div>
                                     </div>
