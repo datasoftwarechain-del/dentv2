@@ -84,7 +84,9 @@ export async function PUT(
       return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    // Use admin client for the UPDATE — regular client can be silently blocked by RLS
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
       .from("org_members")
       .update(updates)
       .eq("id", memberId)
@@ -150,8 +152,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Colaborador no encontrado" }, { status: 404 });
     }
 
-    // Remove from org_members
-    const { error: deleteError } = await supabase
+    // Remove from org_members — use admin client to bypass RLS
+    const adminClient = createAdminClient();
+    const { error: deleteError } = await adminClient
       .from("org_members")
       .delete()
       .eq("id", memberId);
@@ -162,7 +165,6 @@ export async function DELETE(
     }
 
     // Delete the auth user so they can't log in anymore
-    const adminClient = createAdminClient();
     const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(member.user_id);
 
     if (authDeleteError) {
