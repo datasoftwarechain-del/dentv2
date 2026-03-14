@@ -88,19 +88,20 @@ export async function PUT(
       .from("org_members")
       .update(updates)
       .eq("id", memberId)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       logger.error("Error updating collaborator:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    const updated = Array.isArray(data) ? data[0] : data;
+
     revalidatePath("/dashboard/settings");
 
     return NextResponse.json({
       success: true,
-      data,
+      data: updated,
       message: "Colaborador actualizado correctamente",
     });
   } catch (error: any) {
