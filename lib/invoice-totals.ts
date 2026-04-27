@@ -22,6 +22,10 @@ export interface InvoiceItemForTotals {
 /**
  * Total de un ítem = (precio base + suma de extras × qty_extra) × cantidad.
  * unit_price es la fuente preferida; cae a catalog_item.base_price.
+ *
+ * IMPORTANTE: Esta función tiene contraparte SQL en
+ * scripts/026b_invoice_lifecycle_safe.sql (función auto_generate_invoice).
+ * Cualquier cambio en la fórmula DEBE replicarse allá para mantener paridad.
  */
 export function computeItemTotal(item: InvoiceItemForTotals): number {
   const basePrice = item.unit_price ?? item.catalog_item?.base_price ?? 0;

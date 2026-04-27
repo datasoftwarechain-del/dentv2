@@ -31,6 +31,18 @@
 --    Si todavía no aplicaste el ALTER TABLE, las nuevas facturas creadas
 --    por la API o por el trigger fallarán con "column does not exist".
 --    Coordinar deploy + apply.
+--
+-- 6) v2 (POSTERIOR a primera aplicación): paridad estricta SQL/TS para
+--    computeItemTotal. La fórmula original sumaba (unit_price * quantity)
+--    sin fallback al catálogo cuando unit_price era NULL, sin manejar
+--    quantity=NULL/0, y perdía los extras del ítem cuando NULL × X
+--    se propagaba. La nueva fórmula:
+--      - LEFT JOIN price_catalog para fallback de base_price.
+--      - COALESCE(unit_price, base_price, 0).
+--      - COALESCE(NULLIF(quantity, 0), 1) para tratar 0/NULL como 1.
+--    Quien ya aplicó la v1 debe correr CREATE OR REPLACE FUNCTION
+--    auto_generate_invoice de la nueva versión para alinear. No requiere
+--    DROP TRIGGER ni DROP FUNCTION — solo sobrescribir el cuerpo.
 -- ────────────────────────────────────────────────────────────
 
 -- ─── [BLOQUE 1] Columna totals_strict ────────────────────────
@@ -119,18 +131,23 @@ BEGIN
       v_work_type := 'Trabajo dental';
     END IF;
 
-    -- Total = Σ(unit_price × quantity) + Σ(extras.price × extras.qty × quantity_item).
+    -- Paridad estricta con lib/invoice-totals.ts → computeItemTotal().
+    -- LEFT JOIN al catálogo para fallback de unit_price NULL.
+    -- NULLIF(quantity, 0) y COALESCE para tratar quantity 0/NULL como 1.
     -- Los extras viven en lab_order_items.selected_extras (JSONB).
     SELECT COALESCE(SUM(
-      (unit_price * quantity) +
-      COALESCE((
-        SELECT SUM((e->>'price')::numeric * COALESCE((e->>'qty')::numeric, 1))
-        FROM jsonb_array_elements(COALESCE(selected_extras, '[]'::jsonb)) e
-      ), 0) * quantity
+      (
+        COALESCE(li.unit_price, pc.base_price, 0)
+        + COALESCE((
+            SELECT SUM((e->>'price')::numeric * COALESCE((e->>'qty')::numeric, 1))
+            FROM jsonb_array_elements(COALESCE(li.selected_extras, '[]'::jsonb)) e
+          ), 0)
+      ) * COALESCE(NULLIF(li.quantity, 0), 1)
     ), 0)
     INTO v_total
-    FROM lab_order_items
-    WHERE order_id = NEW.id;
+    FROM lab_order_items li
+    LEFT JOIN price_catalog pc ON pc.id = li.catalog_item_id
+    WHERE li.order_id = NEW.id;
 
     IF v_total = 0 THEN
       v_total := 500.00;
