@@ -64,6 +64,11 @@ function shortInvoiceNumber(num: string): string {
 import { InvoiceActions } from "./invoice-actions";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PurchasesTable } from "./purchases-table";
+import { InventoryTable } from "@/components/inventory/inventory-table";
+import { AnalyticsTab } from "./analytics-tab";
+import { useSearchParams } from "next/navigation";
 
 interface Organization {
   id: string;
@@ -130,6 +135,13 @@ interface BillingDashboardProps {
   };
   /** [BLOQUE 3] Forwarded to InvoiceActions to render "Anular factura". */
   canManageBilling?: boolean;
+  // [BLOQUE 6] Tab gates and write permissions, derived server-side.
+  canViewPurchases?: boolean;
+  canManagePurchases?: boolean;
+  canViewInventory?: boolean;
+  canManageInventory?: boolean;
+  canViewFinancialDashboard?: boolean;
+  canViewAmounts?: boolean;
 }
 
 const statusLabels: Record<string, string> = {
@@ -160,6 +172,12 @@ export function BillingDashboard({
   connectedDentists = [],
   stats: initialStats,
   canManageBilling = false,
+  canViewPurchases = false,
+  canManagePurchases = false,
+  canViewInventory = false,
+  canManageInventory = false,
+  canViewFinancialDashboard = false,
+  canViewAmounts = false,
 }: BillingDashboardProps) {
   const router = useRouter();
   const [invoices, setInvoices] = useState(initialInvoices);
@@ -403,8 +421,39 @@ export function BillingDashboard({
     new Date(inv.due_date) < new Date()
   );
 
+  // [BLOQUE 6] Read ?tab= from URL to allow sidebar deep-linking.
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") ?? "facturacion";
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  // Re-sync if the user navigates via sidebar with a different ?tab.
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t && t !== activeTab) setActiveTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Lab-only tabs. For dentist, BillingDashboard is not used (DentistBillingDashboard renders).
+  const showPurchases = canViewPurchases;
+  const showInventory = canViewInventory;
+  const showAnalytics = canViewFinancialDashboard;
+
   return (
-    <div className="space-y-8">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <TabsList className="bg-muted/50 h-auto p-1 flex-wrap">
+        <TabsTrigger value="facturacion" className="data-[state=active]:bg-background">Facturación</TabsTrigger>
+        {showPurchases && (
+          <TabsTrigger value="purchases" className="data-[state=active]:bg-background">Compras</TabsTrigger>
+        )}
+        {showInventory && (
+          <TabsTrigger value="inventory" className="data-[state=active]:bg-background">Stock</TabsTrigger>
+        )}
+        {showAnalytics && (
+          <TabsTrigger value="analytics" className="data-[state=active]:bg-background">Análisis</TabsTrigger>
+        )}
+      </TabsList>
+
+      <TabsContent value="facturacion" className="space-y-8 mt-2">
       {/* Stats Cards */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border border-border/50 shadow-premium bg-background/50 backdrop-blur-sm overflow-hidden group">
@@ -1080,6 +1129,23 @@ export function BillingDashboard({
           </CardContent>
         </Card>
       )}
-    </div>
+      </TabsContent>
+
+      {showPurchases && (
+        <TabsContent value="purchases" className="mt-2">
+          <PurchasesTable canManage={canManagePurchases} />
+        </TabsContent>
+      )}
+      {showInventory && (
+        <TabsContent value="inventory" className="mt-2">
+          <InventoryTable canManage={canManageInventory} />
+        </TabsContent>
+      )}
+      {showAnalytics && (
+        <TabsContent value="analytics" className="mt-2">
+          <AnalyticsTab invoices={invoices as never} canViewAmounts={canViewAmounts} />
+        </TabsContent>
+      )}
+    </Tabs>
   );
 }

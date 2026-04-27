@@ -5,7 +5,13 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { BillingDashboard } from "@/components/billing/billing-dashboard";
 import { DentistBillingDashboard } from "@/components/billing/dentist-billing-dashboard";
 import { getUserOrg } from "@/lib/get-user-org";
-import { sanitizeInvoiceForCollaborator, canManageBilling } from "@/lib/permissions";
+import {
+  sanitizeInvoiceForCollaborator,
+  canManageBilling,
+  canManagePurchases,
+  canManageInventory,
+  hasPermission,
+} from "@/lib/permissions";
 
 export default async function BillingPage() {
   const { user, org, isCollaborator, permissions } = await getUserOrg();
@@ -325,6 +331,12 @@ export default async function BillingPage() {
           connectedDentists={connectedDentists}
           stats={{ totalInvoiced, totalPaid, totalPending }}
           canManageBilling={canManageBillingFlag}
+          canViewPurchases={hasPermission(permissions, "view_purchases")}
+          canManagePurchases={canManagePurchases(permissions)}
+          canViewInventory={hasPermission(permissions, "view_inventory")}
+          canManageInventory={canManageInventory(permissions)}
+          canViewFinancialDashboard={hasPermission(permissions, "view_financial_dashboard")}
+          canViewAmounts={canViewAmounts}
         />
       </div>
     </div>

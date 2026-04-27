@@ -18,6 +18,9 @@ import {
   Scan,
   MessageCircle,
   Lock,
+  ShoppingCart,
+  Boxes,
+  BarChart3,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Icon } from "@iconify/react";
@@ -50,10 +53,10 @@ const NAV_PERMISSION_MAP: Record<string, PermissionKey> = {
   "/dashboard/kanban":       "view_kanban",
   "/dashboard/billing":      "view_billing",
   "/dashboard/clients":      "view_clients",
-  // [BLOQUE 6 — descomentar cuando existan las páginas]
-  // "/dashboard/purchases":  "view_purchases",
-  // "/dashboard/inventory":  "view_inventory",
-  // "/dashboard/analytics":  "view_financial_dashboard",
+  // [BLOQUE 6] Tabs of /dashboard/billing — deep-linked via ?tab=...
+  "/dashboard/billing?tab=purchases":  "view_purchases",
+  "/dashboard/billing?tab=inventory":  "view_inventory",
+  "/dashboard/billing?tab=analytics":  "view_financial_dashboard",
 };
 
 const dentistNav = [
@@ -75,10 +78,10 @@ const labNav = [
   { href: "/dashboard/schedule", label: "Agenda Semanal", icon: CalendarClock },
   { href: "/dashboard/clients", label: "Clinicas", icon: Building2 },
   { href: "/dashboard/billing", label: "Facturacion", icon: CreditCard },
-  // [BLOQUE 6 — descomentar cuando existan las páginas; importar ShoppingCart, Boxes, BarChart3 de lucide-react]
-  // { href: "/dashboard/purchases", label: "Compras", icon: ShoppingCart },
-  // { href: "/dashboard/inventory", label: "Stock", icon: Boxes },
-  // { href: "/dashboard/analytics", label: "Análisis", icon: BarChart3 },
+  // [BLOQUE 6] Direct shortcuts to billing tabs.
+  { href: "/dashboard/billing?tab=purchases", label: "Compras",  icon: ShoppingCart },
+  { href: "/dashboard/billing?tab=inventory", label: "Stock",    icon: Boxes },
+  { href: "/dashboard/billing?tab=analytics", label: "Análisis", icon: BarChart3 },
   { href: "/dashboard/settings", label: "Configuracion", icon: Settings },
 ];
 
