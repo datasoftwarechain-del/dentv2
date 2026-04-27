@@ -128,6 +128,8 @@ interface BillingDashboardProps {
     totalPaid: number;
     totalPending: number;
   };
+  /** [BLOQUE 3] Forwarded to InvoiceActions to render "Anular factura". */
+  canManageBilling?: boolean;
 }
 
 const statusLabels: Record<string, string> = {
@@ -157,6 +159,7 @@ export function BillingDashboard({
   clients,
   connectedDentists = [],
   stats: initialStats,
+  canManageBilling = false,
 }: BillingDashboardProps) {
   const router = useRouter();
   const [invoices, setInvoices] = useState(initialInvoices);
@@ -863,7 +866,7 @@ export function BillingDashboard({
                       {/* Acciones */}
                       <TableCell className="py-3.5 pr-4">
                         <div className="flex items-center justify-end gap-1.5">
-                          <InvoiceActions invoice={invoice} isDentist={isDentist} />
+                          <InvoiceActions invoice={invoice} isDentist={isDentist} canManageBilling={canManageBilling} />
                           {!isDentist && invoice.status === "pending" && (
                             <Button
                               size="sm"
@@ -926,7 +929,7 @@ export function BillingDashboard({
                       {invoice.delivery_date ? formatSimpleDate(invoice.delivery_date) : "Sin fecha entrega"}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      <InvoiceActions invoice={invoice} isDentist={isDentist} />
+                      <InvoiceActions invoice={invoice} isDentist={isDentist} canManageBilling={canManageBilling} />
                       {!isDentist && invoice.status === "pending" && (
                         <Button
                           size="sm"

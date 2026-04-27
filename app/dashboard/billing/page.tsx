@@ -5,7 +5,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { BillingDashboard } from "@/components/billing/billing-dashboard";
 import { DentistBillingDashboard } from "@/components/billing/dentist-billing-dashboard";
 import { getUserOrg } from "@/lib/get-user-org";
-import { sanitizeInvoiceForCollaborator } from "@/lib/permissions";
+import { sanitizeInvoiceForCollaborator, canManageBilling } from "@/lib/permissions";
 
 export default async function BillingPage() {
   const { user, org, isCollaborator, permissions } = await getUserOrg();
@@ -15,6 +15,8 @@ export default async function BillingPage() {
   // [BLOQUE 2.5] Aggregates collapse to 0 when caller can't see amounts.
   // The invoice arrays passed to client components are sanitized below.
   const canViewAmounts = !isCollaborator || !!permissions?.view_billing_amounts;
+  // [BLOQUE 3] Drives the "Anular factura" button visibility.
+  const canManageBillingFlag = canManageBilling(permissions);
   const supabase = await createClient();
 
   const isPreview = org.type === "dentist_preview";
@@ -67,7 +69,7 @@ export default async function BillingPage() {
             .eq("dentist_org_id", effectiveOrgId)
             .order("first_name"),
 
-      // Facturas formales (lab → clínica)
+      // Facturas formales (lab → clínica). [BLOQUE 3] Excluye voided.
       db
         .from("invoices")
         .select(`
@@ -75,6 +77,7 @@ export default async function BillingPage() {
           lab_org:organizations!invoices_lab_org_id_fkey(id, name)
         `)
         .eq("dentist_org_id", effectiveOrgId)
+        .is("invoice_voided_at", null)
         .order("created_at", { ascending: false }),
 
       // Movimientos del libro mayor — saldo real de la cuenta con el lab (solo preview)
@@ -205,6 +208,7 @@ export default async function BillingPage() {
         lab_org:organizations!invoices_lab_org_id_fkey(id, name)
       `)
       .eq("lab_org_id", org.id)
+      .is("invoice_voided_at", null) // [BLOQUE 3]
       .order("created_at", { ascending: false }),
 
     // All movements (for per-client balance + recent display)
@@ -320,6 +324,7 @@ export default async function BillingPage() {
           clients={clients}
           connectedDentists={connectedDentists}
           stats={{ totalInvoiced, totalPaid, totalPending }}
+          canManageBilling={canManageBillingFlag}
         />
       </div>
     </div>

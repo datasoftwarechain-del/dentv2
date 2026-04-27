@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InvoiceDetail } from "./invoice-detail";
+import { DeleteInvoiceButton } from "./delete-invoice-button";
 import {
   Eye,
   Download,
@@ -76,9 +77,11 @@ interface InvoiceActionsProps {
   isDentist: boolean;
   balanceBefore?: number;
   balanceAfter?: number;
+  /** [BLOQUE 3] true → render "Anular factura" button. Server-driven. */
+  canManageBilling?: boolean;
 }
 
-export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter }: InvoiceActionsProps) {
+export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter, canManageBilling = false }: InvoiceActionsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -268,8 +271,17 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
             />
           </div>
 
-          {/* Edit button — solo strict; histórica = read-only en montos */}
-          <div className="flex justify-end mt-4">
+          {/* Edit + Delete buttons */}
+          <div className="flex justify-end mt-4 gap-2">
+            {/* [BLOQUE 3] Anular factura — solo lab con manage_billing. Histórica también puede anularse, pero el flujo es "anular + emitir nueva" sin modificar la histórica. */}
+            {canManageBilling && !isDentist && (
+              <DeleteInvoiceButton
+                invoiceId={invoice.id}
+                invoiceNumber={invoice.invoice_number}
+                invoiceTotal={invoice.total}
+                onDeleted={() => setDialogOpen(false)}
+              />
+            )}
             {invoice.totals_strict === false ? (
               <Button
                 variant="outline"

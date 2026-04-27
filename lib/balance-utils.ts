@@ -16,7 +16,9 @@ export async function recalculateBalances(
     .from("invoices")
     .select("total")
     .eq(orgField, organizationId)
-    .eq(clientField, clientId);
+    .eq(clientField, clientId)
+    // [BLOQUE 3] Voided (soft-deleted) invoices must not contribute to balance.
+    .is("invoice_voided_at", null);
 
   const totalInvoiced =
     invoices?.reduce((sum: number, inv: { total: unknown }) => sum + Number(inv.total), 0) ?? 0;

@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { getUserOrg } from "@/lib/get-user-org";
-import { sanitizeInvoiceForCollaborator } from "@/lib/permissions";
+import { sanitizeInvoiceForCollaborator, canManageBilling } from "@/lib/permissions";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { ClientAccountStatement } from "@/components/billing/client-account-statement";
 
@@ -50,7 +50,7 @@ export default async function ClientAccountPage({ params }: PageProps) {
 
   if (!clientOrg) redirect("/dashboard/billing");
 
-  // Get all invoices for this client
+  // Get all invoices for this client. [BLOQUE 3] Excluye voided.
   const { data: invoicesRaw } = await db
     .from("invoices")
     .select(`
@@ -60,6 +60,7 @@ export default async function ClientAccountPage({ params }: PageProps) {
     `)
     .eq(isDentist ? "lab_org_id" : "dentist_org_id", resolvedParams.clientId)
     .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)
+    .is("invoice_voided_at", null)
     .order("created_at", { ascending: false });
 
   // Fetch order items (with catalog name & extras) for all invoiced orders
@@ -128,6 +129,7 @@ export default async function ClientAccountPage({ params }: PageProps) {
           totalPaid={totalPaid}
           organizationId={effectiveOrgId}
           isReadOnly={isPreview}
+          canManageBilling={canManageBilling(permissions)}
         />
       </div>
     </div>

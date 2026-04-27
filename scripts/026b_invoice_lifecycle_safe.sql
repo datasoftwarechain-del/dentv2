@@ -15,15 +15,20 @@
 --    Las facturas viejas (114 con order_id, todas alineadas) son fuente
 --    de verdad histórica — nada las puede pisar.
 --
--- 3) BLOQUE 3 (delete factura) agregará al final de este archivo:
---    - Columna invoice_voided_at en lab_orders.
---    - Guarda en auto_generate_invoice contra re-emisión post-delete.
---    Esos cambios se diseñan en BLOQUE 3, no antes.
+-- 3) BLOQUE 3 (delete factura) ya está incluido en este archivo:
+--    - ALTER TABLE invoices ADD COLUMN invoice_voided_at TIMESTAMPTZ.
+--    - Guarda en auto_generate_invoice contra re-emisión post-delete:
+--      NO emitir si EXISTS una factura voided para el mismo order_id.
 --
 -- 4) Cambios incluidos hasta el momento:
 --    - [BLOQUE 1] ALTER TABLE invoices ADD COLUMN totals_strict BOOLEAN.
 --    - [BLOQUE 1] generate_invoice_number respeta invoice_number manual.
 --    - [BLOQUE 1] auto_generate_invoice setea totals_strict=true en INSERT.
+--    - [BLOQUE 1] auto_generate_invoice paridad SQL/TS (LEFT JOIN catálogo,
+--      COALESCE unit_price/base_price, NULLIF quantity).
+--    - [BLOQUE 3] ALTER TABLE invoices ADD COLUMN invoice_voided_at.
+--    - [BLOQUE 3] auto_generate_invoice no re-emite si hay factura voided
+--      para el mismo order_id (Caso C — soft delete + guarda explícita).
 --    - El UPDATE retroactivo del 026 original NO está incluido.
 --
 -- 5) Importante para BLOQUE 1: la columna totals_strict debe aplicarse
@@ -54,6 +59,22 @@ ALTER TABLE invoices
 
 COMMENT ON COLUMN invoices.totals_strict IS
   'true = subtotal/total son recalculables desde lab_order_items + extras. false = factura histórica, montos persistidos son fuente de verdad y no deben recalcularse.';
+
+-- ─── [BLOQUE 3] Columna invoice_voided_at (soft delete) ──────
+-- Patrón soft-delete: el endpoint DELETE de factura setea
+-- invoice_voided_at = NOW() en lugar de borrar la fila. Todas las
+-- listas filtran WHERE invoice_voided_at IS NULL para ocultarlas.
+-- recalculateBalances las excluye también. El trigger no re-emite
+-- factura nueva para una orden que ya tuvo una factura voided.
+ALTER TABLE invoices
+  ADD COLUMN IF NOT EXISTS invoice_voided_at TIMESTAMPTZ;
+
+COMMENT ON COLUMN invoices.invoice_voided_at IS
+  'NULL = factura activa. NOT NULL = factura anulada (soft-delete). El trigger auto_generate_invoice respeta esta marca para no re-emitir, las listas la filtran, recalculateBalances la excluye.';
+
+CREATE INDEX IF NOT EXISTS idx_invoices_voided
+  ON invoices (order_id)
+  WHERE invoice_voided_at IS NOT NULL;
 
 -- Mantener disponible el formato FAC para facturas manuales
 CREATE SEQUENCE IF NOT EXISTS fac_number_seq START WITH 1 INCREMENT BY 1;
@@ -106,7 +127,15 @@ DECLARE
 BEGIN
   IF (NEW.status = 'ready' OR NEW.status = 'delivered')
      AND (OLD.status != 'ready' AND OLD.status != 'delivered')
-     AND NEW.invoice_id IS NULL THEN
+     AND NEW.invoice_id IS NULL
+     -- [BLOQUE 3] Caso C: si esta orden ya tuvo una factura que fue anulada
+     -- (soft-deleted), NO emitir una nueva automáticamente. Una regresión
+     -- de estado intencional + nueva ready no debe regenerar la factura.
+     AND NOT EXISTS (
+       SELECT 1 FROM invoices
+       WHERE order_id = NEW.id
+         AND invoice_voided_at IS NOT NULL
+     ) THEN
 
     IF NEW.patient_id IS NOT NULL THEN
       SELECT COALESCE(first_name || ' ' || last_name, 'Sin paciente'), id

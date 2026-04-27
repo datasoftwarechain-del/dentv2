@@ -73,12 +73,13 @@ export default async function ClientDetailPage({
     .order("created_at", { ascending: false })
     .limit(20);
 
-  // Fetch invoices
+  // Fetch invoices. [BLOQUE 3] Excluye voided.
   const { data: invoices } = await supabase
     .from("invoices")
     .select("id, invoice_number, total, status, created_at")
     .eq("lab_org_id", org.id)
-    .eq("dentist_org_id", clientOrgId);
+    .eq("dentist_org_id", clientOrgId)
+    .is("invoice_voided_at", null);
 
   // [BLOQUE 2.5] Aggregates zero out without view_billing_amounts. The detail
   // list (invoices) is not passed to a client component on this page, so no
