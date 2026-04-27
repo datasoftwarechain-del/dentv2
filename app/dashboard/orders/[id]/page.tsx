@@ -61,6 +61,10 @@ export default async function OrderDetailsPage({
     // [BLOQUE 2] Lateral fix continued: button visibility now matches the API check
     // in app/api/orders/[id]/route.ts. delete_orders is the dedicated flag.
     const canDelete = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "delete_orders"));
+    // [BLOQUE 2] Hide "Editar" button for collaborators without edit_orders.
+    // Mirrors the API guard in PATCH /api/orders/[id]; saves a click into a
+    // read-only form for users who can't save anyway.
+    const canEdit = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "edit_orders"));
     const canUpdateStatus = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "update_order_status"));
 
     // Fetch order details with related data
@@ -121,7 +125,7 @@ export default async function OrderDetailsPage({
                         <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-xs">
                             <Printer className="mr-2 h-4 w-4" /> Imprimir
                         </Button>
-                        {!isPreview && (
+                        {canEdit && (
                           <Link href={`/dashboard/orders/${order.id}/edit`}>
                             <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-xs border-[#09919b] text-[#09919b] hover:bg-[#09919b]/10">
                                 <Pencil className="mr-2 h-4 w-4" /> Editar

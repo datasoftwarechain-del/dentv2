@@ -226,8 +226,18 @@ export async function PATCH(
       if (insErr) throw insErr;
     }
 
+    // [BLOQUE 2] Revalidate every page that surfaces work_type or order
+    // metadata. Identified via grep work_type in app/dashboard/.
+    // Dynamic routes use the layout/page form so all instances refresh.
     revalidatePath(`/dashboard/orders/${id}`);
     revalidatePath("/dashboard/orders");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/laboratory");
+    revalidatePath("/dashboard/billing");
+    revalidatePath("/dashboard/billing/accounts/[clientId]", "page");
+    revalidatePath("/dashboard/clients/[id]", "page");
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
