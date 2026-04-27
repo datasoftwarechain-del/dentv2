@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
@@ -120,6 +120,11 @@ export function DentistBillingDashboard({
   const [createOpen, setCreateOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [patientInvoices, setPatientInvoices] = useState(initialPatientInvoices);
+  // [HOTFIX] Re-sync con la prop tras router.refresh() — sin esto, los
+  // datos del server quedan ignorados después del primer render.
+  useEffect(() => {
+    setPatientInvoices(initialPatientInvoices);
+  }, [initialPatientInvoices]);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Create invoice form state

@@ -2,7 +2,8 @@ import { getUserOrg } from "@/lib/get-user-org";
 import { validateCSRF } from "@/lib/csrf";
 import { validateBody } from "@/lib/api-validation";
 import { createClient } from "@/lib/supabase/server";
-import { isCollaboratorRole, hasPermission } from "@/lib/permissions";
+import { isCollaboratorRole, hasPermission, permissionDeniedMessage } from "@/lib/permissions";
+import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -22,7 +23,10 @@ export async function PATCH(
     const { org, role, permissions } = await getUserOrg();
 
     if (isCollaboratorRole(role) && !hasPermission(permissions, "update_order_status")) {
-      return NextResponse.json({ error: "Sin permiso para cambiar estado" }, { status: 403 });
+      return NextResponse.json(
+        { error: permissionDeniedMessage("update_order_status"), missing_flag: "update_order_status" },
+        { status: 403 },
+      );
     }
 
     const validation = await validateBody(request, StatusSchema);
@@ -56,6 +60,16 @@ export async function PATCH(
       .eq("id", id);
 
     if (error) throw error;
+
+    // [HOTFIX] Sin esto, el cambio de estado se persistía pero el page
+    // detail seguía mostrando el valor anterior porque Next 16 cachea el
+    // server render entre navegaciones.
+    revalidatePath(`/dashboard/orders/${id}`);
+    revalidatePath("/dashboard/orders");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/schedule");
+    revalidatePath("/dashboard/kanban");
+    revalidatePath("/dashboard/laboratory");
 
     return NextResponse.json({ success: true, status });
   } catch (err: any) {

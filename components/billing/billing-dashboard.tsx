@@ -164,6 +164,13 @@ export function BillingDashboard({
   const router = useRouter();
   const [invoices, setInvoices] = useState(initialInvoices);
   const [stats, setStats] = useState(initialStats);
+  // [HOTFIX] Sin esto, después de router.refresh() el server manda nuevas
+  // props pero useState retiene el valor inicial de mount — facturas
+  // anuladas seguían visibles aunque el server ya las filtraba.
+  useEffect(() => {
+    setInvoices(initialInvoices);
+    setStats(initialStats);
+  }, [initialInvoices, initialStats]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({

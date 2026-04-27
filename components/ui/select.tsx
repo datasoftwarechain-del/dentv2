@@ -59,12 +59,15 @@ const Select = ({
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setOpen(false)
-      }
+      const target = event.target as HTMLElement | null
+      if (!target) return
+      // Trigger area (the in-tree button + label).
+      if (containerRef.current && containerRef.current.contains(target)) return
+      // Portal-rendered SelectContent: lives on document.body, outside
+      // containerRef, so it would otherwise be considered "outside" and
+      // close the menu before the click on a SelectItem can fire.
+      if (target.closest("[data-select-content]")) return
+      setOpen(false)
     }
 
     if (open) {
@@ -153,6 +156,7 @@ const SelectContent = React.forwardRef<
   const content = (
     <div
       ref={ref}
+      data-select-content=""
       className={cn(
         "fixed z-[9999] min-w-[8rem] overflow-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 max-h-[300px]",
         className
