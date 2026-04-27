@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useCSRF } from "@/hooks/useCSRF";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ import { WORK_TYPE_LABELS, formatWorkType } from "@/lib/work-types";
 import { toast } from "sonner";
 import {
   Loader2, Trash2, Plus, User, Calendar, FileText,
-  AlertCircle, Package,
+  AlertCircle, Package, Lock, Link2Off,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────
@@ -74,6 +74,12 @@ interface EditOrderFormProps {
   organizationId: string;
   isDentist: boolean;
   showPrices?: boolean;
+  /**
+   * [BLOQUE 2] true → form fully editable. false → all inputs disabled +
+   * submit hidden. The API enforces edit_orders independently as defense
+   * in depth, but the UI must reflect the same gating.
+   */
+  canEdit?: boolean;
   catalogItems?: CatalogItem[];
 }
 
@@ -133,12 +139,14 @@ function guessWorkType(name: string): string {
 export function EditOrderForm({
   order,
   patients,
-  organizationId,
-  isDentist,
+  organizationId: _organizationId,
+  isDentist: _isDentist,
   showPrices = true,
+  canEdit = true,
   catalogItems = [],
 }: EditOrderFormProps) {
   const router = useRouter();
+  const { csrfToken } = useCSRF();
   const [loading, setLoading] = useState(false);
 
   // ── Order-level fields ──
@@ -190,15 +198,20 @@ export function EditOrderForm({
   }
 
   // ─────────────────────────────────────────────────────────
-  // Submit
+  // Submit — [BLOQUE 2] goes through PATCH /api/orders/[id]
+  // The API enforces edit_orders, ownership, validates schema, and
+  // applies all writes server-side. UI checks `canEdit` to short-circuit
+  // before the network call (defense layer 1; the API is layer 2).
   // ─────────────────────────────────────────────────────────
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canEdit) {
+      toast.error("No tenés permiso para editar esta orden.");
+      return;
+    }
     setLoading(true);
 
     try {
-      const supabase = createClient();
-
       // Compute due_date ISO string
       let scheduledDue: string | null = null;
       if (dueDate) {
@@ -206,74 +219,61 @@ export function EditOrderForm({
         scheduledDue = new Date(`${dueDate}T${timeStr}:00`).toISOString();
       }
 
-      // 1. Update order record
-      const { error: orderError } = await supabase
-        .from("lab_orders")
-        .update({
-          patient_id: patientId || null,
-          status,
-          priority,
-          due_date: scheduledDue,
-          notes: notes.trim() || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", order.id);
-
-      if (orderError) throw orderError;
-
-      // 2. Delete removed items
-      if (deletedItemIds.length > 0) {
-        const { error: delError } = await supabase
-          .from("lab_order_items")
-          .delete()
-          .in("id", deletedItemIds);
-        if (delError) throw delError;
-      }
-
-      // helper: form stores tooth_positions as a plain string; DB column is text[]
       function toToothArray(s: string | null): string[] | null {
         if (!s || !s.trim()) return null;
         return s.split(",").map((v) => v.trim()).filter(Boolean);
       }
 
-      // 3. Update existing items
-      for (const item of existingItems) {
-        const { error: updError } = await supabase
-          .from("lab_order_items")
-          .update({
-            work_type: item.work_type || null,
-            tooth_positions: toToothArray(item.tooth_positions),
-            shade: item.shade || null,
-            quantity: item.quantity || 1,
-            selected_extras: item.selected_extras,
-          })
-          .eq("id", item.id);
-        if (updError) throw updError;
-      }
+      const updatedItems = existingItems.map((item) => ({
+        id: item.id,
+        work_type: item.work_type || null,
+        tooth_positions: toToothArray(item.tooth_positions),
+        shade: item.shade || null,
+        quantity: item.quantity || 1,
+        selected_extras: item.selected_extras,
+        catalog_item_id: item.catalog_item_id ?? null,
+      }));
 
-      // 4. Insert new items
-      const itemsToInsert = newItems
+      const newItemsPayload = newItems
         .filter((i) => i.work_type || i.catalog_item_id)
-        .map(({ _tempId: _, ...item }) => ({
-          order_id: order.id,
+        .map(({ _tempId: _, catalog_item_name: _n, ...item }) => ({
           catalog_item_id: item.catalog_item_id || null,
           work_type: item.work_type || null,
           tooth_positions: toToothArray(item.tooth_positions),
           shade: item.shade || null,
           quantity: item.quantity || 1,
-          unit_price: item.unit_price || null,
+          unit_price: item.unit_price ?? null,
           selected_extras: item.selected_extras,
         }));
 
-      if (itemsToInsert.length > 0) {
-        const { error: insError } = await supabase
-          .from("lab_order_items")
-          .insert(itemsToInsert);
-        if (insError) throw insError;
+      const res = await fetch(`/api/orders/${order.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-csrf-token": csrfToken,
+        },
+        body: JSON.stringify({
+          patient_id: patientId || null,
+          status,
+          priority,
+          due_date: scheduledDue,
+          notes: notes.trim() || null,
+          items: {
+            deleted: deletedItemIds,
+            updated: updatedItems,
+            new: newItemsPayload,
+          },
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Error al actualizar la orden");
       }
 
       toast.success("Orden actualizada correctamente");
-      window.location.href = `/dashboard/orders/${order.id}`;
+      router.push(`/dashboard/orders/${order.id}`);
+      router.refresh();
     } catch (err: any) {
       toast.error(err.message || "Error al actualizar la orden");
     } finally {
@@ -291,6 +291,17 @@ export function EditOrderForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {!canEdit && (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <Lock className="h-4 w-4 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold">Modo lectura</p>
+            <p className="text-amber-800">
+              No tenés permiso para editar esta orden. Pedile a un admin que te asigne el flag <code className="font-mono">edit_orders</code>.
+            </p>
+          </div>
+        </div>
+      )}
       {/* ── Order fields card ── */}
       <Card className="border-2 border-[#b0dde0] shadow-premium">
         <CardHeader className="bg-gradient-to-br from-[#f0fafb] to-white border-b border-[#d2f2f3]">
@@ -311,6 +322,7 @@ export function EditOrderForm({
               placeholder="Seleccionar paciente"
               searchPlaceholder="Buscar paciente..."
               emptyText="No se encontró el paciente."
+              disabled={!canEdit}
             />
           </div>
 
@@ -319,7 +331,7 @@ export function EditOrderForm({
             <div className="space-y-2">
               <Label className="text-sm font-semibold">Estado</Label>
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger>
+                <SelectTrigger disabled={!canEdit}>
                   <span className="flex-1 text-left truncate text-sm">
                     {STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status}
                   </span>
@@ -337,7 +349,7 @@ export function EditOrderForm({
             <div className="space-y-2">
               <Label className="text-sm font-semibold">Prioridad</Label>
               <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger>
+                <SelectTrigger disabled={!canEdit}>
                   <span className="flex-1 text-left truncate text-sm">
                     {PRIORITY_OPTIONS.find((o) => o.value === priority)?.label ?? priority}
                   </span>
@@ -365,6 +377,7 @@ export function EditOrderForm({
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
+                disabled={!canEdit}
               />
             </div>
             <div className="space-y-2">
@@ -373,6 +386,7 @@ export function EditOrderForm({
                 type="time"
                 value={dueTime}
                 onChange={(e) => setDueTime(e.target.value)}
+                disabled={!canEdit}
               />
             </div>
           </div>
@@ -388,6 +402,7 @@ export function EditOrderForm({
               className="min-h-[90px] resize-none"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              disabled={!canEdit}
             />
           </div>
         </CardContent>
@@ -410,6 +425,7 @@ export function EditOrderForm({
               size="sm"
               className="border-[#09919b] text-[#09919b] hover:bg-[#09919b]/10"
               onClick={() => setNewItems((prev) => [...prev, blankItem()])}
+              disabled={!canEdit}
             >
               <Plus className="h-4 w-4 mr-1" />
               Agregar ítem
@@ -431,17 +447,22 @@ export function EditOrderForm({
               index={idx}
               workType={item.work_type || ""}
               catalogName={item.catalog_item_name || null}
+              catalogItemId={item.catalog_item_id ?? null}
               toothPositions={item.tooth_positions || ""}
               shade={item.shade || ""}
               quantity={item.quantity}
               extras={item.selected_extras}
               showPrices={showPrices}
+              canEdit={canEdit}
               onWorkTypeChange={(v) => updateExistingItem(item.id, "work_type", v)}
               onToothChange={(v) => updateExistingItem(item.id, "tooth_positions", v)}
               onShadeChange={(v) => updateExistingItem(item.id, "shade", v)}
               onQuantityChange={(v) => updateExistingItem(item.id, "quantity", v)}
               onExtrasChange={(extras) => setExistingItems((prev) =>
                 prev.map((i) => i.id === item.id ? { ...i, selected_extras: extras } : i)
+              )}
+              onUnlinkCatalog={() => setExistingItems((prev) =>
+                prev.map((i) => i.id === item.id ? { ...i, catalog_item_id: null, catalog_item_name: null } : i)
               )}
               onRemove={() => removeExistingItem(item.id)}
             />
@@ -455,12 +476,14 @@ export function EditOrderForm({
               isNew
               workType={item.work_type || ""}
               catalogName={item.catalog_item_name || null}
+              catalogItemId={item.catalog_item_id ?? null}
               selectedCatalogId={item.catalog_item_id || null}
               toothPositions={item.tooth_positions || ""}
               shade={item.shade || ""}
               quantity={item.quantity}
               extras={item.selected_extras}
               showPrices={showPrices}
+              canEdit={canEdit}
               catalogItems={catalogItems}
               onWorkTypeChange={(v) => updateNewItem(item._tempId, "work_type", v)}
               onToothChange={(v) => updateNewItem(item._tempId, "tooth_positions", v)}
@@ -472,6 +495,12 @@ export function EditOrderForm({
               onCatalogSelect={(catalogId, name, basePrice, wt) => setNewItems((prev) =>
                 prev.map((i) => i._tempId === item._tempId
                   ? { ...i, catalog_item_id: catalogId, catalog_item_name: name, unit_price: basePrice, work_type: wt }
+                  : i
+                )
+              )}
+              onUnlinkCatalog={() => setNewItems((prev) =>
+                prev.map((i) => i._tempId === item._tempId
+                  ? { ...i, catalog_item_id: null, catalog_item_name: null, unit_price: null }
                   : i
                 )
               )}
@@ -489,16 +518,18 @@ export function EditOrderForm({
           onClick={() => router.back()}
           disabled={loading}
         >
-          Cancelar
+          {canEdit ? "Cancelar" : "Volver"}
         </Button>
-        <Button
-          type="submit"
-          disabled={loading}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-        >
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Guardar cambios
-        </Button>
+        {canEdit && (
+          <Button
+            type="submit"
+            disabled={loading}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+          >
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Guardar cambios
+          </Button>
+        )}
       </div>
     </form>
   );
@@ -512,12 +543,15 @@ interface ItemRowProps {
   isNew?: boolean;
   workType: string;
   catalogName: string | null;
+  catalogItemId: string | null;
   selectedCatalogId?: string | null;
   toothPositions: string;
   shade: string;
   quantity: number;
   extras: Extra[];
   showPrices?: boolean;
+  /** [BLOQUE 2] When false, all controls are read-only and Remove/Unlink hidden. */
+  canEdit?: boolean;
   catalogItems?: CatalogItem[];
   onWorkTypeChange: (v: string) => void;
   onToothChange: (v: string) => void;
@@ -525,6 +559,7 @@ interface ItemRowProps {
   onQuantityChange: (v: number) => void;
   onExtrasChange: (extras: Extra[]) => void;
   onCatalogSelect?: (catalogId: string, name: string, basePrice: number, workType: string) => void;
+  onUnlinkCatalog?: () => void;
   onRemove: () => void;
 }
 
@@ -533,12 +568,14 @@ function ItemRow({
   isNew,
   workType,
   catalogName,
+  catalogItemId,
   selectedCatalogId,
   toothPositions,
   shade,
   quantity,
   extras,
   showPrices = true,
+  canEdit = true,
   catalogItems = [],
   onWorkTypeChange,
   onToothChange,
@@ -546,6 +583,7 @@ function ItemRow({
   onQuantityChange,
   onExtrasChange,
   onCatalogSelect,
+  onUnlinkCatalog,
   onRemove,
 }: ItemRowProps) {
   const [newExtraName, setNewExtraName] = useState("");
@@ -580,26 +618,62 @@ function ItemRow({
             </Badge>
           )}
         </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          onClick={onRemove}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            onClick={onRemove}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
 
-      {/* Work type */}
+      {/* Work type — [BLOQUE 2] editable even when catalog_item is linked.
+          - With catalog linked: show catalog name as informative badge + Select to
+            change classification + "Desvincular" button.
+          - New item without catalog: catalog combobox if catalog available, else free Select.
+          - Existing or new without catalog: free Select. */}
       <div className="space-y-1.5">
         <Label className="text-xs text-muted-foreground">Tipo de trabajo</Label>
-        {catalogName && !isNew ? (
-          <div className="space-y-1.5">
-            <p className="text-sm font-semibold text-foreground">{catalogName}</p>
-            <p className="text-[11px] text-muted-foreground">
-              Clasificación: {formatWorkType(workType)}
-            </p>
+
+        {catalogItemId && catalogName ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="secondary" className="font-semibold text-xs bg-[#09919b]/10 text-[#09919b] border-[#09919b]/30">
+                <Package className="h-3 w-3 mr-1" />
+                {catalogName}
+              </Badge>
+              {canEdit && onUnlinkCatalog && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[10px] text-muted-foreground hover:text-destructive"
+                  onClick={onUnlinkCatalog}
+                >
+                  <Link2Off className="h-3 w-3 mr-1" />
+                  Desvincular catálogo
+                </Button>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">Clasificación</Label>
+              <Select value={workType || undefined} onValueChange={onWorkTypeChange}>
+                <SelectTrigger className="h-9 text-sm" disabled={!canEdit}>
+                  <SelectValue placeholder="Seleccionar clasificación..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {WORK_TYPE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         ) : isNew && catalogItems.length > 0 ? (
           <Combobox
@@ -614,10 +688,11 @@ function ItemRow({
             placeholder="Seleccionar del arancel..."
             searchPlaceholder="Buscar trabajo..."
             emptyText="No se encontró el trabajo."
+            disabled={!canEdit}
           />
         ) : (
           <Select value={workType || undefined} onValueChange={onWorkTypeChange}>
-            <SelectTrigger className="h-9 text-sm">
+            <SelectTrigger className="h-9 text-sm" disabled={!canEdit}>
               <SelectValue placeholder="Seleccionar tipo..." />
             </SelectTrigger>
             <SelectContent>
@@ -639,6 +714,7 @@ function ItemRow({
             className="h-9 text-sm"
             value={toothPositions}
             onChange={(e) => onToothChange(e.target.value)}
+            disabled={!canEdit}
           />
         </div>
         <div className="space-y-1.5">
@@ -648,6 +724,7 @@ function ItemRow({
             className="h-9 text-sm"
             value={shade}
             onChange={(e) => onShadeChange(e.target.value)}
+            disabled={!canEdit}
           />
         </div>
       </div>
@@ -660,6 +737,7 @@ function ItemRow({
           className="h-9 text-sm"
           value={quantity}
           onChange={(e) => onQuantityChange(parseInt(e.target.value) || 1)}
+          disabled={!canEdit}
         />
       </div>
 
@@ -683,58 +761,63 @@ function ItemRow({
                       className="h-7 text-xs w-24 px-2"
                       value={extra.price}
                       onChange={(e) => updateExtraPrice(i, parseFloat(e.target.value) || 0)}
+                      disabled={!canEdit}
                     />
                   </>
                 ) : (
                   <span className="text-xs text-muted-foreground italic w-24 text-center">—</span>
                 )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-                  onClick={() => removeExtra(i)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+                {canEdit && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                    onClick={() => removeExtra(i)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
         )}
 
-        {/* Add new extra */}
-        <div className="flex items-center gap-2">
-          <Input
-            placeholder="Nombre del extra"
-            className="h-7 text-xs flex-1"
-            value={newExtraName}
-            onChange={(e) => setNewExtraName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addExtra())}
-          />
-          {showPrices !== false && (
-            <span className="text-[10px] text-muted-foreground">$</span>
-          )}
-          <Input
-            type="number"
-            min={0}
-            step="0.01"
-            placeholder={showPrices !== false ? "0.00" : "—"}
-            className="h-7 text-xs w-24 px-2"
-            disabled={showPrices === false}
-            value={showPrices !== false ? newExtraPrice : ""}
-            onChange={(e) => showPrices !== false && setNewExtraPrice(e.target.value)}
-            onKeyDown={(e) => showPrices !== false && e.key === "Enter" && (e.preventDefault(), addExtra())}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-7 px-2 text-[11px] border-[#09919b]/40 text-[#09919b] hover:bg-[#09919b]/10 shrink-0"
-            onClick={addExtra}
-          >
-            <Plus className="h-3 w-3" />
-          </Button>
-        </div>
+        {/* Add new extra — solo si canEdit */}
+        {canEdit && (
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Nombre del extra"
+              className="h-7 text-xs flex-1"
+              value={newExtraName}
+              onChange={(e) => setNewExtraName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addExtra())}
+            />
+            {showPrices !== false && (
+              <span className="text-[10px] text-muted-foreground">$</span>
+            )}
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder={showPrices !== false ? "0.00" : "—"}
+              className="h-7 text-xs w-24 px-2"
+              disabled={showPrices === false}
+              value={showPrices !== false ? newExtraPrice : ""}
+              onChange={(e) => showPrices !== false && setNewExtraPrice(e.target.value)}
+              onKeyDown={(e) => showPrices !== false && e.key === "Enter" && (e.preventDefault(), addExtra())}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-[11px] border-[#09919b]/40 text-[#09919b] hover:bg-[#09919b]/10 shrink-0"
+              onClick={addExtra}
+            >
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

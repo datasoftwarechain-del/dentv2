@@ -184,17 +184,43 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
                 </div>
               </div>
             )}
-            {(invoice.order_items?.[0]?.catalog_item?.name || invoice.work_type) && (
-              <div className="bg-white px-5 py-4">
-                <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Tipo de Trabajo</p>
-                <div className="flex items-center gap-1.5">
-                  <Package className="h-3.5 w-3.5 text-[#09919b]" />
-                  <span className="font-bold text-[#044c64] text-sm">
-                    {invoice.order_items?.[0]?.catalog_item?.name || formatWorkType(invoice.work_type)}
-                  </span>
+            {(() => {
+              // [BLOQUE 2] Show both Producto (catalog) and Clasificación (work_type)
+              // when both exist. Useful when an item's classification was changed
+              // after it was linked to a catalog product.
+              const firstItem = invoice.order_items?.[0];
+              const catalogName = firstItem?.catalog_item?.name || null;
+              const classification = invoice.work_type ? formatWorkType(invoice.work_type) : null;
+              if (!catalogName && !classification) return null;
+              const showBoth = Boolean(catalogName && classification);
+              return (
+                <div className="bg-white px-5 py-4">
+                  <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Tipo de Trabajo</p>
+                  {showBoth ? (
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-1.5">
+                        <Package className="h-3.5 w-3.5 text-[#09919b]" />
+                        <span className="font-bold text-[#044c64] text-sm">
+                          <span className="text-[10px] uppercase tracking-wider text-[#09919b] mr-1">Producto:</span>
+                          {catalogName}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 pl-5">
+                        <span className="text-[10px] uppercase tracking-wider mr-1">Clasificación:</span>
+                        {classification}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <Package className="h-3.5 w-3.5 text-[#09919b]" />
+                      <span className="font-bold text-[#044c64] text-sm">
+                        {catalogName || classification}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
             {invoice.delivery_date && (
               <div className="bg-white px-5 py-4">
                 <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Fecha de Entrega</p>

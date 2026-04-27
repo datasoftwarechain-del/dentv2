@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { getUserOrg } from "@/lib/get-user-org";
-import { canViewPrices } from "@/lib/permissions";
+import { canViewPrices, canEditOrders } from "@/lib/permissions";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
@@ -16,9 +16,11 @@ export default async function EditOrderPage({
   const { id } = await params;
   const { user, org, isCollaborator, permissions } = await getUserOrg();
 
-  // Only admins or users with order creation rights can edit
-  if (isCollaborator && !permissions?.create_orders) redirect("/dashboard");
+  // [BLOQUE 2] Visiting the edit page requires view_orders. Without it, redirect.
+  if (isCollaborator && !permissions?.view_orders) redirect("/dashboard");
 
+  // [BLOQUE 2] Saving requires edit_orders. Form renders read-only when this is false.
+  const canEdit = canEditOrders(permissions);
   const showPrices = canViewPrices(permissions);
 
   const supabase = await createClient();
@@ -44,6 +46,7 @@ export default async function EditOrderPage({
         quantity,
         unit_price,
         selected_extras,
+        catalog_item_id,
         catalog_item:price_catalog(name)
       )
     `)
@@ -89,6 +92,7 @@ export default async function EditOrderPage({
     quantity: item.quantity ?? 1,
     unit_price: item.unit_price,
     selected_extras: Array.isArray(item.selected_extras) ? item.selected_extras : [],
+    catalog_item_id: item.catalog_item_id ?? null,
     catalog_item_name: Array.isArray(item.catalog_item)
       ? item.catalog_item[0]?.name ?? null
       : item.catalog_item?.name ?? null,
@@ -129,6 +133,7 @@ export default async function EditOrderPage({
           organizationId={org.id}
           isDentist={isDentist}
           showPrices={showPrices}
+          canEdit={canEdit}
           catalogItems={catalogItems}
         />
       </main>

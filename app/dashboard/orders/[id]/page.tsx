@@ -58,7 +58,9 @@ export default async function OrderDetailsPage({
     }
 
     const showPrices = isPreview ? true : canViewPrices(permissions);
-    const canDelete = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "create_orders"));
+    // [BLOQUE 2] Lateral fix continued: button visibility now matches the API check
+    // in app/api/orders/[id]/route.ts. delete_orders is the dedicated flag.
+    const canDelete = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "delete_orders"));
     const canUpdateStatus = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "update_order_status"));
 
     // Fetch order details with related data
@@ -210,13 +212,28 @@ export default async function OrderDetailsPage({
                                                         const catalogName = Array.isArray(item.catalog_item)
                                                             ? item.catalog_item[0]?.name
                                                             : item.catalog_item?.name;
-                                                        const workLabel = catalogName || formatWorkType(item.work_type) || "—";
+                                                        const classification = item.work_type ? formatWorkType(item.work_type) : null;
+                                                        // [BLOQUE 2] Show both labels when both exist; either one alone otherwise.
+                                                        const showBoth = Boolean(catalogName && classification);
                                                         const extras: { name: string; price?: number; qty: number }[] =
                                                             Array.isArray(item.selected_extras) ? item.selected_extras : [];
                                                         return (
                                                             <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                                                                 <td className="px-4 py-4 font-bold">
-                                                                    {workLabel}
+                                                                    {showBoth ? (
+                                                                        <div className="space-y-0.5">
+                                                                            <p>
+                                                                                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-1.5">Producto:</span>
+                                                                                {catalogName}
+                                                                            </p>
+                                                                            <p className="text-xs text-muted-foreground font-medium">
+                                                                                <span className="text-[10px] uppercase tracking-wider mr-1.5">Clasificación:</span>
+                                                                                {classification}
+                                                                            </p>
+                                                                        </div>
+                                                                    ) : (
+                                                                        catalogName || classification || "—"
+                                                                    )}
                                                                     {extras.length > 0 && (
                                                                         <div className="mt-1 space-y-0.5">
                                                                             {extras.map((e, i) => (
