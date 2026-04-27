@@ -24,7 +24,14 @@ interface InvoiceLite {
   total?: number;
   created_at: string;
   dentist_org?: { id: string; name: string } | null;
-  order_items?: { work_type?: string; quantity?: number; unit_price?: number | null; selected_extras?: { price: number; qty?: number }[] }[];
+  order_items?: {
+    work_type?: string;
+    quantity?: number;
+    unit_price?: number | null;
+    selected_extras?: { price: number; qty?: number }[];
+    /** Supabase FK joins can return an object or an array. Normalize at read time. */
+    catalog_item?: { name?: string | null } | { name?: string | null }[] | null;
+  }[];
 }
 
 interface PurchaseLite {
@@ -109,14 +116,20 @@ export function AnalyticsTab({ invoices, canViewAmounts = false }: Props) {
     return Array.from(m.values()).sort((a, b) => b.total - a.total).slice(0, 5);
   }, [invoices, canViewAmounts]);
 
+  // [QA fix] Top 5 prefiere el nombre del catálogo (lo que el lab realmente
+  // vende: "Prótesis Total Acrílica Premium", etc.). Solo cae al enum
+  // genérico (formatWorkType) cuando el item no tiene catalog_item linkeado.
   const topWorks = useMemo(() => {
-    const m = new Map<string, { work_type: string; count: number }>();
+    const m = new Map<string, { label: string; count: number }>();
     for (const inv of invoices) {
       for (const it of inv.order_items ?? []) {
-        const wt = it.work_type ?? "(sin tipo)";
-        const cur = m.get(wt) ?? { work_type: wt, count: 0 };
+        const cat = Array.isArray(it.catalog_item) ? it.catalog_item[0] : it.catalog_item;
+        const catalogName = cat?.name?.trim() || null;
+        const label = catalogName
+          ?? (it.work_type ? formatWorkType(it.work_type) : "(sin tipo)");
+        const cur = m.get(label) ?? { label, count: 0 };
         cur.count += Number(it.quantity ?? 1);
-        m.set(wt, cur);
+        m.set(label, cur);
       }
     }
     return Array.from(m.values()).sort((a, b) => b.count - a.count).slice(0, 5);
@@ -249,10 +262,10 @@ export function AnalyticsTab({ invoices, canViewAmounts = false }: Props) {
             ) : (
               <ol className="space-y-1.5">
                 {topWorks.map((w, i) => (
-                  <li key={w.work_type} className="flex items-center justify-between gap-3 px-2 py-1.5 rounded-md hover:bg-muted/30">
+                  <li key={w.label} className="flex items-center justify-between gap-3 px-2 py-1.5 rounded-md hover:bg-muted/30">
                     <div className="flex items-center gap-2 min-w-0">
                       <Badge variant="outline" className="text-[10px] font-bold shrink-0">{i + 1}</Badge>
-                      <span className="truncate font-medium text-sm">{formatWorkType(w.work_type)}</span>
+                      <span className="truncate font-medium text-sm">{w.label}</span>
                     </div>
                     <span className="tabular-nums font-bold text-sm text-[#09919b] shrink-0">
                       {w.count}
