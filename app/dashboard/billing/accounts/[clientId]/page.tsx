@@ -2,9 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { getUserOrg } from "@/lib/get-user-org";
-import { sanitizeInvoiceForCollaborator, canManageBilling } from "@/lib/permissions";
+import {
+  sanitizeInvoiceForCollaborator,
+  canManageBilling,
+  canManagePricing,
+  hasPermission,
+} from "@/lib/permissions";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { ClientAccountStatement } from "@/components/billing/client-account-statement";
+import { ClientPricingSection } from "@/components/billing/client-pricing-section";
 
 interface PageProps {
   params: Promise<{
@@ -131,6 +137,17 @@ export default async function ClientAccountPage({ params }: PageProps) {
           isReadOnly={isPreview}
           canManageBilling={canManageBilling(permissions)}
         />
+
+        {/* [BLOQUE 4] Arancel personalizado — solo lab que ve el catálogo. */}
+        {!isDentist && !isPreview && hasPermission(permissions, "view_pricing_admin") && (
+          <div className="mt-6">
+            <ClientPricingSection
+              clientId={resolvedParams.clientId}
+              clientName={clientOrg.name}
+              canManage={canManagePricing(permissions)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -44,6 +44,10 @@ interface CatalogItem {
   name: string;
   base_price: number;
   category: string;
+  /** [BLOQUE 4] Effective price after applying client override (if any). */
+  effective_price?: number;
+  /** [BLOQUE 4] true when the lab has a custom price for this client. */
+  has_override?: boolean;
 }
 
 interface OrderItem {
@@ -646,6 +650,22 @@ function ItemRow({
                 <Package className="h-3 w-3 mr-1" />
                 {catalogName}
               </Badge>
+              {/* [BLOQUE 4] Indicate if this catalog item has a custom price for the order's client. */}
+              {(() => {
+                const matched = catalogItems.find((c) => c.id === catalogItemId);
+                if (!matched?.has_override) return null;
+                const general = matched.base_price;
+                const custom = matched.effective_price ?? general;
+                return (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] border-[#09919b]/40 text-[#09919b]"
+                    title={`Precio general: $${general}. Precio personalizado: $${custom}.`}
+                  >
+                    Precio personalizado
+                  </Badge>
+                );
+              })()}
               {canEdit && onUnlinkCatalog && (
                 <Button
                   type="button"
@@ -682,7 +702,10 @@ function ItemRow({
             onValueChange={(id) => {
               const cat = catalogItems.find((c) => c.id === id);
               if (cat && onCatalogSelect) {
-                onCatalogSelect(cat.id, cat.name, cat.base_price, guessWorkType(cat.name));
+                // [BLOQUE 4] Prefill unit_price with the effective price for
+                // this client (override if exists, base_price otherwise).
+                const effective = cat.effective_price ?? cat.base_price;
+                onCatalogSelect(cat.id, cat.name, effective, guessWorkType(cat.name));
               }
             }}
             placeholder="Seleccionar del arancel..."

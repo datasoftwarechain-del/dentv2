@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { getUserOrg } from "@/lib/get-user-org";
 import { canViewPrices, canEditOrders } from "@/lib/permissions";
+import { getEffectivePricesBatch } from "@/lib/pricing";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
@@ -79,7 +80,24 @@ export default async function EditOrderPage({
         .order("category")
         .order("name")
     : { data: [] };
-  const catalogItems = (catalogRaw || []) as { id: string; name: string; base_price: number; category: string }[];
+  const baseCatalog = (catalogRaw || []) as { id: string; name: string; base_price: number; category: string }[];
+
+  // [BLOQUE 4] Resolve effective price per catalog item for THIS dentist client.
+  // Override (if exists) replaces base_price; otherwise base_price stands.
+  const orderDentistId = order.dentist_org_id as string | null;
+  const overrideMap =
+    labOrgId && orderDentistId && baseCatalog.length > 0
+      ? await getEffectivePricesBatch(supabase, labOrgId, orderDentistId, baseCatalog)
+      : new Map();
+
+  const catalogItems = baseCatalog.map((c) => {
+    const eff = overrideMap.get(c.id);
+    return {
+      ...c,
+      effective_price: eff?.effective ?? c.base_price,
+      has_override: eff?.hasOverride ?? false,
+    };
+  });
 
   // Normalize items: flatten catalog_item join
   const items = (order.items || []).map((item: any) => ({
