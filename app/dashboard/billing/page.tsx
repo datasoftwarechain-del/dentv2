@@ -5,12 +5,16 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { BillingDashboard } from "@/components/billing/billing-dashboard";
 import { DentistBillingDashboard } from "@/components/billing/dentist-billing-dashboard";
 import { getUserOrg } from "@/lib/get-user-org";
+import { sanitizeInvoiceForCollaborator } from "@/lib/permissions";
 
 export default async function BillingPage() {
   const { user, org, isCollaborator, permissions } = await getUserOrg();
   if (isCollaborator && !permissions?.view_billing) redirect("/dashboard");
 
   const showAmounts = !isCollaborator || !!permissions?.view_billing_amounts;
+  // [BLOQUE 2.5] Aggregates collapse to 0 when caller can't see amounts.
+  // The invoice arrays passed to client components are sanitized below.
+  const canViewAmounts = !isCollaborator || !!permissions?.view_billing_amounts;
   const supabase = await createClient();
 
   const isPreview = org.type === "dentist_preview";
@@ -112,7 +116,7 @@ export default async function BillingPage() {
       order_items: labOrderItemsByOrderId[inv.order_id] || [],
     }));
 
-    // Construir resumen por lab desde facturas formales
+    // Construir resumen por lab desde facturas formales — montos colapsan a 0 sin permiso
     const labClientsMap = new Map<string, any>();
     (labInvoices || []).forEach((inv: any) => {
       const lab = Array.isArray(inv.lab_org) ? inv.lab_org[0] : inv.lab_org;
@@ -121,8 +125,10 @@ export default async function BillingPage() {
         id: lab.id, name: lab.name, invoiceCount: 0, totalAmount: 0, pendingAmount: 0,
       };
       existing.invoiceCount++;
-      existing.totalAmount += Number(inv.total);
-      if (inv.status === "pending") existing.pendingAmount += Number(inv.total);
+      if (canViewAmounts) {
+        existing.totalAmount += Number(inv.total);
+        if (inv.status === "pending") existing.pendingAmount += Number(inv.total);
+      }
       labClientsMap.set(lab.id, existing);
     });
 
@@ -145,12 +151,23 @@ export default async function BillingPage() {
 
     const labClients = Array.from(labClientsMap.values());
 
-    // Stats
+    // Stats — colapsan a 0 si el colaborador no puede ver montos
     const piList = patientInvoices || [];
-    const totalPatientInvoiced = piList.reduce((s: number, i: any) => s + Number(i.total), 0);
-    const totalPatientPaid = piList.filter((i: any) => i.status === "paid").reduce((s: number, i: any) => s + Number(i.total), 0);
-    const totalPatientPending = piList.filter((i: any) => i.status === "pending").reduce((s: number, i: any) => s + Number(i.total), 0);
-    const totalLabPending = labClients.reduce((s: number, c: any) => s + c.pendingAmount, 0);
+    const totalPatientInvoiced = canViewAmounts
+      ? piList.reduce((s: number, i: any) => s + Number(i.total), 0) : 0;
+    const totalPatientPaid = canViewAmounts
+      ? piList.filter((i: any) => i.status === "paid").reduce((s: number, i: any) => s + Number(i.total), 0) : 0;
+    const totalPatientPending = canViewAmounts
+      ? piList.filter((i: any) => i.status === "pending").reduce((s: number, i: any) => s + Number(i.total), 0) : 0;
+    const totalLabPending = canViewAmounts
+      ? labClients.reduce((s: number, c: any) => s + c.pendingAmount, 0) : 0;
+
+    // [BLOQUE 2.5] Sanitize before passing to client. labInvoices come from
+    // the lab→dentist `invoices` table; patientInvoices live in patient_invoices
+    // (different shape, different sanitizer if needed — out of scope here).
+    const sanitizedLabInvoices = labInvoicesEnriched.map((inv: any) =>
+      sanitizeInvoiceForCollaborator(inv, permissions)
+    );
 
     return (
       <div className="flex flex-col">
@@ -164,7 +181,7 @@ export default async function BillingPage() {
             patients={patients || []}
             patientInvoices={piList}
             labClients={labClients}
-            labInvoices={labInvoicesEnriched}
+            labInvoices={sanitizedLabInvoices}
             stats={{ totalPatientInvoiced, totalPatientPaid, totalPatientPending, totalLabPending }}
             isReadOnly={isPreview}
           />
@@ -242,10 +259,13 @@ export default async function BillingPage() {
   // Movements for recent display (limit to 20)
   const movements = (allMovements || []).slice(0, 20);
 
-  // Invoice stats
-  const totalInvoiced = invoices?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
-  const totalPaid = invoices?.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
-  const totalPending = invoices?.filter((inv) => inv.status === "pending").reduce((sum, inv) => sum + Number(inv.total), 0) || 0;
+  // Invoice stats — colapsan a 0 sin view_billing_amounts
+  const totalInvoiced = canViewAmounts
+    ? invoices?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0 : 0;
+  const totalPaid = canViewAmounts
+    ? invoices?.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total), 0) || 0 : 0;
+  const totalPending = canViewAmounts
+    ? invoices?.filter((inv) => inv.status === "pending").reduce((sum, inv) => sum + Number(inv.total), 0) || 0 : 0;
 
   // Build clients from connected dentists (source of truth) + invoice data overlay + ledger balance
   const clientsMap = new Map<string, {
@@ -257,7 +277,7 @@ export default async function BillingPage() {
     clientsMap.set(d.id, { id: d.id, name: d.name, invoiceCount: 0, totalAmount: 0, paidAmount: 0 });
   });
 
-  // Overlay invoice data
+  // Overlay invoice data — montos solo si canViewAmounts
   invoices?.forEach((invoice) => {
     const clientOrg = invoice.dentist_org as { id: string; name: string } | null;
     if (!clientOrg) return;
@@ -265,8 +285,10 @@ export default async function BillingPage() {
       id: clientOrg.id, name: clientOrg.name, invoiceCount: 0, totalAmount: 0, paidAmount: 0,
     };
     entry.invoiceCount++;
-    entry.totalAmount += Number(invoice.total);
-    if (invoice.status === "paid") entry.paidAmount += Number(invoice.total);
+    if (canViewAmounts) {
+      entry.totalAmount += Number(invoice.total);
+      if (invoice.status === "paid") entry.paidAmount += Number(invoice.total);
+    }
     clientsMap.set(clientOrg.id, entry);
   });
 
@@ -278,6 +300,11 @@ export default async function BillingPage() {
     return { ...c, pendingAmount };
   });
 
+  // [BLOQUE 2.5] Sanitize the lab→dentist invoices array before passing to client.
+  const sanitizedInvoices = invoicesWithItems.map((inv: any) =>
+    sanitizeInvoiceForCollaborator(inv, permissions)
+  );
+
   return (
     <div className="flex flex-col">
       <DashboardHeader
@@ -286,7 +313,7 @@ export default async function BillingPage() {
       />
       <div className="flex-1 p-6">
         <BillingDashboard
-          invoices={invoicesWithItems}
+          invoices={sanitizedInvoices}
           movements={movements || []}
           isDentist={false}
           organizationId={org.id}

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
 import { StatusBadge } from "@/components/orders/status-badge";
 import { ClientEditDialog } from "@/components/clients/client-edit-dialog";
+import { getUserOrg } from "@/lib/get-user-org";
 
 export default async function ClientDetailPage({
   params,
@@ -17,9 +18,10 @@ export default async function ClientDetailPage({
   params: { id: string };
 }) {
   const { id: clientOrgId } = await params;
+  // [BLOQUE 2.5] Use getUserOrg to obtain permissions (cached, free to call).
+  const { user, isCollaborator, permissions } = await getUserOrg();
+  const canViewAmounts = !isCollaborator || !!permissions?.view_billing_amounts;
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
   if (!user) redirect("/auth/login");
 
   // Verify caller is a lab member
@@ -78,8 +80,13 @@ export default async function ClientDetailPage({
     .eq("lab_org_id", org.id)
     .eq("dentist_org_id", clientOrgId);
 
-  const totalInvoiced = invoices?.reduce((s, i) => s + Number(i.total), 0) || 0;
-  const totalPending = invoices?.filter(i => i.status === "pending").reduce((s, i) => s + Number(i.total), 0) || 0;
+  // [BLOQUE 2.5] Aggregates zero out without view_billing_amounts. The detail
+  // list (invoices) is not passed to a client component on this page, so no
+  // sanitizer call needed — only the totals shown in the StatusBadge cards.
+  const totalInvoiced = canViewAmounts
+    ? (invoices?.reduce((s, i) => s + Number(i.total), 0) || 0) : 0;
+  const totalPending = canViewAmounts
+    ? (invoices?.filter(i => i.status === "pending").reduce((s, i) => s + Number(i.total), 0) || 0) : 0;
   const notes = (client.settings as any)?.notes || null;
 
   const contactFields = [
