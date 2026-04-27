@@ -21,8 +21,10 @@ import { WORK_TYPE_LABELS, formatWorkType } from "@/lib/work-types";
 import { toast } from "sonner";
 import {
   Loader2, Trash2, Plus, User, Calendar, FileText,
-  AlertCircle, Package, Lock, Link2Off,
+  AlertCircle, Package, Lock, Link2Off, Copy,
 } from "lucide-react";
+import { computeItemTotal } from "@/lib/invoice-totals";
+import { formatNumber } from "@/lib/date-utils";
 
 // ─────────────────────────────────────────────────────────
 // Types
@@ -200,6 +202,62 @@ export function EditOrderForm({
   function removeNewItem(tempId: string) {
     setNewItems((prev) => prev.filter((i) => i._tempId !== tempId));
   }
+
+  // [BLOQUE 5] Duplicate any item — adds a fresh new item with the same
+  // shape (work_type, catalog link, tooth positions, shade, quantity,
+  // unit_price, extras). The duplicated item gets a fresh _tempId so it's
+  // an INSERT on save, never an update of the original.
+  function duplicateExistingItem(id: string) {
+    const src = existingItems.find((i) => i.id === id);
+    if (!src) return;
+    setNewItems((prev) => [
+      ...prev,
+      {
+        _tempId: crypto.randomUUID(),
+        work_type: src.work_type,
+        tooth_positions: src.tooth_positions,
+        shade: src.shade,
+        quantity: src.quantity,
+        unit_price: src.unit_price,
+        selected_extras: (src.selected_extras ?? []).map((e) => ({ ...e })),
+        catalog_item_name: src.catalog_item_name ?? null,
+        catalog_item_id: src.catalog_item_id ?? null,
+      },
+    ]);
+  }
+
+  function duplicateNewItem(tempId: string) {
+    const src = newItems.find((i) => i._tempId === tempId);
+    if (!src) return;
+    setNewItems((prev) => [
+      ...prev,
+      {
+        ...src,
+        _tempId: crypto.randomUUID(),
+        selected_extras: (src.selected_extras ?? []).map((e) => ({ ...e })),
+      },
+    ]);
+  }
+
+  // [BLOQUE 5] Live totals header. Aggregates over both existing and new
+  // items using the same computeItemTotal that powers the strict invoice
+  // calculation, so the form preview matches the saved value.
+  const allItemsForTotal = [
+    ...existingItems.map((i) => ({
+      unit_price: i.unit_price,
+      quantity: i.quantity,
+      selected_extras: i.selected_extras,
+      catalog_item: null,
+    })),
+    ...newItems.map((i) => ({
+      unit_price: i.unit_price,
+      quantity: i.quantity,
+      selected_extras: i.selected_extras,
+      catalog_item: null,
+    })),
+  ];
+  const itemsCount = existingItems.length + newItems.length;
+  const liveTotal = allItemsForTotal.reduce((sum, it) => sum + computeItemTotal(it as never), 0);
 
   // ─────────────────────────────────────────────────────────
   // Submit — [BLOQUE 2] goes through PATCH /api/orders/[id]
@@ -415,23 +473,37 @@ export function EditOrderForm({
       {/* ── Items card ── */}
       <Card className="border-2 border-[#b0dde0] shadow-premium">
         <CardHeader className="bg-gradient-to-br from-[#f0fafb] to-white border-b border-[#d2f2f3]">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-3 flex-wrap">
             <div>
               <CardTitle className="text-xl font-bold text-[#044c64] flex items-center gap-2">
                 <Package className="h-5 w-5" />
                 Ítems de la Orden
               </CardTitle>
-              <CardDescription>Editá, eliminá o agregá ítems de trabajo</CardDescription>
+              <CardDescription>Editá, duplicá, eliminá o agregá ítems de trabajo</CardDescription>
+              {/* [BLOQUE 5] Live counter + estimated total. Total hidden when
+                  the user lacks view_prices. */}
+              <div className="mt-2 flex items-center gap-3 flex-wrap">
+                <Badge variant="outline" className="font-bold text-xs border-[#09919b]/40 text-[#09919b]">
+                  Items: {itemsCount}
+                </Badge>
+                {showPrices && itemsCount > 0 && (
+                  <span className="text-sm font-semibold text-[#044c64]">
+                    Total estimado:{" "}
+                    <span className="tabular-nums text-[#09919b]">
+                      ${formatNumber(liveTotal)}
+                    </span>
+                  </span>
+                )}
+              </div>
             </div>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="border-[#09919b] text-[#09919b] hover:bg-[#09919b]/10"
+              size="default"
+              className="bg-[#09919b] hover:bg-[#07667a] text-white shadow-md shadow-[#09919b]/20 font-semibold"
               onClick={() => setNewItems((prev) => [...prev, blankItem()])}
               disabled={!canEdit}
             >
-              <Plus className="h-4 w-4 mr-1" />
+              <Plus className="h-4 w-4 mr-1.5" />
               Agregar ítem
             </Button>
           </div>
@@ -455,9 +527,11 @@ export function EditOrderForm({
               toothPositions={item.tooth_positions || ""}
               shade={item.shade || ""}
               quantity={item.quantity}
+              unitPrice={item.unit_price}
               extras={item.selected_extras}
               showPrices={showPrices}
               canEdit={canEdit}
+              catalogItems={catalogItems}
               onWorkTypeChange={(v) => updateExistingItem(item.id, "work_type", v)}
               onToothChange={(v) => updateExistingItem(item.id, "tooth_positions", v)}
               onShadeChange={(v) => updateExistingItem(item.id, "shade", v)}
@@ -468,6 +542,7 @@ export function EditOrderForm({
               onUnlinkCatalog={() => setExistingItems((prev) =>
                 prev.map((i) => i.id === item.id ? { ...i, catalog_item_id: null, catalog_item_name: null } : i)
               )}
+              onDuplicate={() => duplicateExistingItem(item.id)}
               onRemove={() => removeExistingItem(item.id)}
             />
           ))}
@@ -485,6 +560,7 @@ export function EditOrderForm({
               toothPositions={item.tooth_positions || ""}
               shade={item.shade || ""}
               quantity={item.quantity}
+              unitPrice={item.unit_price}
               extras={item.selected_extras}
               showPrices={showPrices}
               canEdit={canEdit}
@@ -508,9 +584,27 @@ export function EditOrderForm({
                   : i
                 )
               )}
+              onDuplicate={() => duplicateNewItem(item._tempId)}
               onRemove={() => removeNewItem(item._tempId)}
             />
           ))}
+
+          {/* [BLOQUE 5] Secondary "Agregar ítem" at the bottom — comfortable
+              when the list is long, the user doesn't need to scroll back up. */}
+          {canEdit && itemsCount > 0 && (
+            <div className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setNewItems((prev) => [...prev, blankItem()])}
+                className="w-full border-dashed border-[#09919b]/40 text-[#09919b] hover:bg-[#09919b]/10 font-semibold"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Agregar otro ítem
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -552,6 +646,8 @@ interface ItemRowProps {
   toothPositions: string;
   shade: string;
   quantity: number;
+  /** [BLOQUE 5] Used to compute the line subtotal preview. */
+  unitPrice: number | null;
   extras: Extra[];
   showPrices?: boolean;
   /** [BLOQUE 2] When false, all controls are read-only and Remove/Unlink hidden. */
@@ -564,6 +660,8 @@ interface ItemRowProps {
   onExtrasChange: (extras: Extra[]) => void;
   onCatalogSelect?: (catalogId: string, name: string, basePrice: number, workType: string) => void;
   onUnlinkCatalog?: () => void;
+  /** [BLOQUE 5] Add a fresh new item with the same data; bottom-of-list. */
+  onDuplicate?: () => void;
   onRemove: () => void;
 }
 
@@ -577,6 +675,7 @@ function ItemRow({
   toothPositions,
   shade,
   quantity,
+  unitPrice,
   extras,
   showPrices = true,
   canEdit = true,
@@ -588,6 +687,7 @@ function ItemRow({
   onExtrasChange,
   onCatalogSelect,
   onUnlinkCatalog,
+  onDuplicate,
   onRemove,
 }: ItemRowProps) {
   const [newExtraName, setNewExtraName] = useState("");
@@ -611,9 +711,18 @@ function ItemRow({
     onExtrasChange(extras.map((e, idx) => idx === i ? { ...e, price } : e));
   }
 
+  // [BLOQUE 5] Live subtotal of this row using the same formula as the
+  // strict invoice calculation. Hidden when the user can't see prices.
+  const lineSubtotal = computeItemTotal({
+    unit_price: unitPrice,
+    quantity,
+    selected_extras: extras,
+    catalog_item: null,
+  } as never);
+
   return (
     <div className="rounded-xl border border-border/60 bg-muted/10 p-4 space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
           Ítem {index + 1}
           {isNew && (
@@ -622,17 +731,33 @@ function ItemRow({
             </Badge>
           )}
         </span>
-        {canEdit && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            onClick={onRemove}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {canEdit && onDuplicate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[10px] text-muted-foreground hover:text-[#09919b] hover:bg-[#09919b]/10"
+              onClick={onDuplicate}
+              title="Duplicar este ítem"
+            >
+              <Copy className="h-3.5 w-3.5 mr-1" />
+              Duplicar
+            </Button>
+          )}
+          {canEdit && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              onClick={onRemove}
+              title="Quitar ítem"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Work type — [BLOQUE 2] editable even when catalog_item is linked.
@@ -842,6 +967,20 @@ function ItemRow({
           </div>
         )}
       </div>
+
+      {/* [BLOQUE 5] Line subtotal — always visible when the user can see
+          prices. Computed in real time from unit_price + extras × qty,
+          mirrors the strict invoice formula. */}
+      {showPrices && (
+        <div className="flex items-baseline justify-between pt-2 border-t border-border/40">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            Subtotal ítem
+          </span>
+          <span className="text-sm font-bold text-[#044c64] tabular-nums">
+            ${formatNumber(lineSubtotal)}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
