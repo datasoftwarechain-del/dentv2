@@ -188,6 +188,12 @@ export function BillingDashboard({
   const [newInvoiceOpen, setNewInvoiceOpen] = useState(false);
   const [newInvoiceLoading, setNewInvoiceLoading] = useState(false);
   const [catalog, setCatalog] = useState<{ id: string; name: string; base_price: number }[]>([]);
+  // [BLOQUE 4] Per-client price overrides for the manual invoice form.
+  // Keyed by catalog_item_id. effective_price is what we should use to
+  // prefill `total`; base is kept for the badge tooltip.
+  const [overridesByItem, setOverridesByItem] = useState<
+    Record<string, { effective: number; base: number; hasOverride: boolean }>
+  >({});
   const [newInvoiceForm, setNewInvoiceForm] = useState({
     dentistOrgId: "",
     patientName: "",
@@ -195,6 +201,7 @@ export function BillingDashboard({
     total: "",
     dueDate: "",
     notes: "",
+    selectedCatalogId: "",
   });
 
   // Fetch price catalog when dialog opens
@@ -205,6 +212,38 @@ export function BillingDashboard({
       .then((d) => setCatalog(d.catalog || []))
       .catch(() => {});
   }, [newInvoiceOpen, organizationId, isDentist]);
+
+  // [BLOQUE 4] When the user picks a client, fetch their pricing overrides.
+  // Light call; populates a map keyed by catalog_item_id used to prefill
+  // `total` with the effective price instead of the catalog base_price.
+  useEffect(() => {
+    const dentistId = newInvoiceForm.dentistOrgId;
+    if (!newInvoiceOpen || isDentist || !dentistId) {
+      setOverridesByItem({});
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/clients/${dentistId}/pricing`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => {
+        if (cancelled) return;
+        const map: Record<string, { effective: number; base: number; hasOverride: boolean }> = {};
+        for (const it of data.items ?? []) {
+          map[it.id] = {
+            effective: it.override ? Number(it.override.custom_price) : Number(it.base_price),
+            base: Number(it.base_price),
+            hasOverride: !!it.override,
+          };
+        }
+        setOverridesByItem(map);
+      })
+      .catch(() => {
+        if (!cancelled) setOverridesByItem({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [newInvoiceOpen, isDentist, newInvoiceForm.dentistOrgId]);
 
   async function handleCreateInvoice(e: React.FormEvent) {
     e.preventDefault();
@@ -240,7 +279,7 @@ export function BillingDashboard({
         totalPending: prev.totalPending + Number(newInvoiceForm.total),
       }));
       setNewInvoiceOpen(false);
-      setNewInvoiceForm({ dentistOrgId: "", patientName: "", workType: "", total: "", dueDate: "", notes: "" });
+      setNewInvoiceForm({ dentistOrgId: "", patientName: "", workType: "", total: "", dueDate: "", notes: "", selectedCatalogId: "" });
       toast.success(`Factura ${data.data.invoice_number} creada`);
       router.refresh();
     } catch (err: any) {
@@ -627,26 +666,46 @@ export function BillingDashboard({
                       </select>
                     </div>
 
-                    {/* Arancel — pre-completa el precio */}
+                    {/* Arancel — pre-completa el precio. [BLOQUE 4] usa override si existe. */}
                     {catalog.length > 0 && (
                       <div className="space-y-2">
                         <Label htmlFor="ni-catalog">Arancel de precios</Label>
                         <select
                           id="ni-catalog"
                           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                          defaultValue=""
+                          value={newInvoiceForm.selectedCatalogId}
                           onChange={(e) => {
-                            const item = catalog.find((i) => i.id === e.target.value);
-                            if (item) setNewInvoiceForm((prev) => ({ ...prev, total: String(item.base_price) }));
+                            const id = e.target.value;
+                            const item = catalog.find((i) => i.id === id);
+                            const ov = overridesByItem[id];
+                            const effective = ov ? ov.effective : item?.base_price ?? 0;
+                            setNewInvoiceForm((prev) => ({
+                              ...prev,
+                              selectedCatalogId: id,
+                              total: id ? String(effective) : prev.total,
+                            }));
                           }}
                         >
                           <option value="">Elegir servicio para pre-completar precio…</option>
-                          {catalog.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.name} — ${formatNumber(item.base_price)}
-                            </option>
-                          ))}
+                          {catalog.map((item) => {
+                            const ov = overridesByItem[item.id];
+                            const price = ov ? ov.effective : item.base_price;
+                            const label = ov?.hasOverride
+                              ? `${item.name} — $${formatNumber(price)} (personalizado)`
+                              : `${item.name} — $${formatNumber(price)}`;
+                            return (
+                              <option key={item.id} value={item.id}>{label}</option>
+                            );
+                          })}
                         </select>
+                        {newInvoiceForm.selectedCatalogId && overridesByItem[newInvoiceForm.selectedCatalogId]?.hasOverride && (
+                          <p
+                            className="text-[11px] text-[#09919b] font-semibold"
+                            title={`Precio general: $${formatNumber(overridesByItem[newInvoiceForm.selectedCatalogId].base)}. Precio para esta clínica: $${formatNumber(overridesByItem[newInvoiceForm.selectedCatalogId].effective)}.`}
+                          >
+                            Precio personalizado para esta clínica · general ${formatNumber(overridesByItem[newInvoiceForm.selectedCatalogId].base)}
+                          </p>
+                        )}
                       </div>
                     )}
 

@@ -193,9 +193,11 @@ export function ClientPricingSection({ clientId, clientName, canManage = false }
             </CardTitle>
             <CardDescription className="mt-1">
               Precios específicos para <strong>{clientName}</strong>. Si dejás el
-              campo vacío se usa el precio general del catálogo. Solo afecta el
-              precio base — los extras mantienen su precio para todos los clientes.
+              campo vacío se usa el precio general del catálogo.
             </CardDescription>
+            <p className="mt-2 text-[11px] text-muted-foreground italic leading-snug">
+              Este precio reemplaza el base del catálogo. Los extras (ganchos, tabletas, ajustes, etc.) mantienen su precio general.
+            </p>
           </div>
         </div>
         <div className="relative mt-3">
