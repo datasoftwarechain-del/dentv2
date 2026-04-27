@@ -1,11 +1,12 @@
 "use client";
 
 import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
-import { Building2, User, Calendar, Package, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Building2, User, Calendar, Package, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { formatWorkType } from "@/lib/work-types";
 import { InvoiceItemRow } from "./invoice-item-row";
+import { computeInvoiceTotals } from "@/lib/invoice-totals";
 
 interface Organization {
   id: string;
@@ -39,6 +40,12 @@ interface InvoiceDetailProps {
     dentist_org: Organization | null;
     lab_org: Organization | null;
     order_items?: OrderItem[];
+    /**
+     * true = factura nueva, total/subtotal son recalculables desde items.
+     * false/undefined = factura histórica, montos persistidos son fuente
+     * de verdad y se muestran verbatim.
+     */
+    totals_strict?: boolean;
   };
   isDentist: boolean;
   className?: string;
@@ -58,12 +65,41 @@ const statusConfig: Record<string, { label: string; icon: any; bg: string; text:
 export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, balanceAfter }: InvoiceDetailProps) {
   const status = statusConfig[invoice.status] || statusConfig["pending"];
   const StatusIcon = status.icon;
-  const hasTax = invoice.tax_amount > 0;
   const showBalance = balanceBefore !== undefined && balanceAfter !== undefined;
 
   // Supabase returns FK joins as arrays — normalize to single object
   const labOrg  = Array.isArray(invoice.lab_org)     ? invoice.lab_org[0]     : invoice.lab_org;
   const dentOrg = Array.isArray(invoice.dentist_org) ? invoice.dentist_org[0] : invoice.dentist_org;
+
+  // Decidir totales mostrados según totals_strict.
+  // - Histórica (false/undefined) → persistido verbatim, no recalcular.
+  // - Nueva (true) con items → recalcular desde items + extras.
+  // - Nueva sin items (manual) → persistido (no hay items para sumar).
+  const isStrict = invoice.totals_strict === true;
+  const hasItems = !!invoice.order_items && invoice.order_items.length > 0;
+
+  const recomputed = (isStrict && hasItems)
+    ? computeInvoiceTotals(invoice.order_items!, invoice.tax_rate ?? 0)
+    : null;
+
+  const displayedSubtotal = recomputed?.subtotal ?? (invoice.subtotal || invoice.total);
+  const displayedTaxAmount = recomputed?.taxAmount ?? invoice.tax_amount;
+  const displayedTotal = recomputed?.total ?? invoice.total;
+  const hasTax = displayedTaxAmount > 0;
+
+  // Discrepancia entre persistido y recalculado (solo aplica a strict con items)
+  const persistedTotal = Number(invoice.total) || 0;
+  const recalcTotal = recomputed?.total ?? null;
+  const hasDiscrepancy =
+    isStrict && hasItems && recalcTotal !== null &&
+    Math.abs(persistedTotal - recalcTotal) > 0.01;
+
+  if (hasDiscrepancy && typeof window !== "undefined") {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[InvoiceDetail] Discrepancia en factura ${invoice.invoice_number}: persistido=${persistedTotal} recalculado=${recalcTotal}`,
+    );
+  }
 
   return (
     <div className={cn("rounded-2xl overflow-hidden shadow-xl border border-[#b0dde0]/40 bg-white", className)}>
@@ -188,7 +224,7 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
             </div>
             <div className="divide-y divide-[#b0dde0]/20">
               {invoice.order_items.map((item) => (
-                <InvoiceItemRow key={item.id} item={item} />
+                <InvoiceItemRow key={item.id} item={item} strictMode={isStrict} />
               ))}
             </div>
           </div>
@@ -196,23 +232,35 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
 
         {/* Amount breakdown */}
         <div className="border border-[#b0dde0]/50 rounded-xl overflow-hidden">
+          {hasDiscrepancy && (
+            <div className="flex items-start gap-2 px-6 py-3 bg-amber-50 border-b border-amber-200">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-900">
+                <p className="font-semibold">Total recalculado desde ítems</p>
+                <p className="text-amber-800">
+                  Persistido: ${formatNumber(persistedTotal)} · Recalculado: ${formatNumber(recalcTotal!)}.
+                  Si los ítems cambiaron después de emitir, guardá la factura para sincronizar.
+                </p>
+              </div>
+            </div>
+          )}
           <div className="flex justify-between items-center px-6 py-3.5 bg-white border-b border-[#b0dde0]/30">
             <span className="text-sm text-slate-500 font-medium">Subtotal</span>
-            <span className="text-sm font-semibold text-slate-700">${formatNumber(invoice.subtotal || invoice.total)}</span>
+            <span className="text-sm font-semibold text-slate-700">${formatNumber(displayedSubtotal)}</span>
           </div>
           {hasTax && (
             <div className="flex justify-between items-center px-6 py-3.5 bg-white border-b border-[#b0dde0]/30">
               <span className="text-sm text-slate-500 font-medium">
                 IVA{invoice.tax_rate ? ` (${invoice.tax_rate}%)` : ""}
               </span>
-              <span className="text-sm font-semibold text-slate-700">${formatNumber(invoice.tax_amount)}</span>
+              <span className="text-sm font-semibold text-slate-700">${formatNumber(displayedTaxAmount)}</span>
             </div>
           )}
           {/* Total row — white text on dark teal */}
           <div className="flex justify-between items-center px-6 py-4 bg-[#044c64]">
             <span className="text-sm font-bold text-white/70 uppercase tracking-widest">Total</span>
             <span className="text-2xl font-black text-white tabular-nums tracking-tight">
-              ${formatNumber(invoice.total)}
+              ${formatNumber(displayedTotal)}
             </span>
           </div>
         </div>

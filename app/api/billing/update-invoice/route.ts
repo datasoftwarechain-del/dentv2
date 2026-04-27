@@ -8,9 +8,12 @@ import { z } from "zod";
 import { validateBody } from "@/lib/api-validation";
 import { validateCSRF } from "@/lib/csrf";
 
+// Monetary fields son opcionales: facturas históricas (totals_strict=false)
+// rechazan cualquier intento de modificarlos. Facturas nuevas (true) los
+// requieren para una edición de monto coherente.
 const UpdateInvoiceSchema = z.object({
   invoiceId: z.string().uuid("invoiceId debe ser un UUID válido"),
-  total: z.coerce.number().positive("El total debe ser positivo"),
+  total: z.coerce.number().positive("El total debe ser positivo").optional(),
   subtotal: z.coerce.number().optional(),
   tax_rate: z.coerce.number().min(0).max(100).optional(),
   tax_amount: z.coerce.number().min(0).optional(),
@@ -20,6 +23,9 @@ const UpdateInvoiceSchema = z.object({
   clientId: z.string().uuid(),
   isDentist: z.boolean(),
 });
+
+const READ_ONLY_HISTORICAL_MSG =
+  "Factura histórica (read-only en montos). Para cambiar el monto, anulala y emití una nueva.";
 
 export async function PUT(request: NextRequest) {
   const csrfError = validateCSRF(request);
@@ -35,7 +41,11 @@ export async function PUT(request: NextRequest) {
 
     const validation = await validateBody(request, UpdateInvoiceSchema);
     if (validation.error) return validation.error;
-    const { invoiceId, total, subtotal, tax_rate, tax_amount, patient_name, work_type, organizationId, clientId, isDentist } = validation.data;
+    const {
+      invoiceId, total, subtotal, tax_rate, tax_amount,
+      patient_name, work_type,
+      organizationId, clientId, isDentist,
+    } = validation.data;
 
     // SECURITY: Verificar que el usuario tiene acceso a esta factura
     const authorized = await verifyUserOwnsInvoice(user.id, invoiceId);
@@ -47,27 +57,72 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const parsedTotal    = Number(total);
-    const parsedSubtotal = subtotal  != null ? Number(subtotal)   : parsedTotal;
-    const parsedTaxRate  = tax_rate  != null ? Number(tax_rate)   : 0;
-    const parsedTaxAmt   = tax_amount != null ? Number(tax_amount) : 0;
+    // Leer estado actual para decidir qué se permite editar
+    const { data: existing, error: readError } = await supabase
+      .from("invoices")
+      .select("totals_strict")
+      .eq("id", invoiceId)
+      .single();
 
-    // Preparar datos de actualización
-    const updateData: {
-      total: number; subtotal: number; tax_rate: number; tax_amount: number;
-      patient_name: string | null; work_type: string | null;
-    } = {
-      total:        parsedTotal,
-      subtotal:     parsedSubtotal,
-      tax_rate:     parsedTaxRate,
-      tax_amount:   parsedTaxAmt,
-      patient_name: patient_name || null,
-      work_type:    work_type || null,
-    };
+    if (readError || !existing) {
+      return NextResponse.json(
+        { error: "Factura no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    const isStrict = existing.totals_strict === true;
+    const hasMonetary =
+      total !== undefined ||
+      subtotal !== undefined ||
+      tax_rate !== undefined ||
+      tax_amount !== undefined;
+
+    // Factura histórica: bloquear cualquier cambio de montos
+    if (!isStrict && hasMonetary) {
+      logger.security(
+        `User ${user.id} attempted monetary edit on historical invoice ${invoiceId}`
+      );
+      return NextResponse.json(
+        { error: READ_ONLY_HISTORICAL_MSG },
+        { status: 400 }
+      );
+    }
+
+    // Factura nueva: si se manda alguno de los montos, total es obligatorio
+    if (isStrict && hasMonetary && total === undefined) {
+      return NextResponse.json(
+        { error: "Falta el campo total para editar montos." },
+        { status: 400 }
+      );
+    }
+
+    // Construir updateData solo con los campos enviados
+    const updateData: Record<string, unknown> = {};
+
+    if (isStrict && hasMonetary && total !== undefined) {
+      const parsedTotal    = Number(total);
+      const parsedSubtotal = subtotal != null ? Number(subtotal) : parsedTotal;
+      const parsedTaxRate  = tax_rate != null ? Number(tax_rate) : 0;
+      const parsedTaxAmt   = tax_amount != null ? Number(tax_amount) : 0;
+      updateData.total      = parsedTotal;
+      updateData.subtotal   = parsedSubtotal;
+      updateData.tax_rate   = parsedTaxRate;
+      updateData.tax_amount = parsedTaxAmt;
+    }
+
+    if (patient_name !== undefined) updateData.patient_name = patient_name || null;
+    if (work_type !== undefined)    updateData.work_type    = work_type || null;
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json(
+        { error: "No hay cambios para aplicar." },
+        { status: 400 }
+      );
+    }
 
     logger.log("Actualizando factura:", invoiceId, updateData);
 
-    // Actualizar la factura
     const { data: updatedData, error: updateError } = await supabase
       .from("invoices")
       .update(updateData)
@@ -84,10 +139,11 @@ export async function PUT(request: NextRequest) {
 
     logger.log("Factura actualizada:", updatedData);
 
-    // Recalcular balances para esta relación
-    await recalculateBalances(supabase, organizationId, clientId, isDentist);
+    // Recalcular balances solo si cambió el monto
+    if (updateData.total !== undefined) {
+      await recalculateBalances(supabase, organizationId, clientId, isDentist);
+    }
 
-    // Revalidar páginas
     revalidatePath(`/dashboard/billing/accounts/${clientId}`);
     revalidatePath("/dashboard/billing");
 

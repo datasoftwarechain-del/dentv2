@@ -68,6 +68,7 @@ interface Invoice {
   dentist_org: Organization | null;
   lab_org: Organization | null;
   order_items?: OrderItem[];
+  totals_strict?: boolean;
 }
 
 interface InvoiceActionsProps {
@@ -267,12 +268,25 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
             />
           </div>
 
-          {/* Edit button */}
+          {/* Edit button — solo strict; histórica = read-only en montos */}
           <div className="flex justify-end mt-4">
-            <Button variant="outline" size="sm" onClick={openEdit} className="border-[#b0dde0] text-[#044c64] hover:bg-[#f0fafb] font-semibold">
-              <Edit2 className="mr-2 h-3.5 w-3.5" />
-              Editar factura
-            </Button>
+            {invoice.totals_strict === false ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                title="Esta factura no se puede modificar en montos. Si necesitás cambiar el monto, anulala y emití una nueva."
+                className="border-[#b0dde0] text-[#044c64] font-semibold cursor-not-allowed"
+              >
+                <Edit2 className="mr-2 h-3.5 w-3.5" />
+                Editar factura
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={openEdit} className="border-[#b0dde0] text-[#044c64] hover:bg-[#f0fafb] font-semibold">
+                <Edit2 className="mr-2 h-3.5 w-3.5" />
+                Editar factura
+              </Button>
+            )}
           </div>
 
           {/* Action buttons in dialog */}

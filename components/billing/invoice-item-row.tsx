@@ -2,6 +2,7 @@
 
 import { formatNumber } from "@/lib/date-utils";
 import { formatWorkType } from "@/lib/work-types";
+import { computeItemTotal } from "@/lib/invoice-totals";
 
 interface Extra {
   name: string;
@@ -18,29 +19,43 @@ interface InvoiceItemRowProps {
     selected_extras: Extra[];
     catalog_item: { name: string; base_price: number } | null;
   };
+  /**
+   * true → factura nueva (totals_strict). Línea principal muestra
+   * (basePrice + extras) × cantidad y el subtotal del ítem siempre.
+   * false (default) → factura histórica, render legacy: solo basePrice
+   * en línea principal y subtotal solo cuando hay extras.
+   */
+  strictMode?: boolean;
 }
 
-export function InvoiceItemRow({ item }: InvoiceItemRowProps) {
+export function InvoiceItemRow({ item, strictMode = false }: InvoiceItemRowProps) {
   const itemName = item.catalog_item?.name || formatWorkType(item.work_type);
-  const basePrice = item.catalog_item?.base_price ?? 0;
+  const basePrice = item.unit_price ?? item.catalog_item?.base_price ?? 0;
   const extras: Extra[] = Array.isArray(item.selected_extras) ? item.selected_extras : [];
   const extrasTotal = extras.reduce((sum, e) => sum + e.price * (e.qty ?? 1), 0);
-  const totalPrice = item.unit_price ?? (basePrice + extrasTotal);
-  const qty = item.quantity > 1 ? item.quantity : null;
+  const qty = Number(item.quantity) || 1;
+  const itemTotal = strictMode
+    ? computeItemTotal(item)
+    : (item.unit_price ?? basePrice + extrasTotal);
+  const showQtyBadge = qty > 1;
+
+  // En strict, la línea principal muestra el total del ítem (incluye extras × qty).
+  // En legacy, mantiene el comportamiento histórico: solo basePrice.
+  const mainLineAmount = strictMode ? itemTotal : basePrice;
 
   return (
     <div className="bg-white px-5 py-4 space-y-2">
-      {/* Fila principal: nombre + precio total */}
+      {/* Fila principal: nombre + precio */}
       <div className="flex justify-between items-baseline gap-4">
         <span className="font-bold text-[#044c64] text-sm">
-          {itemName}{qty ? ` ×${qty}` : ""}
+          {itemName}{showQtyBadge ? ` ×${qty}` : ""}
         </span>
         <span className="font-semibold text-[#044c64] text-sm tabular-nums shrink-0">
-          ${formatNumber(basePrice)}
+          ${formatNumber(mainLineAmount)}
         </span>
       </div>
 
-      {/* Extras — siempre visibles */}
+      {/* Extras — siempre visibles si existen */}
       {extras.length > 0 && (
         <div className="space-y-1 border-l-2 border-[#43eada]/40 pl-4 ml-1">
           {extras.map((extra, i) => {
@@ -57,13 +72,23 @@ export function InvoiceItemRow({ item }: InvoiceItemRowProps) {
               </div>
             );
           })}
-          {/* Subtotal del ítem si hay extras */}
+          {/* Subtotal del ítem cuando hay extras (ambos modos) */}
           <div className="flex justify-between items-baseline gap-4 pt-1 border-t border-[#b0dde0]/30">
             <span className="text-xs font-semibold text-[#044c64]">Subtotal ítem</span>
             <span className="text-xs font-semibold text-[#044c64] tabular-nums shrink-0">
-              ${formatNumber(totalPrice)}
+              ${formatNumber(strictMode ? itemTotal : basePrice + extrasTotal)}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* En strict sin extras pero con qty > 1, mostrar subtotal explícito */}
+      {strictMode && extras.length === 0 && showQtyBadge && (
+        <div className="flex justify-between items-baseline gap-4 pt-1 border-t border-[#b0dde0]/30">
+          <span className="text-xs font-semibold text-[#044c64]">Subtotal ítem</span>
+          <span className="text-xs font-semibold text-[#044c64] tabular-nums shrink-0">
+            ${formatNumber(itemTotal)}
+          </span>
         </div>
       )}
     </div>
