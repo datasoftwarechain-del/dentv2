@@ -204,9 +204,24 @@ export function EditOrderForm({
   }
 
   // [BLOQUE 5] Duplicate any item — adds a fresh new item with the same
-  // shape (work_type, catalog link, tooth positions, shade, quantity,
-  // unit_price, extras). The duplicated item gets a fresh _tempId so it's
-  // an INSERT on save, never an update of the original.
+  // shape. _tempId regenerated so the duplicate is an INSERT on save.
+  // [BLOQUE 5 ajuste] When the source has a catalog_item_id, the
+  // duplicate's unit_price re-resolves to the CURRENT effective price
+  // (override if exists, base otherwise) instead of snapshotting the
+  // original's stored unit_price. Items detached from the catalog
+  // (catalog_item_id=null) keep the original's unit_price as before.
+  // selected_extras stay deep-copied — extras don't have per-client
+  // overrides, so the original prices are correct.
+  function resolveDuplicateUnitPrice(
+    catalogItemId: string | null | undefined,
+    originalUnitPrice: number | null,
+  ): number | null {
+    if (!catalogItemId) return originalUnitPrice;
+    const matched = catalogItems.find((c) => c.id === catalogItemId);
+    if (!matched) return originalUnitPrice;
+    return matched.effective_price ?? matched.base_price ?? originalUnitPrice;
+  }
+
   function duplicateExistingItem(id: string) {
     const src = existingItems.find((i) => i.id === id);
     if (!src) return;
@@ -218,7 +233,7 @@ export function EditOrderForm({
         tooth_positions: src.tooth_positions,
         shade: src.shade,
         quantity: src.quantity,
-        unit_price: src.unit_price,
+        unit_price: resolveDuplicateUnitPrice(src.catalog_item_id, src.unit_price),
         selected_extras: (src.selected_extras ?? []).map((e) => ({ ...e })),
         catalog_item_name: src.catalog_item_name ?? null,
         catalog_item_id: src.catalog_item_id ?? null,
@@ -234,6 +249,7 @@ export function EditOrderForm({
       {
         ...src,
         _tempId: crypto.randomUUID(),
+        unit_price: resolveDuplicateUnitPrice(src.catalog_item_id, src.unit_price),
         selected_extras: (src.selected_extras ?? []).map((e) => ({ ...e })),
       },
     ]);
