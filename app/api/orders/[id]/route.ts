@@ -1,7 +1,7 @@
 import { getUserOrg } from "@/lib/get-user-org";
 import { validateCSRF } from "@/lib/csrf";
 import { createClient } from "@/lib/supabase/server";
-import { isCollaboratorRole, hasPermission } from "@/lib/permissions";
+import { isCollaboratorRole, hasPermission, permissionDeniedMessage } from "@/lib/permissions";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(
@@ -15,9 +15,15 @@ export async function DELETE(
     const { id } = await params;
     const { org, role, permissions } = await getUserOrg();
 
-    // Solo admin o colaborador con create_orders puede eliminar
-    if (isCollaboratorRole(role) && !hasPermission(permissions, "create_orders")) {
-      return NextResponse.json({ error: "Sin permiso para eliminar órdenes" }, { status: 403 });
+    // [BLOQUE 1.5] Lateral security fix: previously this checked `create_orders`
+    // — which conflated create with destroy. Now requires explicit `delete_orders`.
+    // delete_orders is NOT auto-granted to existing collaborators; admins must
+    // assign it manually after deploy.
+    if (isCollaboratorRole(role) && !hasPermission(permissions, "delete_orders")) {
+      return NextResponse.json(
+        { error: permissionDeniedMessage("delete_orders"), missing_flag: "delete_orders" },
+        { status: 403 },
+      );
     }
 
     const supabase = await createClient();
