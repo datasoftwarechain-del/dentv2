@@ -2,8 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { getUserOrg } from "@/lib/get-user-org";
+import {
+  sanitizeInvoiceForCollaborator,
+  canManageBilling,
+  canManagePricing,
+  hasPermission,
+} from "@/lib/permissions";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { ClientAccountStatement } from "@/components/billing/client-account-statement";
+import { ClientPricingSection } from "@/components/billing/client-pricing-section";
 
 interface PageProps {
   params: Promise<{
@@ -15,7 +22,10 @@ export const dynamic = "force-dynamic";
 
 export default async function ClientAccountPage({ params }: PageProps) {
   const resolvedParams = await params;
-  const { user, org } = await getUserOrg();
+  const { user, org, isCollaborator, permissions } = await getUserOrg();
+  // [BLOQUE 2.5] Section gate: collaborators without view_billing get bounced.
+  if (isCollaborator && !permissions?.view_billing) redirect("/dashboard");
+  const canViewAmounts = !isCollaborator || !!permissions?.view_billing_amounts;
   const supabase = await createClient();
 
   const isPreview = org.type === "dentist_preview";
@@ -46,7 +56,7 @@ export default async function ClientAccountPage({ params }: PageProps) {
 
   if (!clientOrg) redirect("/dashboard/billing");
 
-  // Get all invoices for this client
+  // Get all invoices for this client. [BLOQUE 3] Excluye voided.
   const { data: invoicesRaw } = await db
     .from("invoices")
     .select(`
@@ -56,6 +66,7 @@ export default async function ClientAccountPage({ params }: PageProps) {
     `)
     .eq(isDentist ? "lab_org_id" : "dentist_org_id", resolvedParams.clientId)
     .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)
+    .is("invoice_voided_at", null)
     .order("created_at", { ascending: false });
 
   // Fetch order items (with catalog name & extras) for all invoiced orders
@@ -73,7 +84,7 @@ export default async function ClientAccountPage({ params }: PageProps) {
   }
 
   // Merge order items into each invoice
-  const invoices = (invoicesRaw || []).map((inv: any) => ({
+  const invoicesEnriched = (invoicesRaw || []).map((inv: any) => ({
     ...inv,
     order_items: orderItemsByOrderId[inv.order_id] || [],
   }));
@@ -86,12 +97,22 @@ export default async function ClientAccountPage({ params }: PageProps) {
     .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)
     .order("created_at", { ascending: false });
 
-  // Calculate balance
-  const totalInvoiced = (invoices || []).reduce((sum, inv) => sum + Number(inv.total), 0);
-  const totalPaid     = (movements || []).filter((m: any) => m.type === "payment").reduce((sum, m: any) => sum + Number(m.amount), 0);
-  const totalCharges  = (movements || []).filter((m: any) => m.type === "charge").reduce((sum, m: any) => sum + Number(m.amount), 0);
-  const otherCredits  = (movements || []).filter((m: any) => m.type !== "payment" && m.type !== "charge").reduce((sum, m: any) => sum + Number(m.amount), 0);
-  const balance = totalInvoiced + totalCharges - totalPaid - otherCredits;
+  // Calculate balance from RAW data — collapse to 0 if caller can't view amounts.
+  const totalInvoicedRaw = invoicesEnriched.reduce((sum, inv: any) => sum + Number(inv.total), 0);
+  const totalPaidRaw     = (movements || []).filter((m: any) => m.type === "payment").reduce((sum, m: any) => sum + Number(m.amount), 0);
+  const totalChargesRaw  = (movements || []).filter((m: any) => m.type === "charge").reduce((sum, m: any) => sum + Number(m.amount), 0);
+  const otherCreditsRaw  = (movements || []).filter((m: any) => m.type !== "payment" && m.type !== "charge").reduce((sum, m: any) => sum + Number(m.amount), 0);
+
+  const totalInvoiced = canViewAmounts ? totalInvoicedRaw : 0;
+  const totalPaid     = canViewAmounts ? totalPaidRaw : 0;
+  const balance       = canViewAmounts
+    ? (totalInvoicedRaw + totalChargesRaw - totalPaidRaw - otherCreditsRaw)
+    : 0;
+
+  // [BLOQUE 2.5] Sanitize before passing to client.
+  const invoices = invoicesEnriched.map((inv: any) =>
+    sanitizeInvoiceForCollaborator(inv, permissions)
+  );
 
   return (
     <div className="flex flex-col">
@@ -114,7 +135,19 @@ export default async function ClientAccountPage({ params }: PageProps) {
           totalPaid={totalPaid}
           organizationId={effectiveOrgId}
           isReadOnly={isPreview}
+          canManageBilling={canManageBilling(permissions)}
         />
+
+        {/* [BLOQUE 4] Arancel personalizado — solo lab que ve el catálogo. */}
+        {!isDentist && !isPreview && hasPermission(permissions, "view_pricing_admin") && (
+          <div className="mt-6">
+            <ClientPricingSection
+              clientId={resolvedParams.clientId}
+              clientName={clientOrg.name}
+              canManage={canManagePricing(permissions)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
         status: "pending",
         due_date: dueDate || null,
         notes: notes?.trim() || null,
+        totals_strict: true,
       })
       .select(`
         *,

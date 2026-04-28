@@ -501,6 +501,10 @@ function EditDialog({
 
 // ─── Main Section Component ────────────────────────────────────────────────────
 
+// [BLOQUE 1.5] localStorage key for the "new permissions available" banner.
+// Bumped to v2 when new flags are added so the banner re-shows once.
+const NEW_PERMS_BANNER_KEY = "dd_perms_banner_dismissed_v2";
+
 export function CollaboratorsSection({ orgId, orgType }: CollaboratorsSectionProps) {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [loading, setLoading] = useState(true);
@@ -508,6 +512,23 @@ export function CollaboratorsSection({ orgId, orgType }: CollaboratorsSectionPro
   const [editTarget, setEditTarget] = useState<Collaborator | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Collaborator | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // [BLOQUE 1.5] One-shot banner notifying admins about new permission flags.
+  const [showNewPermsBanner, setShowNewPermsBanner] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.localStorage.getItem(NEW_PERMS_BANNER_KEY)) {
+      setShowNewPermsBanner(true);
+    }
+  }, []);
+
+  function dismissNewPermsBanner() {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(NEW_PERMS_BANNER_KEY, "1");
+    }
+    setShowNewPermsBanner(false);
+  }
 
   const fetchCollaborators = useCallback(async () => {
     setLoading(true);
@@ -558,6 +579,20 @@ export function CollaboratorsSection({ orgId, orgType }: CollaboratorsSectionPro
 
   return (
     <>
+      {showNewPermsBanner && (
+        <div className="mb-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 flex items-start gap-3">
+          <ShieldAlert className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-primary">Hay nuevos permisos disponibles</p>
+            <p className="text-muted-foreground mt-0.5">
+              Revisá la configuración de tus colaboradores. Los permisos nuevos quedan en off por defecto y se asignan manualmente.
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={dismissNewPermsBanner} className="h-7 px-2 text-xs shrink-0">
+            Entendido
+          </Button>
+        </div>
+      )}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

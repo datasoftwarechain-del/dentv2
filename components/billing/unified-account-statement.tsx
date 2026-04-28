@@ -76,6 +76,7 @@ interface Invoice {
   order_items?: OrderItem[];
   dentist_org?: Organization | null;
   lab_org?: Organization | null;
+  totals_strict?: boolean;
 }
 
 interface LedgerMovement {
@@ -247,6 +248,12 @@ export function UnifiedAccountStatement({
   }
 
   function handleEditInvoiceClick(invoice: Invoice) {
+    if (invoice.totals_strict === false) {
+      toast.info(
+        "Esta factura no se puede modificar en montos. Si necesitás cambiar el monto, anulala y emití una nueva.",
+      );
+      return;
+    }
     setSelectedInvoice(invoice);
     const taxAmt = Number(invoice.tax_amount) || 0;
     const hasTax = taxAmt > 0;
