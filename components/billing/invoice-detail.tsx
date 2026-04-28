@@ -169,8 +169,8 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
 
         {/* Work details */}
         <div className="border border-[#b0dde0]/50 rounded-xl overflow-hidden">
-          <div className="bg-[#07667a] px-5 py-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#a8e8ef]">
+          <div className="bg-[#044c64] px-5 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#43eada]">
               Detalles del Trabajo
             </p>
           </div>
@@ -243,8 +243,8 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
         {/* Line items breakdown */}
         {invoice.order_items && invoice.order_items.length > 0 && (
           <div className="border border-[#b0dde0]/50 rounded-xl overflow-hidden">
-            <div className="bg-[#07667a] px-5 py-2.5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[#a8e8ef]">
+            <div className="bg-gradient-to-r from-[#044c64] to-[#09919b] px-5 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[#43eada]">
                 Detalle de Trabajos
               </p>
             </div>

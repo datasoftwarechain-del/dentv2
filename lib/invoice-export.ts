@@ -156,8 +156,8 @@ function generateInvoiceHTML(invoice: Invoice, isDentist: boolean): HTMLElement 
 
       <!-- Work details -->
       <div style="border-radius: 12px; overflow: hidden; border: 1.5px solid #d2f2f3; margin-bottom: 28px;">
-        <div style="background: #64748b; padding: 10px 20px;">
-          <p style="margin: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #e2e8f0;">
+        <div style="background: #044c64; padding: 10px 20px;">
+          <p style="margin: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #43eada;">
             Detalles del Trabajo
           </p>
         </div>
@@ -190,17 +190,20 @@ function generateInvoiceHTML(invoice: Invoice, isDentist: boolean): HTMLElement 
       <!-- Order Items -->
       ${invoice.order_items && invoice.order_items.length > 0 ? `
       <div style="border-radius: 12px; overflow: hidden; border: 1.5px solid #d2f2f3; margin-bottom: 28px;">
-        <div style="background: #07667a; padding: 10px 20px;">
-          <p style="margin: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #a8e8ef;">
+        <div style="background: #044c64; padding: 10px 20px;">
+          <p style="margin: 0; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; color: #43eada;">
             Detalle de Trabajos
           </p>
         </div>
         ${invoice.order_items.map((item) => {
           const itemName = item.catalog_item?.name || item.work_type;
-          const basePrice = item.catalog_item?.base_price ?? 0;
+          // [BLOQUE 1 export fix] basePrice prefiere unit_price (snapshot al
+          // emitir) sobre catalog.base_price (vivo, puede haber cambiado).
+          const basePrice = item.unit_price ?? item.catalog_item?.base_price ?? 0;
           const extras = Array.isArray(item.selected_extras) ? item.selected_extras : [];
           const extrasTotal = extras.reduce((sum: number, e: any) => sum + e.price * (e.qty ?? 1), 0);
-          const totalPrice = item.unit_price ?? (basePrice + extrasTotal);
+          // El subtotal ítem siempre suma base + extras × qty (igual que la UI).
+          const totalPrice = basePrice + extrasTotal;
           const qty = item.quantity > 1 ? ` ×${item.quantity}` : "";
           return `
           <div style="background: white; padding: 16px 20px; border-bottom: 1px solid #e0f4f6;">
