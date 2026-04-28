@@ -64,6 +64,11 @@ function shortInvoiceNumber(num: string): string {
 import { InvoiceActions } from "./invoice-actions";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PurchasesTable } from "./purchases-table";
+import { InventoryTable } from "@/components/inventory/inventory-table";
+import { AnalyticsTab } from "./analytics-tab";
+import { useSearchParams } from "next/navigation";
 
 interface Organization {
   id: string;
@@ -128,6 +133,15 @@ interface BillingDashboardProps {
     totalPaid: number;
     totalPending: number;
   };
+  /** [BLOQUE 3] Forwarded to InvoiceActions to render "Anular factura". */
+  canManageBilling?: boolean;
+  // [BLOQUE 6] Tab gates and write permissions, derived server-side.
+  canViewPurchases?: boolean;
+  canManagePurchases?: boolean;
+  canViewInventory?: boolean;
+  canManageInventory?: boolean;
+  canViewFinancialDashboard?: boolean;
+  canViewAmounts?: boolean;
 }
 
 const statusLabels: Record<string, string> = {
@@ -157,10 +171,24 @@ export function BillingDashboard({
   clients,
   connectedDentists = [],
   stats: initialStats,
+  canManageBilling = false,
+  canViewPurchases = false,
+  canManagePurchases = false,
+  canViewInventory = false,
+  canManageInventory = false,
+  canViewFinancialDashboard = false,
+  canViewAmounts = false,
 }: BillingDashboardProps) {
   const router = useRouter();
   const [invoices, setInvoices] = useState(initialInvoices);
   const [stats, setStats] = useState(initialStats);
+  // [HOTFIX] Sin esto, después de router.refresh() el server manda nuevas
+  // props pero useState retiene el valor inicial de mount — facturas
+  // anuladas seguían visibles aunque el server ya las filtraba.
+  useEffect(() => {
+    setInvoices(initialInvoices);
+    setStats(initialStats);
+  }, [initialInvoices, initialStats]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -178,6 +206,12 @@ export function BillingDashboard({
   const [newInvoiceOpen, setNewInvoiceOpen] = useState(false);
   const [newInvoiceLoading, setNewInvoiceLoading] = useState(false);
   const [catalog, setCatalog] = useState<{ id: string; name: string; base_price: number }[]>([]);
+  // [BLOQUE 4] Per-client price overrides for the manual invoice form.
+  // Keyed by catalog_item_id. effective_price is what we should use to
+  // prefill `total`; base is kept for the badge tooltip.
+  const [overridesByItem, setOverridesByItem] = useState<
+    Record<string, { effective: number; base: number; hasOverride: boolean }>
+  >({});
   const [newInvoiceForm, setNewInvoiceForm] = useState({
     dentistOrgId: "",
     patientName: "",
@@ -185,6 +219,7 @@ export function BillingDashboard({
     total: "",
     dueDate: "",
     notes: "",
+    selectedCatalogId: "",
   });
 
   // Fetch price catalog when dialog opens
@@ -195,6 +230,38 @@ export function BillingDashboard({
       .then((d) => setCatalog(d.catalog || []))
       .catch(() => {});
   }, [newInvoiceOpen, organizationId, isDentist]);
+
+  // [BLOQUE 4] When the user picks a client, fetch their pricing overrides.
+  // Light call; populates a map keyed by catalog_item_id used to prefill
+  // `total` with the effective price instead of the catalog base_price.
+  useEffect(() => {
+    const dentistId = newInvoiceForm.dentistOrgId;
+    if (!newInvoiceOpen || isDentist || !dentistId) {
+      setOverridesByItem({});
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/clients/${dentistId}/pricing`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => {
+        if (cancelled) return;
+        const map: Record<string, { effective: number; base: number; hasOverride: boolean }> = {};
+        for (const it of data.items ?? []) {
+          map[it.id] = {
+            effective: it.override ? Number(it.override.custom_price) : Number(it.base_price),
+            base: Number(it.base_price),
+            hasOverride: !!it.override,
+          };
+        }
+        setOverridesByItem(map);
+      })
+      .catch(() => {
+        if (!cancelled) setOverridesByItem({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [newInvoiceOpen, isDentist, newInvoiceForm.dentistOrgId]);
 
   async function handleCreateInvoice(e: React.FormEvent) {
     e.preventDefault();
@@ -230,7 +297,7 @@ export function BillingDashboard({
         totalPending: prev.totalPending + Number(newInvoiceForm.total),
       }));
       setNewInvoiceOpen(false);
-      setNewInvoiceForm({ dentistOrgId: "", patientName: "", workType: "", total: "", dueDate: "", notes: "" });
+      setNewInvoiceForm({ dentistOrgId: "", patientName: "", workType: "", total: "", dueDate: "", notes: "", selectedCatalogId: "" });
       toast.success(`Factura ${data.data.invoice_number} creada`);
       router.refresh();
     } catch (err: any) {
@@ -354,8 +421,39 @@ export function BillingDashboard({
     new Date(inv.due_date) < new Date()
   );
 
+  // [BLOQUE 6] Read ?tab= from URL to allow sidebar deep-linking.
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") ?? "facturacion";
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  // Re-sync if the user navigates via sidebar with a different ?tab.
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t && t !== activeTab) setActiveTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Lab-only tabs. For dentist, BillingDashboard is not used (DentistBillingDashboard renders).
+  const showPurchases = canViewPurchases;
+  const showInventory = canViewInventory;
+  const showAnalytics = canViewFinancialDashboard;
+
   return (
-    <div className="space-y-8">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <TabsList className="bg-muted/50 h-auto p-1 flex-wrap">
+        <TabsTrigger value="facturacion" className="data-[state=active]:bg-background">Facturación</TabsTrigger>
+        {showPurchases && (
+          <TabsTrigger value="purchases" className="data-[state=active]:bg-background">Compras</TabsTrigger>
+        )}
+        {showInventory && (
+          <TabsTrigger value="inventory" className="data-[state=active]:bg-background">Stock</TabsTrigger>
+        )}
+        {showAnalytics && (
+          <TabsTrigger value="analytics" className="data-[state=active]:bg-background">Análisis</TabsTrigger>
+        )}
+      </TabsList>
+
+      <TabsContent value="facturacion" className="space-y-8 mt-2">
       {/* Stats Cards */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="border border-border/50 shadow-premium bg-background/50 backdrop-blur-sm overflow-hidden group">
@@ -617,26 +715,46 @@ export function BillingDashboard({
                       </select>
                     </div>
 
-                    {/* Arancel — pre-completa el precio */}
+                    {/* Arancel — pre-completa el precio. [BLOQUE 4] usa override si existe. */}
                     {catalog.length > 0 && (
                       <div className="space-y-2">
                         <Label htmlFor="ni-catalog">Arancel de precios</Label>
                         <select
                           id="ni-catalog"
                           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                          defaultValue=""
+                          value={newInvoiceForm.selectedCatalogId}
                           onChange={(e) => {
-                            const item = catalog.find((i) => i.id === e.target.value);
-                            if (item) setNewInvoiceForm((prev) => ({ ...prev, total: String(item.base_price) }));
+                            const id = e.target.value;
+                            const item = catalog.find((i) => i.id === id);
+                            const ov = overridesByItem[id];
+                            const effective = ov ? ov.effective : item?.base_price ?? 0;
+                            setNewInvoiceForm((prev) => ({
+                              ...prev,
+                              selectedCatalogId: id,
+                              total: id ? String(effective) : prev.total,
+                            }));
                           }}
                         >
                           <option value="">Elegir servicio para pre-completar precio…</option>
-                          {catalog.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.name} — ${formatNumber(item.base_price)}
-                            </option>
-                          ))}
+                          {catalog.map((item) => {
+                            const ov = overridesByItem[item.id];
+                            const price = ov ? ov.effective : item.base_price;
+                            const label = ov?.hasOverride
+                              ? `${item.name} — $${formatNumber(price)} (personalizado)`
+                              : `${item.name} — $${formatNumber(price)}`;
+                            return (
+                              <option key={item.id} value={item.id}>{label}</option>
+                            );
+                          })}
                         </select>
+                        {newInvoiceForm.selectedCatalogId && overridesByItem[newInvoiceForm.selectedCatalogId]?.hasOverride && (
+                          <p
+                            className="text-[11px] text-[#09919b] font-semibold"
+                            title={`Precio general: $${formatNumber(overridesByItem[newInvoiceForm.selectedCatalogId].base)}. Precio para esta clínica: $${formatNumber(overridesByItem[newInvoiceForm.selectedCatalogId].effective)}.`}
+                          >
+                            Precio personalizado para esta clínica · general ${formatNumber(overridesByItem[newInvoiceForm.selectedCatalogId].base)}
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -863,7 +981,7 @@ export function BillingDashboard({
                       {/* Acciones */}
                       <TableCell className="py-3.5 pr-4">
                         <div className="flex items-center justify-end gap-1.5">
-                          <InvoiceActions invoice={invoice} isDentist={isDentist} />
+                          <InvoiceActions invoice={invoice} isDentist={isDentist} canManageBilling={canManageBilling} />
                           {!isDentist && invoice.status === "pending" && (
                             <Button
                               size="sm"
@@ -926,7 +1044,7 @@ export function BillingDashboard({
                       {invoice.delivery_date ? formatSimpleDate(invoice.delivery_date) : "Sin fecha entrega"}
                     </span>
                     <div className="flex items-center gap-1.5">
-                      <InvoiceActions invoice={invoice} isDentist={isDentist} />
+                      <InvoiceActions invoice={invoice} isDentist={isDentist} canManageBilling={canManageBilling} />
                       {!isDentist && invoice.status === "pending" && (
                         <Button
                           size="sm"
@@ -1011,6 +1129,23 @@ export function BillingDashboard({
           </CardContent>
         </Card>
       )}
-    </div>
+      </TabsContent>
+
+      {showPurchases && (
+        <TabsContent value="purchases" className="mt-2">
+          <PurchasesTable canManage={canManagePurchases} />
+        </TabsContent>
+      )}
+      {showInventory && (
+        <TabsContent value="inventory" className="mt-2">
+          <InventoryTable canManage={canManageInventory} />
+        </TabsContent>
+      )}
+      {showAnalytics && (
+        <TabsContent value="analytics" className="mt-2">
+          <AnalyticsTab invoices={invoices as never} canViewAmounts={canViewAmounts} />
+        </TabsContent>
+      )}
+    </Tabs>
   );
 }

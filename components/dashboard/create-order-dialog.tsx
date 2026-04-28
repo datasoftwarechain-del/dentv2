@@ -16,9 +16,12 @@ import {
 import {
     Plus, Loader2, User, Building2, Ticket,
     Calendar, FileText, Info, Clock, ChevronDown,
+    Trash2, Copy, Package,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Combobox } from "@/components/ui/combobox";
+import { Badge } from "@/components/ui/badge";
+import { formatNumber } from "@/lib/date-utils";
 
 // ──────────────────────────────────────────────
 // Types
@@ -52,6 +55,36 @@ interface CatalogItem {
     name: string;
     base_price: number;
     extras: Extra[];
+}
+
+// [BLOQUE 7] Multi-item draft. Matches the lab_order_items shape we
+// will insert at submit. _tempId stays only in client memory.
+interface OrderItemDraft {
+    _tempId: string;
+    catalogItemId: string;
+    catalogItemName: string | null;
+    workType: string;
+    toothNumbers: string;
+    shade: string;
+    quantity: number;
+    unitPrice: number;
+    selectedExtras: SelectedExtra[];
+}
+
+function blankOrderItem(): OrderItemDraft {
+    return {
+        _tempId: typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        catalogItemId: "",
+        catalogItemName: null,
+        workType: "",
+        toothNumbers: "",
+        shade: "",
+        quantity: 1,
+        unitPrice: 0,
+        selectedExtras: [],
+    };
 }
 
 interface CreateOrderDialogProps {
@@ -388,26 +421,23 @@ export function CreateOrderDialog({
     const [useManualClinic, setUseManualClinic]   = useState(false);
     const [manualClinicName, setManualClinicName]   = useState("");
 
-    // Form
+    // Form — order-level fields only. Item-level fields live in items[] (BLOQUE 7).
     const [formData, setFormData] = useState({
         patientId:    "",
         targetOrgId:  (mode === "dentist" && defaultLabId) ? defaultLabId : "",
-        workType:     "",
-        toothNumbers: "",
-        shade:        "",
         notes:        "",
         dueDate:      "",
         dueTime:      "",
         priority:     "normal" as "low" | "normal" | "high" | "urgent",
-        unitPrice:    0,
-        catalogItemId: "",
     });
 
-    // Catalog (solo modo lab)
+    // [BLOQUE 7] Multi-item state. Always at least 1 item; the form opens
+    // with a single blank item and the user can add more.
+    const [items, setItems] = useState<OrderItemDraft[]>(() => [blankOrderItem()]);
+
+    // Catalog (catálogo del lab; en modo dentist se carga del lab seleccionado)
     const [catalogItems, setCatalogItems]               = useState<CatalogItem[]>([]);
     const [catalogLoading, setCatalogLoading]           = useState(false);
-    const [selectedCatalogItem, setSelectedCatalogItem] = useState<CatalogItem | null>(null);
-    const [selectedExtras, setSelectedExtras]           = useState<SelectedExtra[]>([]);
 
     // ── Cargar catálogo cuando abre el dialog en modo lab ──
     useEffect(() => {
@@ -445,10 +475,8 @@ export function CreateOrderDialog({
         }
         let cancelled = false;
 
-        // Resetear selección de trabajo al cambiar de laboratorio
-        setSelectedCatalogItem(null);
-        setSelectedExtras([]);
-        setFormData((f) => ({ ...f, catalogItemId: "", workType: "", unitPrice: 0 }));
+        // Resetear items al cambiar de laboratorio (precios eran de otro arancel).
+        setItems([blankOrderItem()]);
 
         async function loadLabCatalog() {
             setCatalogLoading(true);
@@ -482,64 +510,90 @@ export function CreateOrderDialog({
     const showCatalog  = hasCatalog && (mode === "lab" || (mode === "dentist" && !!formData.targetOrgId));
     const showFallback = !showCatalog && !catalogLoading;
 
-    // ── Seleccionar ítem del catálogo ──
-    function handleCatalogSelect(itemId: string) {
-        const item = catalogItems.find((i) => i.id === itemId);
-        if (!item) return;
-        setSelectedCatalogItem(item);
-        setSelectedExtras([]);
-        setFormData((f) => ({
-            ...f,
-            catalogItemId: item.id,
-            workType:      guessWorkType(item.name),
-            unitPrice:     item.base_price,
-        }));
+    // [BLOQUE 7] Item helpers (per-item versions of the old single-item logic).
+    function patchItem(tempId: string, patch: Partial<OrderItemDraft>) {
+        setItems((prev) => prev.map((it) => (it._tempId === tempId ? { ...it, ...patch } : it)));
     }
 
-    // ── Actualizar cantidad de un extra (0 = deseleccionado) ──
-    function updateExtraQty(extra: Extra, qty: number) {
+    function addItem() {
+        setItems((prev) => [...prev, blankOrderItem()]);
+    }
+
+    function removeItem(tempId: string) {
+        setItems((prev) => (prev.length > 1 ? prev.filter((it) => it._tempId !== tempId) : prev));
+    }
+
+    function duplicateItem(tempId: string) {
+        setItems((prev) => {
+            const src = prev.find((it) => it._tempId === tempId);
+            if (!src) return prev;
+            return [
+                ...prev,
+                {
+                    ...src,
+                    _tempId: typeof crypto !== "undefined" && crypto.randomUUID
+                        ? crypto.randomUUID()
+                        : `tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                    selectedExtras: src.selectedExtras.map((e) => ({ ...e })),
+                },
+            ];
+        });
+    }
+
+    // ── Seleccionar ítem del catálogo (para un item específico) ──
+    function handleCatalogSelect(tempId: string, catalogId: string) {
+        const cat = catalogItems.find((i) => i.id === catalogId);
+        if (!cat) return;
+        patchItem(tempId, {
+            catalogItemId:   cat.id,
+            catalogItemName: cat.name,
+            workType:        guessWorkType(cat.name),
+            unitPrice:       cat.base_price,
+            selectedExtras:  [],
+        });
+    }
+
+    // ── Actualizar cantidad de un extra (0 = deseleccionado) para un item ──
+    function updateExtraQty(tempId: string, extra: Extra, qty: number) {
+        const item = items.find((it) => it._tempId === tempId);
+        if (!item) return;
+        const cat = catalogItems.find((c) => c.id === item.catalogItemId);
+        const basePrice = cat?.base_price ?? item.unitPrice;
         const clampedQty = Math.max(0, Math.min(qty, extra.max_qty || 1));
 
-        setSelectedExtras((prev) => {
-            const existing = prev.find((e) => e.name === extra.name);
-            if (clampedQty === 0) return prev.filter((e) => e.name !== extra.name);
-            if (existing) return prev.map((e) => e.name === extra.name ? { ...e, qty: clampedQty } : e);
-            return [...prev, { name: extra.name, price: extra.price, qty: clampedQty }];
-        });
+        const existing = item.selectedExtras.find((e) => e.name === extra.name);
+        const newExtras = clampedQty === 0
+            ? item.selectedExtras.filter((e) => e.name !== extra.name)
+            : existing
+                ? item.selectedExtras.map((e) => (e.name === extra.name ? { ...e, qty: clampedQty } : e))
+                : [...item.selectedExtras, { name: extra.name, price: extra.price, qty: clampedQty }];
 
-        // Recalcular precio total
-        setFormData((f) => {
-            const basePrice = selectedCatalogItem?.base_price ?? f.unitPrice;
-            // Calcular a partir de los extras ya seleccionados + este cambio
-            const extrasTotal = selectedExtras
-                .filter((e) => e.name !== extra.name)
-                .reduce((sum, e) => sum + e.price * e.qty, 0)
-                + (clampedQty > 0 ? extra.price * clampedQty : 0);
-            return { ...f, unitPrice: basePrice + extrasTotal };
+        const extrasTotal = newExtras.reduce((s, e) => s + e.price * e.qty, 0);
+
+        patchItem(tempId, {
+            selectedExtras: newExtras,
+            unitPrice: basePrice + extrasTotal,
         });
     }
+
+    // ── Total estimado en vivo (sum across items) ──
+    const liveTotal = items.reduce((sum, it) => sum + (it.unitPrice * (it.quantity || 1)), 0);
 
     // ── Reset form ──
     function resetForm() {
         setFormData({
             patientId:    "",
             targetOrgId:  (mode === "dentist" && defaultLabId) ? defaultLabId : "",
-            workType:     "",
-            toothNumbers: "",
-            shade:        "",
             notes:        "",
             dueDate:      "",
             dueTime:      "",
             priority:     "normal",
-            unitPrice:    0,
-            catalogItemId: "",
         });
         setUseManualPatient(false);
         setManualPatientName("");
         setUseManualClinic(false);
         setManualClinicName("");
-        setSelectedCatalogItem(null);
-        setSelectedExtras([]);
+        setItems([blankOrderItem()]);
     }
 
     // ── Crear orden ──
@@ -548,9 +602,10 @@ export function CreateOrderDialog({
         setLoading(true);
 
         try {
-            // Validaciones
-            if (!formData.workType && !formData.catalogItemId) {
-                toast.error("Por favor selecciona el tipo de trabajo");
+            // [BLOQUE 7] Validar que haya al menos un item con tipo de trabajo o catálogo.
+            const validItems = items.filter((it) => it.workType || it.catalogItemId);
+            if (validItems.length === 0) {
+                toast.error("Agregá al menos un ítem con tipo de trabajo");
                 setLoading(false);
                 return;
             }
@@ -685,28 +740,26 @@ export function CreateOrderDialog({
             if (orderError) throw new Error(`Error al crear orden: ${orderError.message}`);
             if (!orderData) throw new Error("No se pudo crear la orden");
 
-            // Crear ítem de orden
-            const toothArray = formData.toothNumbers
-                ? formData.toothNumbers.split(",").map((s) => s.trim()).filter(Boolean)
-                : [];
-
-            const { error: itemError } = await supabase
-                .from("lab_order_items")
-                .insert({
+            // [BLOQUE 7] Crear N items de orden — bulk insert
+            const itemRows = validItems.map((it) => {
+                const toothArray = it.toothNumbers
+                    ? it.toothNumbers.split(",").map((s) => s.trim()).filter(Boolean)
+                    : [];
+                return {
                     order_id:         orderData.id,
-                    work_type:        formData.workType || "otro",
+                    work_type:        it.workType || "otro",
                     tooth_positions:  toothArray.length > 0 ? toothArray : null,
-                    shade:            formData.shade || null,
-                    quantity:         1,
-                    // Si hay precio del catálogo, se guarda para el trigger de factura
-                    unit_price:       formData.unitPrice > 0 ? formData.unitPrice : null,
-                    catalog_item_id:  formData.catalogItemId || null,
-                    selected_extras:  selectedExtras.length > 0
-                        ? selectedExtras.map(e => ({ name: e.name, price: e.price, qty: e.qty }))
+                    shade:            it.shade || null,
+                    quantity:         it.quantity || 1,
+                    unit_price:       it.unitPrice > 0 ? it.unitPrice : null,
+                    catalog_item_id:  it.catalogItemId || null,
+                    selected_extras:  it.selectedExtras.length > 0
+                        ? it.selectedExtras.map((e) => ({ name: e.name, price: e.price, qty: e.qty }))
                         : [],
-                    notes:            formData.notes || null,
-                });
+                };
+            });
 
+            const { error: itemError } = await supabase.from("lab_order_items").insert(itemRows);
             if (itemError) throw new Error(`Error al crear items: ${itemError.message}`);
 
             // Mensaje de éxito
@@ -883,15 +936,28 @@ export function CreateOrderDialog({
                             </div>
                         </div>
 
-                        {/* 02 · Trabajo */}
+                        {/* 02 · Trabajo — multi-item (BLOQUE 7) */}
                         <div>
-                            <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center gap-3 mb-3">
                                 <span className="text-[9px] font-black text-[#09919b] uppercase tracking-[0.15em]">02</span>
                                 <div className="h-px flex-1 bg-[#d2f2f3]" />
-                                <span className="text-[9px] font-bold text-[#09919b]/60 uppercase tracking-widest">Trabajo</span>
+                                <span className="text-[9px] font-bold text-[#09919b]/60 uppercase tracking-widest">Trabajos</span>
                             </div>
 
-                            {/* ── Cargando catálogo ── */}
+                            {/* Counter + total estimado */}
+                            <div className="flex items-center gap-3 flex-wrap mb-3">
+                                <Badge variant="outline" className="font-bold text-xs border-[#09919b]/40 text-[#09919b]">
+                                    Items: {items.length}
+                                </Badge>
+                                {showPrices && liveTotal > 0 && (
+                                    <span className="text-sm font-semibold text-[#044c64]">
+                                        Total estimado:{" "}
+                                        <span className="tabular-nums text-[#09919b]">${formatNumber(liveTotal)}</span>
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Cargando catálogo */}
                             {catalogLoading && (
                                 <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -899,154 +965,214 @@ export function CreateOrderDialog({
                                 </div>
                             )}
 
-                            {/* ── Catálogo disponible (lab propio o del lab seleccionado por el dentista) ── */}
-                            {showCatalog && (
-                                <>
-                                    <div className="space-y-1.5 mb-4">
-                                        <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
-                                            Tipo de Trabajo
-                                            <span className="ml-1.5 text-[9px] font-normal text-[#09919b] normal-case tracking-normal">
-                                                (desde arancel{mode === "dentist" ? " del laboratorio" : ""})
-                                            </span>
-                                        </Label>
-                                        <div className="relative">
-                                            <Ticket className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b] z-10 pointer-events-none" />
-                                            <CatalogPicker
-                                                value={formData.catalogItemId}
-                                                onChange={handleCatalogSelect}
-                                                categories={catalogCategories}
-                                                grouped={catalogGrouped}
-                                                items={catalogItems}
-                                                showPrices={showPrices}
-                                                organizationId={organizationId}
-                                                onItemCreated={(item) => {
-                                                    setCatalogItems((prev) => [...prev, item]);
-                                                    handleCatalogSelect(item.id);
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Extras del ítem seleccionado */}
-                                    {selectedCatalogItem && selectedCatalogItem.extras.length > 0 && (
-                                        <div className="mb-4 border border-[#b0dde0] rounded-lg overflow-hidden">
-                                            <div className="px-3 py-2 bg-[#f5fbfc] border-b border-[#d2f2f3]">
-                                                <p className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
-                                                    Extras / Adicionales
-                                                </p>
+                            <div className="space-y-3">
+                                {items.map((it, idx) => {
+                                    const cat = catalogItems.find((c) => c.id === it.catalogItemId) ?? null;
+                                    return (
+                                        <div key={it._tempId} className="rounded-xl border border-[#b0dde0] bg-[#fafdfd] p-4 space-y-3">
+                                            {/* Header del ítem: número + duplicar/quitar */}
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-[10px] font-bold text-[#09919b] uppercase tracking-wider flex items-center gap-2">
+                                                    <Package className="h-3.5 w-3.5" />
+                                                    Ítem {idx + 1}
+                                                </span>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => duplicateItem(it._tempId)}
+                                                        className="h-7 px-2 text-[10px] text-[#09919b] hover:bg-[#09919b]/10 rounded flex items-center gap-1 transition-colors"
+                                                        title="Duplicar este ítem"
+                                                    >
+                                                        <Copy className="h-3 w-3" />
+                                                        Duplicar
+                                                    </button>
+                                                    {items.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeItem(it._tempId)}
+                                                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded flex items-center justify-center transition-colors"
+                                                            title="Quitar ítem"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="px-3 py-2 space-y-1">
-                                                {selectedCatalogItem.extras.map((extra, i) => {
-                                                    const maxQty    = extra.max_qty || 1;
-                                                    const selExtra  = selectedExtras.find((e) => e.name === extra.name);
-                                                    const currentQty = selExtra?.qty ?? 0;
 
-                                                    if (maxQty > 1) {
-                                                        return (
-                                                            <div key={i} className="flex items-center justify-between py-1.5 px-1">
-                                                                <div>
-                                                                    <span className="text-sm">{extra.name}</span>
-                                                                </div>
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => updateExtraQty(extra, currentQty - 1)}
-                                                                        disabled={currentQty === 0}
-                                                                        className="h-6 w-6 rounded border border-[#b0dde0] text-sm font-bold text-[#09919b] disabled:opacity-30 hover:bg-[#f5fbfc] transition-colors"
-                                                                    >−</button>
-                                                                    <span className="w-6 text-center text-sm font-semibold">{currentQty}</span>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => updateExtraQty(extra, currentQty + 1)}
-                                                                        disabled={currentQty >= maxQty}
-                                                                        className="h-6 w-6 rounded border border-[#b0dde0] text-sm font-bold text-[#09919b] disabled:opacity-30 hover:bg-[#f5fbfc] transition-colors"
-                                                                    >+</button>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    } else {
-                                                        return (
-                                                            <label key={i} className="flex items-center justify-between cursor-pointer py-1.5 px-1 hover:bg-muted/20 rounded transition-colors">
-                                                                <div className="flex items-center gap-2.5">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={currentQty > 0}
-                                                                        onChange={(e) => updateExtraQty(extra, e.target.checked ? 1 : 0)}
-                                                                        className="h-3.5 w-3.5 accent-[#09919b]"
-                                                                    />
-                                                                    <span className="text-sm">{extra.name}</span>
-                                                                </div>
-                                                            </label>
-                                                        );
-                                                    }
-                                                })}
+                                            {/* Tipo de trabajo: catálogo (si hay) o fallback genérico */}
+                                            {showCatalog ? (
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
+                                                        Tipo de Trabajo
+                                                        <span className="ml-1.5 text-[9px] font-normal text-[#09919b] normal-case tracking-normal">
+                                                            (desde arancel{mode === "dentist" ? " del laboratorio" : ""})
+                                                        </span>
+                                                    </Label>
+                                                    <div className="relative">
+                                                        <Ticket className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b] z-10 pointer-events-none" />
+                                                        <CatalogPicker
+                                                            value={it.catalogItemId}
+                                                            onChange={(catId) => handleCatalogSelect(it._tempId, catId)}
+                                                            categories={catalogCategories}
+                                                            grouped={catalogGrouped}
+                                                            items={catalogItems}
+                                                            showPrices={showPrices}
+                                                            organizationId={organizationId}
+                                                            onItemCreated={(newCat) => {
+                                                                setCatalogItems((prev) => [...prev, newCat]);
+                                                                handleCatalogSelect(it._tempId, newCat.id);
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ) : showFallback ? (
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
+                                                        Tipo de Trabajo
+                                                    </Label>
+                                                    {mode === "lab" && idx === 0 && (
+                                                        <p className="text-[10px] text-[#09919b]/70">
+                                                            Sin arancel configurado.{" "}
+                                                            <a href="/dashboard/settings" className="underline">Configurar precios</a>
+                                                        </p>
+                                                    )}
+                                                    {mode === "dentist" && formData.targetOrgId && idx === 0 && (
+                                                        <p className="text-[10px] text-muted-foreground mb-1">
+                                                            Este laboratorio no tiene arancel configurado.
+                                                        </p>
+                                                    )}
+                                                    <Combobox
+                                                        options={workTypes}
+                                                        value={it.workType}
+                                                        onValueChange={(v) => patchItem(it._tempId, { workType: v })}
+                                                        placeholder="Selecciona el tipo de trabajo"
+                                                        searchPlaceholder="Buscar tipo..."
+                                                        emptyText="Sin resultados."
+                                                        className="border-[#b0dde0]"
+                                                    />
+                                                </div>
+                                            ) : null}
+
+                                            {/* Extras del ítem (si el catálogo del item los define) */}
+                                            {cat && cat.extras.length > 0 && (
+                                                <div className="border border-[#b0dde0] rounded-lg overflow-hidden">
+                                                    <div className="px-3 py-2 bg-[#f5fbfc] border-b border-[#d2f2f3]">
+                                                        <p className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
+                                                            Extras / Adicionales
+                                                        </p>
+                                                    </div>
+                                                    <div className="px-3 py-2 space-y-1">
+                                                        {cat.extras.map((extra, i) => {
+                                                            const maxQty = extra.max_qty || 1;
+                                                            const selExtra = it.selectedExtras.find((e) => e.name === extra.name);
+                                                            const currentQty = selExtra?.qty ?? 0;
+                                                            if (maxQty > 1) {
+                                                                return (
+                                                                    <div key={i} className="flex items-center justify-between py-1.5 px-1">
+                                                                        <span className="text-sm">{extra.name}</span>
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => updateExtraQty(it._tempId, extra, currentQty - 1)}
+                                                                                disabled={currentQty === 0}
+                                                                                className="h-6 w-6 rounded border border-[#b0dde0] text-sm font-bold text-[#09919b] disabled:opacity-30 hover:bg-[#f5fbfc] transition-colors"
+                                                                            >−</button>
+                                                                            <span className="w-6 text-center text-sm font-semibold">{currentQty}</span>
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => updateExtraQty(it._tempId, extra, currentQty + 1)}
+                                                                                disabled={currentQty >= maxQty}
+                                                                                className="h-6 w-6 rounded border border-[#b0dde0] text-sm font-bold text-[#09919b] disabled:opacity-30 hover:bg-[#f5fbfc] transition-colors"
+                                                                            >+</button>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            }
+                                                            return (
+                                                                <label key={i} className="flex items-center justify-between cursor-pointer py-1.5 px-1 hover:bg-muted/20 rounded transition-colors">
+                                                                    <div className="flex items-center gap-2.5">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={currentQty > 0}
+                                                                            onChange={(e) => updateExtraQty(it._tempId, extra, e.target.checked ? 1 : 0)}
+                                                                            className="h-3.5 w-3.5 accent-[#09919b]"
+                                                                        />
+                                                                        <span className="text-sm">{extra.name}</span>
+                                                                    </div>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Piezas + Color */}
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
+                                                        Piezas Dentales
+                                                    </Label>
+                                                    <div className="relative">
+                                                        <Info className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b]" />
+                                                        <Input
+                                                            placeholder="Ej: 11, 21, 22"
+                                                            className="pl-8 h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
+                                                            value={it.toothNumbers}
+                                                            onChange={(e) => patchItem(it._tempId, { toothNumbers: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
+                                                        Color / Tono
+                                                    </Label>
+                                                    <Input
+                                                        placeholder="Ej: A2"
+                                                        className="h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
+                                                        value={it.shade}
+                                                        onChange={(e) => patchItem(it._tempId, { shade: e.target.value })}
+                                                    />
+                                                </div>
                                             </div>
+
+                                            {/* Cantidad */}
+                                            <div className="space-y-1.5 max-w-[120px]">
+                                                <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
+                                                    Cantidad
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    className="h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
+                                                    value={it.quantity}
+                                                    onChange={(e) => patchItem(it._tempId, { quantity: parseInt(e.target.value) || 1 })}
+                                                />
+                                            </div>
+
+                                            {/* Subtotal del ítem */}
+                                            {showPrices && it.unitPrice > 0 && (
+                                                <div className="flex items-baseline justify-between pt-2 border-t border-[#d2f2f3]">
+                                                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                                        Subtotal ítem
+                                                    </span>
+                                                    <span className="text-sm font-bold text-[#044c64] tabular-nums">
+                                                        ${formatNumber(it.unitPrice * (it.quantity || 1))}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+                                    );
+                                })}
 
-                                </>
-                            )}
-
-                            {/* ── Sin catálogo: selector de tipo genérico ── */}
-                            {showFallback && (
-                                <div className="space-y-1.5 mb-4">
-                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
-                                        Tipo de Trabajo
-                                    </Label>
-                                    {mode === "lab" && (
-                                        <p className="text-[10px] text-[#09919b]/70">
-                                            Sin arancel configurado.{" "}
-                                            <a href="/dashboard/settings" className="underline">Configurar precios</a>
-                                        </p>
-                                    )}
-                                    {mode === "dentist" && formData.targetOrgId && (
-                                        <p className="text-[10px] text-muted-foreground mb-1">
-                                            Este laboratorio no tiene arancel configurado.
-                                        </p>
-                                    )}
-                                    <Combobox
-                                        options={workTypes}
-                                        value={formData.workType}
-                                        onValueChange={(v) => setFormData({ ...formData, workType: v })}
-                                        placeholder="Selecciona el tipo de trabajo"
-                                        searchPlaceholder="Buscar tipo..."
-                                        emptyText="Sin resultados."
-                                        className="border-[#b0dde0]"
-                                    />
-                                </div>
-                            )}
-
-                            {/* Piezas + Color */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
-                                        Piezas Dentales
-                                    </Label>
-                                    <div className="relative">
-                                        <Info className="absolute left-3 top-2.5 h-3.5 w-3.5 text-[#09919b]" />
-                                        <Input
-                                            placeholder="Ej: 11, 21, 22"
-                                            className="pl-8 h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
-                                            value={formData.toothNumbers}
-                                            onChange={(e) =>
-                                                setFormData({ ...formData, toothNumbers: e.target.value })
-                                            }
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-[11px] font-bold uppercase tracking-wide text-[#044c64]">
-                                        Color / Tono
-                                    </Label>
-                                    <Input
-                                        placeholder="Ej: A2, Bleach, OM2"
-                                        className="h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
-                                        value={formData.shade}
-                                        onChange={(e) =>
-                                            setFormData({ ...formData, shade: e.target.value })
-                                        }
-                                    />
-                                </div>
+                                {/* Botón "Agregar otro ítem" al final */}
+                                <button
+                                    type="button"
+                                    onClick={addItem}
+                                    className="w-full py-2.5 rounded-xl border border-dashed border-[#09919b]/40 text-[#09919b] hover:bg-[#09919b]/5 transition-colors font-semibold text-sm flex items-center justify-center gap-1.5"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Agregar otro ítem
+                                </button>
                             </div>
                         </div>
 

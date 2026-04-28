@@ -113,6 +113,8 @@ interface ClientAccountStatementProps {
   totalPaid: number;
   organizationId: string;
   isReadOnly?: boolean;
+  /** [BLOQUE 3] Forwarded to InvoiceActions to render "Anular factura". */
+  canManageBilling?: boolean;
 }
 
 const statusLabels: Record<string, string> = {
@@ -139,6 +141,7 @@ export function ClientAccountStatement({
   totalPaid,
   organizationId,
   isReadOnly = false,
+  canManageBilling = false,
 }: ClientAccountStatementProps) {
   const router = useRouter();
   const { csrfToken } = useCSRF();
@@ -1023,6 +1026,7 @@ export function ClientAccountStatement({
                             isDentist={isDentist}
                             balanceBefore={invoiceBalances[invoice.id]?.before ?? 0}
                             balanceAfter={invoiceBalances[invoice.id]?.after ?? balance}
+                            canManageBilling={canManageBilling}
                           />
                         </TableCell>
                       </TableRow>
@@ -1099,6 +1103,7 @@ export function ClientAccountStatement({
                           isDentist={isDentist}
                           balanceBefore={Math.max(0, balance - invoice.total)}
                           balanceAfter={balance}
+                          canManageBilling={canManageBilling}
                         />
                       </div>
                     </div>

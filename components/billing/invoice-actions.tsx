@@ -18,6 +18,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { InvoiceDetail } from "./invoice-detail";
+import { DeleteInvoiceButton } from "./delete-invoice-button";
+import { SyncInvoiceButton } from "./sync-invoice-button";
+import { computeInvoiceTotals } from "@/lib/invoice-totals";
 import {
   Eye,
   Download,
@@ -68,6 +71,7 @@ interface Invoice {
   dentist_org: Organization | null;
   lab_org: Organization | null;
   order_items?: OrderItem[];
+  totals_strict?: boolean;
 }
 
 interface InvoiceActionsProps {
@@ -75,9 +79,11 @@ interface InvoiceActionsProps {
   isDentist: boolean;
   balanceBefore?: number;
   balanceAfter?: number;
+  /** [BLOQUE 3] true → render "Anular factura" button. Server-driven. */
+  canManageBilling?: boolean;
 }
 
-export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter }: InvoiceActionsProps) {
+export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter, canManageBilling = false }: InvoiceActionsProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -267,12 +273,54 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
             />
           </div>
 
-          {/* Edit button */}
-          <div className="flex justify-end mt-4">
-            <Button variant="outline" size="sm" onClick={openEdit} className="border-[#b0dde0] text-[#044c64] hover:bg-[#f0fafb] font-semibold">
-              <Edit2 className="mr-2 h-3.5 w-3.5" />
-              Editar factura
-            </Button>
+          {/* Edit + Sync + Delete buttons */}
+          <div className="flex justify-end mt-4 gap-2 flex-wrap">
+            {/* [BLOQUE 8] Sync con ítems — aparece SOLO cuando hay drift entre persistido y recalculado.
+                Útil para facturas históricas o strict que quedaron desincronizadas. */}
+            {(() => {
+              if (!canManageBilling || isDentist) return null;
+              const items = invoice.order_items;
+              if (!items || items.length === 0) return null;
+              const recomputed = computeInvoiceTotals(items as never, invoice.tax_rate ?? 0);
+              const persisted = Number(invoice.total) || 0;
+              if (Math.abs(recomputed.total - persisted) <= 0.01) return null;
+              return (
+                <SyncInvoiceButton
+                  invoiceId={invoice.id}
+                  invoiceNumber={invoice.invoice_number}
+                  persistedTotal={persisted}
+                  recomputedTotal={recomputed.total}
+                  onSynced={() => setDialogOpen(false)}
+                />
+              );
+            })()}
+
+            {/* [BLOQUE 3] Anular factura — solo lab con manage_billing. Histórica también puede anularse, pero el flujo es "anular + emitir nueva" sin modificar la histórica. */}
+            {canManageBilling && !isDentist && (
+              <DeleteInvoiceButton
+                invoiceId={invoice.id}
+                invoiceNumber={invoice.invoice_number}
+                invoiceTotal={invoice.total}
+                onDeleted={() => setDialogOpen(false)}
+              />
+            )}
+            {invoice.totals_strict === false ? (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled
+                title="Esta factura no se puede modificar en montos. Si necesitás cambiar el monto, anulala y emití una nueva."
+                className="border-[#b0dde0] text-[#044c64] font-semibold cursor-not-allowed"
+              >
+                <Edit2 className="mr-2 h-3.5 w-3.5" />
+                Editar factura
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={openEdit} className="border-[#b0dde0] text-[#044c64] hover:bg-[#f0fafb] font-semibold">
+                <Edit2 className="mr-2 h-3.5 w-3.5" />
+                Editar factura
+              </Button>
+            )}
           </div>
 
           {/* Action buttons in dialog */}
