@@ -19,6 +19,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InvoiceDetail } from "./invoice-detail";
 import { DeleteInvoiceButton } from "./delete-invoice-button";
+import { SyncInvoiceButton } from "./sync-invoice-button";
+import { computeInvoiceTotals } from "@/lib/invoice-totals";
 import {
   Eye,
   Download,
@@ -271,8 +273,28 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
             />
           </div>
 
-          {/* Edit + Delete buttons */}
-          <div className="flex justify-end mt-4 gap-2">
+          {/* Edit + Sync + Delete buttons */}
+          <div className="flex justify-end mt-4 gap-2 flex-wrap">
+            {/* [BLOQUE 8] Sync con ítems — aparece SOLO cuando hay drift entre persistido y recalculado.
+                Útil para facturas históricas o strict que quedaron desincronizadas. */}
+            {(() => {
+              if (!canManageBilling || isDentist) return null;
+              const items = invoice.order_items;
+              if (!items || items.length === 0) return null;
+              const recomputed = computeInvoiceTotals(items as never, invoice.tax_rate ?? 0);
+              const persisted = Number(invoice.total) || 0;
+              if (Math.abs(recomputed.total - persisted) <= 0.01) return null;
+              return (
+                <SyncInvoiceButton
+                  invoiceId={invoice.id}
+                  invoiceNumber={invoice.invoice_number}
+                  persistedTotal={persisted}
+                  recomputedTotal={recomputed.total}
+                  onSynced={() => setDialogOpen(false)}
+                />
+              );
+            })()}
+
             {/* [BLOQUE 3] Anular factura — solo lab con manage_billing. Histórica también puede anularse, pero el flujo es "anular + emitir nueva" sin modificar la histórica. */}
             {canManageBilling && !isDentist && (
               <DeleteInvoiceButton
