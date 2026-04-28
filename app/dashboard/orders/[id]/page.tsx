@@ -16,6 +16,7 @@ import {
     MessageSquare,
     AlertCircle,
     Pencil,
+    Receipt,
 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,9 @@ export default async function OrderDetailsPage({
     // read-only form for users who can't save anyway.
     const canEdit = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "edit_orders"));
     const canUpdateStatus = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "update_order_status"));
+    // [BLOQUE 8 ext] "Ver factura" link is gated by view_billing. Hidden in
+    // preview accounts (they don't have access to /dashboard/billing).
+    const canViewBilling = isPreview ? false : (!isCollaboratorRole(role) || hasPermission(permissions, "view_billing"));
 
     // Fetch order details with related data
     const { data: order } = await db
@@ -85,6 +89,24 @@ export default async function OrderDetailsPage({
     // Verificación de seguridad: la orden debe pertenecer a la org del usuario
     if (isDentist && order.dentist_org_id !== effectiveOrgId) notFound();
     if (!isDentist && order.lab_org_id !== org.id) notFound();
+
+    // [BLOQUE 8 ext] Linked active invoice (if any). Drives the "Ver factura"
+    // header button — sends the user to the appropriate billing accounts page
+    // (dentist's view = lab counterparty; lab's view = dentist counterparty).
+    let linkedInvoice: { id: string; invoice_number: string } | null = null;
+    if (canViewBilling) {
+        const { data: invRow } = await db
+            .from("invoices")
+            .select("id, invoice_number")
+            .eq("order_id", order.id)
+            .is("invoice_voided_at", null)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        if (invRow) linkedInvoice = { id: invRow.id, invoice_number: invRow.invoice_number };
+    }
+    // The accounts page route uses the COUNTERPARTY org id as :clientId.
+    const billingAccountId = isDentist ? order.lab_org_id : order.dentist_org_id;
 
     // Pacientes disponibles para asignar (solo si no hay paciente en la orden)
     let assignablePatients: { id: string; first_name: string; last_name: string }[] = [];
@@ -129,6 +151,19 @@ export default async function OrderDetailsPage({
                           <Link href={`/dashboard/orders/${order.id}/edit`}>
                             <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-xs border-[#09919b] text-[#09919b] hover:bg-[#09919b]/10">
                                 <Pencil className="mr-2 h-4 w-4" /> Editar
+                            </Button>
+                          </Link>
+                        )}
+                        {/* [BLOQUE 8 ext] Direct shortcut to billing for orders that already have an emitted invoice. */}
+                        {linkedInvoice && billingAccountId && (
+                          <Link href={`/dashboard/billing/accounts/${billingAccountId}`}>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-9 px-4 font-bold text-xs border-amber-500 text-amber-700 hover:bg-amber-50"
+                              title={`Ir al estado de cuenta — factura ${linkedInvoice.invoice_number}`}
+                            >
+                                <Receipt className="mr-2 h-4 w-4" /> Ver factura
                             </Button>
                           </Link>
                         )}
