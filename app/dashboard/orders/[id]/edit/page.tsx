@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { getUserOrg } from "@/lib/get-user-org";
-import { canViewPrices, canEditOrders } from "@/lib/permissions";
+import { canViewPrices, canEditOrders, canManageBilling } from "@/lib/permissions";
 import { getEffectivePricesBatch } from "@/lib/pricing";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ export default async function EditOrderPage({
   // [BLOQUE 2] Saving requires edit_orders. Form renders read-only when this is false.
   const canEdit = canEditOrders(permissions);
   const showPrices = canViewPrices(permissions);
+  // [BLOQUE 8 ext] Sync invoice from edit form requires manage_billing.
+  const canSyncInvoice = canManageBilling(permissions);
 
   const supabase = await createClient();
   const isDentist = org.type === "dentist";
@@ -99,6 +101,25 @@ export default async function EditOrderPage({
     };
   });
 
+  // [BLOQUE 8 ext] Detect linked active invoice. Voided invoices are ignored.
+  // The form uses this to render a banner + a "Save and sync invoice" action
+  // when the order has a live invoice that may drift after editing items.
+  const { data: linkedInvoiceRaw } = await supabase
+    .from("invoices")
+    .select("id, invoice_number, total")
+    .eq("order_id", id)
+    .is("invoice_voided_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const linkedInvoice = linkedInvoiceRaw
+    ? {
+        id: linkedInvoiceRaw.id,
+        invoice_number: linkedInvoiceRaw.invoice_number,
+        total: Number(linkedInvoiceRaw.total) || 0,
+      }
+    : null;
+
   // Normalize items: flatten catalog_item join
   const items = (order.items || []).map((item: any) => ({
     id: item.id,
@@ -153,6 +174,9 @@ export default async function EditOrderPage({
           showPrices={showPrices}
           canEdit={canEdit}
           catalogItems={catalogItems}
+          linkedInvoice={linkedInvoice}
+          dentistOrgId={order.dentist_org_id ?? null}
+          canSyncInvoice={canSyncInvoice}
         />
       </main>
     </div>

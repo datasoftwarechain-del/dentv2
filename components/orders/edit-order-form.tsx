@@ -21,7 +21,7 @@ import { WORK_TYPE_LABELS, formatWorkType } from "@/lib/work-types";
 import { toast } from "sonner";
 import {
   Loader2, Trash2, Plus, User, Calendar, FileText,
-  AlertCircle, Package, Lock, Link2Off, Copy,
+  AlertCircle, Package, Lock, Link2Off, Copy, Receipt, RefreshCw,
 } from "lucide-react";
 import { computeItemTotal } from "@/lib/invoice-totals";
 import { formatNumber } from "@/lib/date-utils";
@@ -87,6 +87,17 @@ interface EditOrderFormProps {
    */
   canEdit?: boolean;
   catalogItems?: CatalogItem[];
+  /**
+   * [BLOQUE 8 ext] If the order has an active (non-voided) invoice, the
+   * server passes its id+number+total. The form renders a banner + a
+   * "Guardar y sincronizar factura" action so the user can update the
+   * order AND keep the invoice in sync in one step.
+   */
+  linkedInvoice?: { id: string; invoice_number: string; total: number } | null;
+  /** Dentist org ID — used to redirect to the client's billing account after sync. */
+  dentistOrgId?: string | null;
+  /** True if the user has manage_billing. Drives the sync button. */
+  canSyncInvoice?: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -150,10 +161,17 @@ export function EditOrderForm({
   showPrices = true,
   canEdit = true,
   catalogItems = [],
+  linkedInvoice = null,
+  dentistOrgId = null,
+  canSyncInvoice = false,
 }: EditOrderFormProps) {
   const router = useRouter();
   const { csrfToken } = useCSRF();
   const [loading, setLoading] = useState(false);
+  // [BLOQUE 8 ext] Tracks which submit path was used: regular save vs save+sync.
+  // The single handleSubmit branches on this so the network request order is
+  // deterministic and the redirect target differs.
+  const [submitMode, setSubmitMode] = useState<"save" | "save_and_sync">("save");
 
   // ── Order-level fields ──
   const [patientId, setPatientId] = useState(order.patient_id || "");
@@ -349,6 +367,45 @@ export function EditOrderForm({
         throw new Error(data.error || "Error al actualizar la orden");
       }
 
+      // [BLOQUE 8 ext] When saving with sync, chain the sync call after the
+      // PATCH succeeded. On success, redirect to the client's billing account
+      // page where the user can see the updated invoice. On sync failure, the
+      // order edit is already saved — surface the error and stay on the edit
+      // page so the user can retry sync manually from the invoice dialog.
+      if (submitMode === "save_and_sync" && linkedInvoice && canSyncInvoice) {
+        try {
+          const syncRes = await fetch(
+            `/api/billing/invoices/${linkedInvoice.id}/sync-from-items`,
+            {
+              method: "POST",
+              headers: { "x-csrf-token": csrfToken },
+            },
+          );
+          const syncData = await syncRes.json().catch(() => ({}));
+          if (!syncRes.ok) {
+            toast.error(
+              `Orden guardada, pero falló la sincronización: ${syncData.error ?? "error desconocido"}. Sincronizá desde el detalle de la factura.`,
+            );
+            return;
+          }
+          toast.success(
+            `Orden guardada · Factura ${linkedInvoice.invoice_number} sincronizada · Total $${formatNumber(syncData.total ?? 0)}`,
+          );
+          if (dentistOrgId) {
+            router.push(`/dashboard/billing/accounts/${dentistOrgId}`);
+          } else {
+            router.push(`/dashboard/orders/${order.id}`);
+          }
+          router.refresh();
+          return;
+        } catch (syncErr: any) {
+          toast.error(
+            `Orden guardada, pero falló la sincronización: ${syncErr?.message ?? "error de red"}.`,
+          );
+          return;
+        }
+      }
+
       toast.success("Orden actualizada correctamente");
       router.push(`/dashboard/orders/${order.id}`);
       router.refresh();
@@ -356,6 +413,7 @@ export function EditOrderForm({
       toast.error(err.message || "Error al actualizar la orden");
     } finally {
       setLoading(false);
+      setSubmitMode("save"); // reset for next attempt
     }
   }
 
@@ -376,6 +434,25 @@ export function EditOrderForm({
             <p className="font-semibold">Modo lectura</p>
             <p className="text-amber-800">
               No tenés permiso para editar esta orden. Pedile a un admin que te asigne el flag <code className="font-mono">edit_orders</code>.
+            </p>
+          </div>
+        </div>
+      )}
+      {/* [BLOQUE 8 ext] Linked-invoice banner. Tells the user the order has a
+          live invoice that can be auto-synced via the action button below. */}
+      {linkedInvoice && (
+        <div className="flex items-start gap-3 rounded-xl border border-[#b0dde0] bg-[#f0fafb] px-4 py-3 text-sm">
+          <Receipt className="h-4 w-4 shrink-0 mt-0.5 text-[#09919b]" />
+          <div className="flex-1">
+            <p className="font-semibold text-[#044c64]">
+              Esta orden tiene una factura asociada
+            </p>
+            <p className="text-[#0d687d] text-xs mt-0.5">
+              Factura <strong className="font-mono">{linkedInvoice.invoice_number}</strong>
+              {showPrices && ` · Persistido $${formatNumber(linkedInvoice.total)}`}
+              {canSyncInvoice
+                ? " · Si modificás los ítems, podés guardar y sincronizar la factura en un solo paso."
+                : " · Pedile a un admin con manage_billing que sincronice la factura después de tus cambios."}
             </p>
           </div>
         </div>
@@ -625,7 +702,7 @@ export function EditOrderForm({
       </Card>
 
       {/* ── Actions ── */}
-      <div className="flex justify-end gap-3 pb-6">
+      <div className="flex justify-end gap-3 pb-6 flex-wrap">
         <Button
           type="button"
           variant="outline"
@@ -635,14 +712,39 @@ export function EditOrderForm({
           {canEdit ? "Cancelar" : "Volver"}
         </Button>
         {canEdit && (
-          <Button
-            type="submit"
-            disabled={loading}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
-          >
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Guardar cambios
-          </Button>
+          <>
+            {/* [BLOQUE 8 ext] Save + sync — appears only when the order has a
+                linked invoice and the user has manage_billing. Sets submitMode
+                BEFORE the form's submit fires, so handleSubmit knows to chain
+                the sync call afterwards. */}
+            {linkedInvoice && canSyncInvoice && (
+              <Button
+                type="submit"
+                disabled={loading}
+                onClick={() => setSubmitMode("save_and_sync")}
+                className="bg-amber-600 hover:bg-amber-700 text-white shadow-lg shadow-amber-600/20"
+                title="Guarda los cambios de la orden y sincroniza la factura asociada en un solo paso"
+              >
+                {loading && submitMode === "save_and_sync" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                )}
+                Guardar y sincronizar factura
+              </Button>
+            )}
+            <Button
+              type="submit"
+              disabled={loading}
+              onClick={() => setSubmitMode("save")}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
+            >
+              {loading && submitMode === "save" && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Guardar cambios
+            </Button>
+          </>
         )}
       </div>
     </form>
