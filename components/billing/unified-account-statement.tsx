@@ -77,6 +77,7 @@ interface Invoice {
   dentist_org?: Organization | null;
   lab_org?: Organization | null;
   totals_strict?: boolean;
+  manually_overridden?: boolean;
 }
 
 interface LedgerMovement {
@@ -1193,6 +1194,37 @@ export function UnifiedAccountStatement({
                 </div>
               </div>
             )}
+
+            {/* Warning de override: aparece cuando el subtotal/IVA/descuento cambian
+                el total respecto al persistido. Avisa que la factura quedará marcada
+                como ajuste manual y que cualquier sync futuro va a requerir confirmación. */}
+            {selectedInvoice && (() => {
+              const sub = parseFloat(editInvoiceFormData.subtotal) || 0;
+              if (!editInvoiceFormData.subtotal || isNaN(sub)) return null;
+              const disc = editInvoiceFormData.applyDiscount
+                ? editInvoiceFormData.discountType === "percent"
+                  ? sub * (parseFloat(editInvoiceFormData.discountValue) || 0) / 100
+                  : parseFloat(editInvoiceFormData.discountValue) || 0
+                : 0;
+              const subAfterDisc = sub - disc;
+              const iva = editInvoiceFormData.applyIva
+                ? subAfterDisc * (parseFloat(editInvoiceFormData.ivaRate) || 10) / 100
+                : 0;
+              const newTotal = subAfterDisc + iva;
+              const dbTotal = Number(selectedInvoice.total) || 0;
+              const changed = Math.abs(newTotal - dbTotal) > 0.01;
+              if (!changed) return null;
+              return (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+                  <p className="font-semibold mb-0.5">Ajuste manual</p>
+                  <p className="text-amber-800 leading-snug">
+                    Al guardar, esta factura quedará marcada como{" "}
+                    <strong>ajustada manualmente</strong>. Cualquier sincronización
+                    futura desde ítems va a requerir confirmación explícita.
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* Patient & Work Type */}
             <div className="space-y-2">

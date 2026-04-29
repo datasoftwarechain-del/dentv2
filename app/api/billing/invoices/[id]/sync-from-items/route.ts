@@ -30,8 +30,16 @@ import { NextRequest, NextResponse } from "next/server";
 //   - Voided invoices: 409 (sync doesn't apply to voided ones).
 //   - Manual invoices without order_id: 404 (nothing to recompute from).
 //
+// Manual override guard:
+//   - If invoice.manually_overridden=true and the request does NOT carry
+//     `?force=true`, returns 409 with `requires_force: true` so the UI
+//     can show a confirmation dialog. When force=true is provided, the
+//     sync proceeds AND clears manually_overridden back to false (the
+//     manual ajuste was intentionally overwritten).
+//
 // Side effects:
-//   - UPDATE invoices SET subtotal, tax_amount, total, totals_strict=true.
+//   - UPDATE invoices SET subtotal, tax_amount, total, totals_strict=true,
+//     manually_overridden=false (when forcing over a previous override).
 //   - recalculateBalances over the lab↔dentist relation so the running
 //     balance in ledger_movements reflects the new total.
 //   - revalidatePath of all surfaces.
@@ -61,9 +69,14 @@ export async function POST(
 
     const supabase = await createClient();
 
+    const url = new URL(request.url);
+    const force = url.searchParams.get("force") === "true";
+
     const { data: invoice, error: readErr } = await supabase
       .from("invoices")
-      .select("id, lab_org_id, dentist_org_id, order_id, invoice_voided_at, tax_rate")
+      .select(
+        "id, lab_org_id, dentist_org_id, order_id, invoice_voided_at, tax_rate, total, manually_overridden",
+      )
       .eq("id", id)
       .maybeSingle();
     if (readErr) throw readErr;
@@ -85,6 +98,20 @@ export async function POST(
       return NextResponse.json(
         { error: "Factura manual sin ítems vinculados — no hay items para recomputar." },
         { status: 404 },
+      );
+    }
+
+    // Manual override guard: si la factura tiene un ajuste manual y no
+    // viene ?force=true, la UI tiene que confirmar antes de sobrescribir.
+    if (invoice.manually_overridden === true && !force) {
+      return NextResponse.json(
+        {
+          error:
+            "Esta factura tiene un ajuste manual. Sincronizar va a sobrescribirlo.",
+          requires_force: true,
+          persisted_total: Number(invoice.total) || 0,
+        },
+        { status: 409 },
       );
     }
 
@@ -120,6 +147,10 @@ export async function POST(
         tax_amount: taxAmount,
         total,
         totals_strict: true,
+        // Si veníamos de un override, sincronizar lo limpia: la intención
+        // explícita del usuario al confirmar el ?force=true es volver a
+        // dejar la factura "viva" y recalculable desde items.
+        manually_overridden: false,
       })
       .eq("id", id);
     if (updErr) throw updErr;

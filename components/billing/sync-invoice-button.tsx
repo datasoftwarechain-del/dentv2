@@ -29,6 +29,8 @@ interface Props {
   invoiceNumber: string;
   persistedTotal: number;
   recomputedTotal: number;
+  /** true = la factura tiene ajuste manual; sync usa ?force=true y dialog reforzado. */
+  manuallyOverridden?: boolean;
   onSynced?: () => void;
 }
 
@@ -45,6 +47,7 @@ export function SyncInvoiceButton({
   invoiceNumber,
   persistedTotal,
   recomputedTotal,
+  manuallyOverridden = false,
   onSynced,
 }: Props) {
   const router = useRouter();
@@ -54,10 +57,14 @@ export function SyncInvoiceButton({
   async function handleSync() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/billing/invoices/${invoiceId}/sync-from-items`, {
-        method: "POST",
-        headers: { "x-csrf-token": getCsrfToken() },
-      });
+      const qs = manuallyOverridden ? "?force=true" : "";
+      const res = await fetch(
+        `/api/billing/invoices/${invoiceId}/sync-from-items${qs}`,
+        {
+          method: "POST",
+          headers: { "x-csrf-token": getCsrfToken() },
+        },
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Error al sincronizar");
       toast.success(
@@ -96,17 +103,24 @@ export function SyncInvoiceButton({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>¿Sincronizar factura {invoiceNumber} con ítems?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {manuallyOverridden
+              ? `Sobrescribir ajuste manual de ${invoiceNumber}`
+              : `¿Sincronizar factura ${invoiceNumber} con ítems?`}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            El subtotal y total persistidos en la factura se van a recalcular
-            a partir de los ítems actuales de la orden (incluyendo extras × cantidad).
+            {manuallyOverridden
+              ? "Esta factura tiene un ajuste manual. Sincronizar va a reemplazar el total cobrado por el recálculo desde ítems y el flag de ajuste manual quedará limpio."
+              : "El subtotal y total persistidos en la factura se van a recalcular a partir de los ítems actuales de la orden (incluyendo extras × cantidad)."}
           </AlertDialogDescription>
         </AlertDialogHeader>
 
         <div className="space-y-2 text-sm pt-2">
           <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/40 p-3 bg-muted/20">
             <div>
-              <p className="text-[11px] uppercase font-bold text-muted-foreground">Persistido actual</p>
+              <p className="text-[11px] uppercase font-bold text-muted-foreground">
+                {manuallyOverridden ? "Ajuste manual actual" : "Persistido actual"}
+              </p>
               <p className="text-lg font-bold tabular-nums text-slate-700">${formatNumber(persistedTotal)}</p>
             </div>
             <div>
@@ -122,8 +136,13 @@ export function SyncInvoiceButton({
           </div>
           <p className="text-xs text-muted-foreground">
             Después del sync la factura queda marcada como{" "}
-            <code className="font-mono text-[10px]">totals_strict=true</code>{" "}
-            y editable normalmente. El balance del cliente se recalcula automáticamente.
+            <code className="font-mono text-[10px]">totals_strict=true</code>
+            {manuallyOverridden ? (
+              <>
+                {" "}y <code className="font-mono text-[10px]">manually_overridden=false</code>
+              </>
+            ) : null}
+            . El balance del cliente se recalcula automáticamente.
           </p>
         </div>
 
@@ -132,10 +151,10 @@ export function SyncInvoiceButton({
           <AlertDialogAction
             onClick={(e) => { e.preventDefault(); handleSync(); }}
             disabled={loading}
-            className="bg-amber-600 hover:bg-amber-700 text-white"
+            className={manuallyOverridden ? "bg-rose-600 hover:bg-rose-700 text-white" : "bg-amber-600 hover:bg-amber-700 text-white"}
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sincronizar
+            {manuallyOverridden ? "Sobrescribir ajuste" : "Sincronizar"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,7 +1,7 @@
 "use client";
 
 import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
-import { Building2, User, Calendar, Package, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
+import { Building2, User, Calendar, Package, CheckCircle2, Clock, XCircle, AlertTriangle, PencilLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { formatWorkType } from "@/lib/work-types";
@@ -46,6 +46,13 @@ interface InvoiceDetailProps {
      * de verdad y se muestran verbatim.
      */
     totals_strict?: boolean;
+    /**
+     * true = el monto persistido fue ajustado manualmente y no debe
+     * recalcularse desde items, aún cuando totals_strict=true. Se muestra
+     * el persistido con badge "Ajustado manualmente" y, debajo, el
+     * subtotal informativo desde items para auditoría.
+     */
+    manually_overridden?: boolean;
   };
   isDentist: boolean;
   className?: string;
@@ -71,14 +78,23 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
   const labOrg  = Array.isArray(invoice.lab_org)     ? invoice.lab_org[0]     : invoice.lab_org;
   const dentOrg = Array.isArray(invoice.dentist_org) ? invoice.dentist_org[0] : invoice.dentist_org;
 
-  // Decidir totales mostrados según totals_strict.
-  // - Histórica (false/undefined) → persistido verbatim, no recalcular.
-  // - Nueva (true) con items → recalcular desde items + extras.
-  // - Nueva sin items (manual) → persistido (no hay items para sumar).
+  // Decidir totales mostrados según totals_strict + manually_overridden.
+  // - Histórica (totals_strict=false/undefined) → persistido verbatim.
+  // - Strict + override → persistido (con detalle informativo del recalc).
+  // - Strict sin override + items → recalcular desde items + extras.
+  // - Strict sin items (manual) → persistido.
   const isStrict = invoice.totals_strict === true;
+  const isOverride = invoice.manually_overridden === true;
   const hasItems = !!invoice.order_items && invoice.order_items.length > 0;
 
-  const recomputed = (isStrict && hasItems)
+  // Recalc "vivo" — usado como total cuando NO hay override.
+  const recomputed = (isStrict && hasItems && !isOverride)
+    ? computeInvoiceTotals(invoice.order_items!, invoice.tax_rate ?? 0)
+    : null;
+
+  // Recalc "informativo" — solo para mostrar subtotal-desde-items en facturas
+  // ajustadas a mano. No se usa como total.
+  const informationalRecalc = (isStrict && hasItems && isOverride)
     ? computeInvoiceTotals(invoice.order_items!, invoice.tax_rate ?? 0)
     : null;
 
@@ -87,11 +103,12 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
   const displayedTotal = recomputed?.total ?? invoice.total;
   const hasTax = displayedTaxAmount > 0;
 
-  // Discrepancia entre persistido y recalculado (solo aplica a strict con items)
+  // Discrepancia entre persistido y recalculado (solo aplica a strict con items
+  // SIN override — un override es una discrepancia intencional, no un drift).
   const persistedTotal = Number(invoice.total) || 0;
   const recalcTotal = recomputed?.total ?? null;
   const hasDiscrepancy =
-    isStrict && hasItems && recalcTotal !== null &&
+    isStrict && hasItems && !isOverride && recalcTotal !== null &&
     Math.abs(persistedTotal - recalcTotal) > 0.01;
 
   if (hasDiscrepancy && typeof window !== "undefined") {
@@ -270,8 +287,23 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
               </div>
             </div>
           )}
+          {/* Línea informativa: subtotal desde ítems cuando hay override manual.
+              Auditoría: deja ver qué saldría del recálculo aunque el total cobrado
+              sea otro. Tachado en gris para que no compita con el total cobrado. */}
+          {isOverride && informationalRecalc && (
+            <div className="flex justify-between items-center px-6 py-2 bg-slate-50/60 border-b border-[#b0dde0]/30">
+              <span className="text-[11px] text-slate-400 font-medium">
+                Subtotal desde ítems (informativo)
+              </span>
+              <span className="text-[11px] text-slate-400 line-through tabular-nums">
+                ${formatNumber(informationalRecalc.subtotal)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between items-center px-6 py-3.5 bg-white border-b border-[#b0dde0]/30">
-            <span className="text-sm text-slate-500 font-medium">Subtotal</span>
+            <span className="text-sm text-slate-500 font-medium">
+              {isOverride ? "Subtotal cobrado" : "Subtotal"}
+            </span>
             <span className="text-sm font-semibold text-slate-700">${formatNumber(displayedSubtotal)}</span>
           </div>
           {hasTax && (
@@ -284,7 +316,17 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
           )}
           {/* Total row — white text on dark teal */}
           <div className="flex justify-between items-center px-6 py-4 bg-[#044c64]">
-            <span className="text-sm font-bold text-white/70 uppercase tracking-widest">Total</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-white/70 uppercase tracking-widest">
+                {isOverride ? "Total cobrado" : "Total"}
+              </span>
+              {isOverride && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/95 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-950">
+                  <PencilLine className="h-2.5 w-2.5" />
+                  Ajustado manualmente
+                </span>
+              )}
+            </div>
             <span className="text-2xl font-black text-white tabular-nums tracking-tight">
               ${formatNumber(displayedTotal)}
             </span>
