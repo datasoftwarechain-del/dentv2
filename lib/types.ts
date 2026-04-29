@@ -96,3 +96,35 @@ export interface AuthUser {
     [key: string]: unknown;
   };
 }
+
+/**
+ * Lab→dentist invoice (table: invoices).
+ *
+ * State machine on totals/edit:
+ *   totals_strict=false                          → historical, read-only on amounts.
+ *   totals_strict=true,  manually_overridden=false → live, recalculated from items.
+ *   totals_strict=true,  manually_overridden=true  → live, persisted is truth (manual override).
+ */
+export interface Invoice {
+  id: string;
+  invoice_number: string;
+  lab_org_id: string;
+  dentist_org_id: string;
+  order_id: string | null;
+  patient_id: string | null;
+  patient_name: string | null;
+  work_type: string | null;
+  delivery_date: string | null;
+  status: string;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+  due_date: string | null;
+  notes: string | null;
+  totals_strict: boolean;
+  manually_overridden: boolean;
+  invoice_voided_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+}

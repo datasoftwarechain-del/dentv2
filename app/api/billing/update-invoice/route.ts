@@ -57,10 +57,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Leer estado actual para decidir qué se permite editar
+    // Leer estado actual para decidir qué se permite editar y para
+    // comparar montos nuevos vs los persistidos (criterio de flageo).
     const { data: existing, error: readError } = await supabase
       .from("invoices")
-      .select("totals_strict")
+      .select("totals_strict, subtotal, total, tax_amount, manually_overridden")
       .eq("id", invoiceId)
       .single();
 
@@ -100,15 +101,35 @@ export async function PUT(request: NextRequest) {
     // Construir updateData solo con los campos enviados
     const updateData: Record<string, unknown> = {};
 
+    // Detectar si los montos nuevos difieren del persistido en DB
+    // (no del payload). Solo así flageamos manually_overridden.
+    let monetaryChanged = false;
+
     if (isStrict && hasMonetary && total !== undefined) {
-      const parsedTotal    = Number(total);
-      const parsedSubtotal = subtotal != null ? Number(subtotal) : parsedTotal;
+      const round2 = (n: number) => Math.round(n * 100) / 100;
+      const parsedTotal    = round2(Number(total));
+      const parsedSubtotal = round2(subtotal != null ? Number(subtotal) : parsedTotal);
       const parsedTaxRate  = tax_rate != null ? Number(tax_rate) : 0;
-      const parsedTaxAmt   = tax_amount != null ? Number(tax_amount) : 0;
+      const parsedTaxAmt   = round2(tax_amount != null ? Number(tax_amount) : 0);
       updateData.total      = parsedTotal;
       updateData.subtotal   = parsedSubtotal;
       updateData.tax_rate   = parsedTaxRate;
       updateData.tax_amount = parsedTaxAmt;
+
+      const dbTotal    = Number(existing.total) || 0;
+      const dbSubtotal = Number(existing.subtotal) || 0;
+      const dbTaxAmt   = Number(existing.tax_amount) || 0;
+      const EPS = 0.01;
+      monetaryChanged =
+        Math.abs(parsedTotal - dbTotal) > EPS ||
+        Math.abs(parsedSubtotal - dbSubtotal) > EPS ||
+        Math.abs(parsedTaxAmt - dbTaxAmt) > EPS;
+
+      // Solo flagear cuando hay cambio real de montos (no idempotencia).
+      // Si ya estaba en true, lo dejamos en true.
+      if (monetaryChanged) {
+        updateData.manually_overridden = true;
+      }
     }
 
     if (patient_name !== undefined) updateData.patient_name = patient_name || null;

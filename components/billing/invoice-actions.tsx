@@ -72,6 +72,7 @@ interface Invoice {
   lab_org: Organization | null;
   order_items?: OrderItem[];
   totals_strict?: boolean;
+  manually_overridden?: boolean;
 }
 
 interface InvoiceActionsProps {
@@ -88,6 +89,7 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
   const [isExporting, setIsExporting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editSubtotal, setEditSubtotal] = useState("");
+  const [editOriginalSubtotal, setEditOriginalSubtotal] = useState(0);
   const [editLoading, setEditLoading] = useState(false);
   const { csrfToken } = useCSRF();
 
@@ -95,6 +97,7 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
     const taxAmt = Number(invoice.tax_amount) || 0;
     const subtotalVal = taxAmt > 0 ? invoice.total - taxAmt : invoice.total;
     setEditSubtotal(subtotalVal.toFixed(2));
+    setEditOriginalSubtotal(subtotalVal);
     setEditOpen(true);
   }
 
@@ -276,7 +279,8 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
           {/* Edit + Sync + Delete buttons */}
           <div className="flex justify-end mt-4 gap-2 flex-wrap">
             {/* [BLOQUE 8] Sync con ítems — aparece SOLO cuando hay drift entre persistido y recalculado.
-                Útil para facturas históricas o strict que quedaron desincronizadas. */}
+                Útil para facturas históricas o strict que quedaron desincronizadas.
+                Si manually_overridden=true, el dialog se vuelve más explícito y manda ?force=true. */}
             {(() => {
               if (!canManageBilling || isDentist) return null;
               const items = invoice.order_items;
@@ -290,6 +294,7 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
                   invoiceNumber={invoice.invoice_number}
                   persistedTotal={persisted}
                   recomputedTotal={recomputed.total}
+                  manuallyOverridden={invoice.manually_overridden === true}
                   onSynced={() => setDialogOpen(false)}
                 />
               );
@@ -410,6 +415,24 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
                 </div>
               </div>
             )}
+            {/* Warning de override: aparece cuando el subtotal ingresado difiere del persistido.
+                Avisa que la factura quedará marcada como ajuste manual y que cualquier sync futuro
+                requerirá confirmación. */}
+            {(() => {
+              const parsed = parseFloat(editSubtotal);
+              if (!editSubtotal || isNaN(parsed)) return null;
+              const changed = Math.abs(parsed - editOriginalSubtotal) > 0.01;
+              if (!changed) return null;
+              return (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900">
+                  <p className="font-semibold mb-0.5">Ajuste manual</p>
+                  <p className="text-amber-800 leading-snug">
+                    Si guardás, la factura queda marcada como ajustada manualmente.
+                    Cualquier sincronización futura desde ítems va a requerir confirmación.
+                  </p>
+                </div>
+              );
+            })()}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={editLoading} className="bg-primary hover:bg-primary/90">
