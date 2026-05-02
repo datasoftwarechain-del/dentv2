@@ -3,6 +3,7 @@ import { getOrgForApiRoute } from "@/lib/auth-utils";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { validateCSRF } from "@/lib/csrf";
+import { localDateInputToISO } from "@/lib/date-utils";
 
 // GET: list patient invoices for the org
 export async function GET(request: NextRequest) {
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
         items: items || [],
         subtotal: subtotal || total,
         total,
-        due_date: dueDate || null,
+        due_date: localDateInputToISO(dueDate),
         notes: notes || null,
         status: "pending",
       })
@@ -102,7 +103,7 @@ export async function PATCH(request: NextRequest) {
     }
     if (total !== undefined) updateData.total = total;
     if (description !== undefined) updateData.description = description;
-    if (dueDate !== undefined) updateData.due_date = dueDate;
+    if (dueDate !== undefined) updateData.due_date = localDateInputToISO(dueDate);
     if (notes !== undefined) updateData.notes = notes;
 
     const { error } = await supabase

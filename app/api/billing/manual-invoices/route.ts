@@ -3,6 +3,7 @@ import { getOrgForApiRoute } from "@/lib/auth-utils";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { validateCSRF } from "@/lib/csrf";
+import { localDateInputToISO } from "@/lib/date-utils";
 
 // POST: create a manual invoice (no order required)
 export async function POST(request: NextRequest) {
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
         total: Number(total),
         tax_amount: 0,
         status: "pending",
-        due_date: dueDate || null,
+        due_date: localDateInputToISO(dueDate),
         notes: notes?.trim() || null,
         totals_strict: true,
       })

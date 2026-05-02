@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
+import { formatSimpleDate, formatNumber, isoToLocalYYYYMMDD } from "@/lib/date-utils";
 import { useCSRF } from "@/hooks/useCSRF";
 import { cn } from "@/lib/utils";
 import {
@@ -243,7 +243,7 @@ export function UnifiedAccountStatement({
     setEditFormData({
       amount: movement.amount.toString(),
       description: movement.description || "",
-      date: new Date(movement.created_at).toISOString().split('T')[0],
+      date: isoToLocalYYYYMMDD(movement.created_at),
     });
     setEditDialogOpen(true);
   }
