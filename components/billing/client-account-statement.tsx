@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
+import { formatSimpleDate, formatNumber, todayLocalYYYYMMDD } from "@/lib/date-utils";
 import { useCSRF } from "@/hooks/useCSRF";
 import { cn } from "@/lib/utils";
 import {
@@ -156,7 +156,7 @@ export function ClientAccountStatement({
   const [formData, setFormData] = useState({
     amount: "",
     description: "",
-    date: new Date().toISOString().split('T')[0],
+    date: todayLocalYYYYMMDD(),
   });
   const [adjustFormData, setAdjustFormData] = useState({
     targetBalance: "",
@@ -281,7 +281,7 @@ export function ClientAccountStatement({
       setFormData({
         amount: "",
         description: "",
-        date: new Date().toISOString().split('T')[0]
+        date: todayLocalYYYYMMDD(),
       });
       toast.success("Cobro registrado correctamente");
 

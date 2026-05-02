@@ -1,4 +1,58 @@
 /**
+ * Convert a YYYY-MM-DD calendar input (from <input type="date">) into an ISO
+ * timestamp anchored at 12:00 UTC. Anchoring at noon UTC keeps the calendar
+ * date stable across all reasonable timezones (UTC-12 to UTC+12), which fixes
+ * the off-by-one shift you get from `new Date("YYYY-MM-DD").toISOString()`
+ * (that parses as 00:00 UTC and shifts back a day in negative offsets).
+ *
+ * If the input already includes a time component (T...), it's returned as a
+ * normalized ISO string without re-anchoring.
+ */
+export function localDateInputToISO(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const trimmed = input.trim();
+  if (!trimmed) return null;
+  // Pure YYYY-MM-DD (no time): anchor to noon UTC.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return new Date(`${trimmed}T12:00:00.000Z`).toISOString();
+  }
+  // Already a full timestamp: normalize through Date.
+  const d = new Date(trimmed);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+/**
+ * Returns today's date in the user's local timezone as YYYY-MM-DD.
+ * Use this for default values of <input type="date">. Avoid
+ * `new Date().toISOString().split('T')[0]` which uses UTC and will show
+ * tomorrow's date during the local evening in negative-offset timezones.
+ */
+export function todayLocalYYYYMMDD(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = (d.getMonth() + 1).toString().padStart(2, "0");
+  const day = d.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Extract YYYY-MM-DD from any ISO timestamp using the LOCAL timezone.
+ * Use this when pre-filling <input type="date"> from a stored timestamp.
+ * `new Date(iso).toISOString().split('T')[0]` would return the UTC date,
+ * which can be off by one day from what the user expects to see.
+ */
+export function isoToLocalYYYYMMDD(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = (d.getMonth() + 1).toString().padStart(2, "0");
+  const day = d.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * Formats a due_date timestamp to display only the time portion
  * Extracts time directly from ISO string to ensure server/client consistency
  */

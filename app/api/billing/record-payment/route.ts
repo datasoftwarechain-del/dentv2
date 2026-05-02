@@ -6,6 +6,7 @@ import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { validateBody } from "@/lib/api-validation";
 import { validateCSRF } from "@/lib/csrf";
+import { localDateInputToISO } from "@/lib/date-utils";
 
 const RecordPaymentSchema = z.object({
   organizationId: z.string().uuid("organizationId debe ser un UUID válido"),
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
       amount: parsedAmount,
       balance: newBalance,
       description: description || null,
-      created_at: date ? new Date(date).toISOString() : new Date().toISOString(),
+      created_at: localDateInputToISO(date) ?? new Date().toISOString(),
     };
 
     const { data: insertedData, error } = await supabase

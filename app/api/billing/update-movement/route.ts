@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { validateBody } from "@/lib/api-validation";
 import { validateCSRF } from "@/lib/csrf";
+import { localDateInputToISO } from "@/lib/date-utils";
 
 const UpdateMovementSchema = z.object({
   movementId: z.string().uuid("movementId debe ser un UUID válido"),
@@ -52,9 +53,12 @@ export async function PUT(request: NextRequest) {
       description: description || null,
     };
 
-    // Solo actualizar created_at si se proporciona una fecha
+    // Solo actualizar created_at si se proporciona una fecha. Anclar al
+    // mediodía UTC cuando viene como YYYY-MM-DD para evitar el shift de día
+    // en zonas horarias con offset negativo (ej. Argentina UTC-3).
     if (date) {
-      updateData.created_at = new Date(date).toISOString();
+      const iso = localDateInputToISO(date);
+      if (iso) updateData.created_at = iso;
     }
 
     logger.log("Actualizando movimiento:", movementId, updateData);
