@@ -252,27 +252,17 @@ export default async function OrderDetailsPage({
                                                             ? item.catalog_item[0]?.name
                                                             : item.catalog_item?.name;
                                                         const classification = item.work_type ? formatWorkType(item.work_type) : null;
-                                                        // [BLOQUE 2] Show both labels when both exist; either one alone otherwise.
-                                                        const showBoth = Boolean(catalogName && classification);
+                                                        // Mostramos solo el nombre del producto del arancel; el work_type
+                                                        // interno ("Prótesis Removible" por defecto) se ocultaba por
+                                                        // confundir cuando el catálogo ya describe el ítem. Fallback
+                                                        // al work_type formateado solo si no hay catálogo.
+                                                        const label = catalogName || classification || "—";
                                                         const extras: { name: string; price?: number; qty: number }[] =
                                                             Array.isArray(item.selected_extras) ? item.selected_extras : [];
                                                         return (
                                                             <tr key={item.id} className="hover:bg-muted/30 transition-colors">
                                                                 <td className="px-4 py-4 font-bold">
-                                                                    {showBoth ? (
-                                                                        <div className="space-y-0.5">
-                                                                            <p>
-                                                                                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mr-1.5">Producto:</span>
-                                                                                {catalogName}
-                                                                            </p>
-                                                                            <p className="text-xs text-muted-foreground font-medium">
-                                                                                <span className="text-[10px] uppercase tracking-wider mr-1.5">Clasificación:</span>
-                                                                                {classification}
-                                                                            </p>
-                                                                        </div>
-                                                                    ) : (
-                                                                        catalogName || classification || "—"
-                                                                    )}
+                                                                    {label}
                                                                     {extras.length > 0 && (
                                                                         <div className="mt-1 space-y-0.5">
                                                                             {extras.map((e, i) => (
