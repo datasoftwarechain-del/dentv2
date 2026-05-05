@@ -202,39 +202,24 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
               </div>
             )}
             {(() => {
-              // [BLOQUE 2] Show both Producto (catalog) and Clasificación (work_type)
-              // when both exist. Useful when an item's classification was changed
-              // after it was linked to a catalog product.
+              // Mostramos solo el nombre del producto del arancel (catálogo).
+              // El work_type interno (ej. "Prótesis Removible") quedaba como
+              // "Clasificación" debajo y confundía: "Terminacion de 6 a 10"
+              // no es prótesis removible aunque comparta enum interno. Si la
+              // factura no tiene catálogo (manual), caemos al work_type
+              // formateado como única etiqueta.
               const firstItem = invoice.order_items?.[0];
               const catalogName = firstItem?.catalog_item?.name || null;
-              const classification = invoice.work_type ? formatWorkType(invoice.work_type) : null;
-              if (!catalogName && !classification) return null;
-              const showBoth = Boolean(catalogName && classification);
+              const fallback = invoice.work_type ? formatWorkType(invoice.work_type) : null;
+              const label = catalogName || fallback;
+              if (!label) return null;
               return (
                 <div className="bg-white px-5 py-4">
                   <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Tipo de Trabajo</p>
-                  {showBoth ? (
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5">
-                        <Package className="h-3.5 w-3.5 text-[#09919b]" />
-                        <span className="font-bold text-[#044c64] text-sm">
-                          <span className="text-[10px] uppercase tracking-wider text-[#09919b] mr-1">Producto:</span>
-                          {catalogName}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 pl-5">
-                        <span className="text-[10px] uppercase tracking-wider mr-1">Clasificación:</span>
-                        {classification}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <Package className="h-3.5 w-3.5 text-[#09919b]" />
-                      <span className="font-bold text-[#044c64] text-sm">
-                        {catalogName || classification}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    <Package className="h-3.5 w-3.5 text-[#09919b]" />
+                    <span className="font-bold text-[#044c64] text-sm">{label}</span>
+                  </div>
                 </div>
               );
             })()}
