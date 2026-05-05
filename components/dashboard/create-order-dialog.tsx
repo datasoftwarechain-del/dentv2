@@ -303,18 +303,20 @@ function CatalogPicker({
                     <datalist id="catalog-categories">
                         {categories.map((c) => <option key={c} value={c} />)}
                     </datalist>
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">$</span>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="Precio base"
-                            value={newPrice}
-                            onChange={(e) => setNewPrice(e.target.value)}
-                            className="flex-1 px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
-                        />
-                    </div>
+                    {showPrices && (
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">$</span>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Precio base"
+                                value={newPrice}
+                                onChange={(e) => setNewPrice(e.target.value)}
+                                className="flex-1 px-3 h-8 text-sm border border-border/60 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40 bg-background placeholder:text-muted-foreground"
+                            />
+                        </div>
+                    )}
                     <div className="flex gap-2 pt-1">
                         <button
                             type="button"

@@ -51,6 +51,7 @@ interface DentistDashboardProps {
   tomorrowOrders: Order[];
   labs: Lab[];
   isReadOnly?: boolean;
+  showPrices?: boolean;
 }
 
 // ── SVG Ring progress ─────────────────────────────────────────────────────────
@@ -78,6 +79,7 @@ function shortDay(d: Date) {
 
 export function DentistDashboard({
   orgId, orgName, patients, appointments, orders, todayOrders, tomorrowOrders, labs, isReadOnly = false,
+  showPrices = true,
 }: DentistDashboardProps) {
   const statusLabels = ORDER_STATUS_LABELS;
   const now = new Date();
@@ -173,7 +175,7 @@ export function DentistDashboard({
             })}
           </p>
         </div>
-        {!isReadOnly && <QuickActions organizationId={orgId} patients={patients} labs={labs} />}
+        {!isReadOnly && <QuickActions organizationId={orgId} patients={patients} labs={labs} showPrices={showPrices} />}
       </div>
 
       {/* ── Delivery Alerts ──────────────────────────────────────────────── */}

@@ -92,7 +92,7 @@ export default async function EditOrderPage({
       ? await getEffectivePricesBatch(supabase, labOrgId, orderDentistId, baseCatalog)
       : new Map();
 
-  const catalogItems = baseCatalog.map((c) => {
+  const catalogItemsFull = baseCatalog.map((c) => {
     const eff = overrideMap.get(c.id);
     return {
       ...c,
@@ -100,6 +100,19 @@ export default async function EditOrderPage({
       has_override: eff?.hasOverride ?? false,
     };
   });
+
+  // Defensa en dos capas: si el caller es colaborador sin view_prices,
+  // redactamos los precios antes de pasar el catálogo al Client Component.
+  // Estructura preservada (base_price=0, effective_price=0) para que el form
+  // siga funcionando — el PATCH server-side rellena unit_price desde el
+  // catálogo cuando recibe un nuevo item con catalog_item_id y unit_price nulo.
+  const catalogItems = showPrices
+    ? catalogItemsFull
+    : catalogItemsFull.map((c) => ({
+        ...c,
+        base_price: 0,
+        effective_price: 0,
+      }));
 
   // [BLOQUE 8 ext] Detect linked active invoice. Voided invoices are ignored.
   // The form uses this to render a banner + a "Save and sync invoice" action

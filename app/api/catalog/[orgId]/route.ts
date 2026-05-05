@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserOrg } from "@/lib/get-user-org";
+import { canViewPrices } from "@/lib/permissions";
 
 /**
  * GET /api/catalog/[orgId]
@@ -12,6 +14,10 @@ import { NextRequest, NextResponse } from "next/server";
  * Seguridad:
  * - El usuario debe estar autenticado
  * - Solo se exponen catálogos de orgs de tipo "lab" (nunca dentistas)
+ * - Si el caller es colaborador sin `view_prices`, los montos
+ *   (`base_price`, `extras[].price`) se eliminan de la respuesta para
+ *   evitar fuga vía curl directo al endpoint (defensa en dos capas
+ *   junto con la UI gating en create/edit forms).
  */
 export async function GET(
   _request: NextRequest,
@@ -24,12 +30,12 @@ export async function GET(
       return NextResponse.json({ error: "Missing orgId" }, { status: 400 });
     }
 
-    // 1. Verificar sesión del usuario
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // 1. Verificar sesión + cargar permisos del caller
+    const { user, permissions } = await getUserOrg();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const showPrices = canViewPrices(permissions);
 
     // 2. Usar admin client para leer catálogo (bypasea RLS)
     const admin = createAdminClient();
@@ -59,7 +65,25 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ catalog: catalog ?? [] });
+    const items = catalog ?? [];
+
+    // 4. Sanitizar montos para colaboradores sin view_prices.
+    // Estructuralmente preservamos los campos para no romper el cliente,
+    // pero seteamos los precios a 0 — el form computa unitPrice = 0 y
+    // el backend (PATCH /api/orders/[id]) rellenará el unit_price real
+    // desde el catálogo cuando reciba un nuevo item con catalog_item_id
+    // y unit_price nulo/0.
+    const safe = showPrices
+      ? items
+      : items.map((c: any) => ({
+          ...c,
+          base_price: 0,
+          extras: Array.isArray(c.extras)
+            ? c.extras.map((e: any) => ({ ...e, price: 0 }))
+            : c.extras,
+        }));
+
+    return NextResponse.json({ catalog: safe });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Error interno del servidor" },

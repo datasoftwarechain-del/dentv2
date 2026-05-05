@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { getUserOrg } from "@/lib/get-user-org";
+import { canViewPrices } from "@/lib/permissions";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,10 +28,12 @@ export default async function PatientDetailsPage({
     params: { id: string };
 }) {
     const { id } = await params;
-    const { user, org } = await getUserOrg();
+    const { user, org, permissions } = await getUserOrg();
     const supabase = await createClient();
 
     if (org.type !== "dentist") redirect("/dashboard");
+
+    const showPrices = canViewPrices(permissions);
 
     // Fetch patient details
     const { data: patient } = await supabase
@@ -190,7 +193,7 @@ export default async function PatientDetailsPage({
                                     <CardTitle className="text-lg font-bold">Órdenes de Laboratorio</CardTitle>
                                     <CardDescription className="text-xs">Trabajos dentales enviados</CardDescription>
                                 </div>
-                                <OrderActions patient={patient} organizationId={org.id} labs={labs || []} />
+                                <OrderActions patient={patient} organizationId={org.id} labs={labs || []} showPrices={showPrices} />
                             </CardHeader>
                             <CardContent>
                                 {orders && orders.length > 0 ? (

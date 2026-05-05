@@ -42,6 +42,7 @@ interface LabDashboardProps {
   tomorrowOrders: Order[];
   patients: Patient[];
   dentistOrgs: Org[];
+  showPrices?: boolean;
 }
 
 // ── SVG Ring progress ────────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ function shortDay(d: Date) {
 
 export function LabDashboard({
   orgId, orgName, orders, todayOrders, tomorrowOrders, patients, dentistOrgs,
+  showPrices = true,
 }: LabDashboardProps) {
   const statusLabels = ORDER_STATUS_LABELS;
   const now = new Date();
@@ -175,7 +177,7 @@ export function LabDashboard({
             })}
           </p>
         </div>
-        <CreateOrderDialog organizationId={orgId} mode="lab" patients={patients} labs={dentistOrgs} />
+        <CreateOrderDialog organizationId={orgId} mode="lab" patients={patients} labs={dentistOrgs} showPrices={showPrices} />
       </div>
 
       {/* ── Delivery Alerts ─────────────────────────────────────────────── */}
