@@ -893,7 +893,9 @@ function ItemRow({
                 <Package className="h-3 w-3 mr-1" />
                 {catalogName}
               </Badge>
-              {/* [BLOQUE 4] Indicate if this catalog item has a custom price for the order's client. */}
+              {/* [BLOQUE 4] Indicate if this catalog item has a custom price for the order's client.
+                  The tooltip with concrete amounts is gated by showPrices so collaborators
+                  without view_prices don't leak the override values. */}
               {(() => {
                 const matched = catalogItems.find((c) => c.id === catalogItemId);
                 if (!matched?.has_override) return null;
@@ -903,7 +905,11 @@ function ItemRow({
                   <Badge
                     variant="outline"
                     className="text-[10px] border-[#09919b]/40 text-[#09919b]"
-                    title={`Precio general: $${general}. Precio personalizado: $${custom}.`}
+                    title={
+                      showPrices
+                        ? `Precio general: $${general}. Precio personalizado: $${custom}.`
+                        : "Este trabajo tiene precio personalizado para el cliente."
+                    }
                   >
                     Precio personalizado
                   </Badge>

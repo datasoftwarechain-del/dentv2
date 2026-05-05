@@ -7,11 +7,13 @@ import { ActiveClientCard } from "./components/ActiveClientCard";
 import { SummaryReportCard } from "./components/SummaryReportCard";
 import { WorksInProgressList } from "./components/WorksInProgressList";
 import { getUserOrg } from "@/lib/get-user-org";
+import { canViewPrices } from "@/lib/permissions";
 
 export default async function LaboratoryDashboardPage() {
     // Shares React.cache() with layout — no extra auth round-trip
-    const { user, org } = await getUserOrg();
+    const { user, org, permissions } = await getUserOrg();
     if (org.type !== "lab") redirect("/dashboard");
+    const showPrices = canViewPrices(permissions);
 
     const supabase = await createClient();
 
@@ -57,6 +59,7 @@ export default async function LaboratoryDashboardPage() {
                         mode="lab"
                         patients={patients || []}
                         labs={dentistOrgs || []}
+                        showPrices={showPrices}
                     />
                 </div>
 

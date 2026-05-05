@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserOrg } from "@/lib/get-user-org";
+import { canViewPrices } from "@/lib/permissions";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { redirect } from "next/navigation";
 import { LabDashboard } from "@/components/dashboard/lab-dashboard";
@@ -10,7 +11,8 @@ import { CreateOrderDialog } from "@/components/dashboard/create-order-dialog";
 export default async function DashboardPage() {
   // getUserOrg() is memoized via React.cache() — shares the result with
   // layout.tsx which calls it in the same server request, so no extra roundtrip.
-  const { user, org } = await getUserOrg();
+  const { user, org, permissions } = await getUserOrg();
+  const showPrices = canViewPrices(permissions);
   const supabase = await createClient();
 
   const isPreview = org.type === "dentist_preview";
@@ -119,6 +121,7 @@ export default async function DashboardPage() {
           tomorrowOrders={(tomorrowOrders as any) || []}
           patients={patients || []}
           dentistOrgs={dentistOrgs || []}
+          showPrices={showPrices}
         />
       </div>
     );
@@ -252,6 +255,7 @@ export default async function DashboardPage() {
         tomorrowOrders={(tomorrowOrders as any) || []}
         labs={labs}
         isReadOnly={isPreview}
+        showPrices={showPrices}
       />
     </div>
   );

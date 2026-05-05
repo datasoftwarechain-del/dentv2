@@ -63,14 +63,16 @@ interface OrderActionsProps {
     patient: Patient;
     organizationId: string;
     labs: Lab[];
+    showPrices?: boolean;
 }
 
-export function OrderActions({ patient, organizationId, labs }: OrderActionsProps) {
+export function OrderActions({ patient, organizationId, labs, showPrices = true }: OrderActionsProps) {
     return (
         <CreateOrderDialog
             organizationId={organizationId}
             patients={[patient]}
             labs={labs}
+            showPrices={showPrices}
         >
             <Button size="sm" variant="outline" className="h-8 text-xs font-bold gap-1">
                 <Plus className="h-3 w-3" /> Nueva Orden

@@ -3,6 +3,7 @@ import { validateCSRF } from "@/lib/csrf";
 import { createClient } from "@/lib/supabase/server";
 import { isCollaboratorRole, hasPermission, permissionDeniedMessage } from "@/lib/permissions";
 import { validateBody } from "@/lib/api-validation";
+import { getEffectivePricesBatch } from "@/lib/pricing";
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -210,16 +211,50 @@ export async function PATCH(
 
     // 4) Insert new items
     if (items.new && items.new.length > 0) {
-      const rows = items.new.map((it) => ({
-        order_id: id,
-        catalog_item_id: it.catalog_item_id ?? null,
-        work_type: it.work_type ?? null,
-        tooth_positions: it.tooth_positions ?? null,
-        shade: it.shade ?? null,
-        quantity: it.quantity,
-        unit_price: it.unit_price ?? null,
-        selected_extras: it.selected_extras ?? [],
-      }));
+      // Server-side autocomplete de unit_price: si el item nuevo viene con
+      // catalog_item_id pero sin unit_price (caso del colaborador sin
+      // view_prices, cuyo catálogo del cliente fue sanitizado a base_price=0),
+      // lo rellenamos con el effective_price del catálogo del lab para este
+      // dentista. Así el dato persiste correcto incluso si el caller nunca
+      // pudo verlo en pantalla.
+      const labOrgId = existingOrder.lab_org_id as string | null;
+      const dentistOrgId = existingOrder.dentist_org_id as string | null;
+      const needsLookup = items.new.filter(
+        (it) => it.catalog_item_id && (it.unit_price === null || it.unit_price === undefined || it.unit_price === 0),
+      );
+      let priceMap = new Map<string, number>();
+      if (needsLookup.length > 0 && labOrgId && dentistOrgId) {
+        const { data: catalogRows } = await supabase
+          .from("price_catalog")
+          .select("id, base_price")
+          .in("id", needsLookup.map((it) => it.catalog_item_id as string));
+        const baseList = (catalogRows ?? []) as { id: string; base_price: number }[];
+        const overrideMap = baseList.length > 0
+          ? await getEffectivePricesBatch(supabase, labOrgId, dentistOrgId, baseList)
+          : new Map();
+        for (const row of baseList) {
+          const eff = overrideMap.get(row.id);
+          priceMap.set(row.id, eff?.effective ?? row.base_price ?? 0);
+        }
+      }
+
+      const rows = items.new.map((it) => {
+        const filled =
+          it.catalog_item_id &&
+          (it.unit_price === null || it.unit_price === undefined || it.unit_price === 0)
+            ? priceMap.get(it.catalog_item_id) ?? null
+            : (it.unit_price ?? null);
+        return {
+          order_id: id,
+          catalog_item_id: it.catalog_item_id ?? null,
+          work_type: it.work_type ?? null,
+          tooth_positions: it.tooth_positions ?? null,
+          shade: it.shade ?? null,
+          quantity: it.quantity,
+          unit_price: filled,
+          selected_extras: it.selected_extras ?? [],
+        };
+      });
       const { error: insErr } = await supabase
         .from("lab_order_items")
         .insert(rows);
