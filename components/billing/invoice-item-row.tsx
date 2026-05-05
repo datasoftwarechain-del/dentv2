@@ -21,7 +21,9 @@ interface InvoiceItemRowProps {
   };
   /**
    * true → factura nueva (totals_strict). Línea principal muestra
-   * (basePrice + extras) × cantidad y el subtotal del ítem siempre.
+   * basePrice × cantidad (sin extras) y el "Subtotal ítem" muestra el
+   * total con extras. Esto coincide con el render del PDF y evita la
+   * doble lectura del subtotal cuando el ítem tiene extras.
    * false (default) → factura histórica, render legacy: solo basePrice
    * en línea principal y subtotal solo cuando hay extras.
    */
@@ -39,9 +41,11 @@ export function InvoiceItemRow({ item, strictMode = false }: InvoiceItemRowProps
     : (item.unit_price ?? basePrice + extrasTotal);
   const showQtyBadge = qty > 1;
 
-  // En strict, la línea principal muestra el total del ítem (incluye extras × qty).
-  // En legacy, mantiene el comportamiento histórico: solo basePrice.
-  const mainLineAmount = strictMode ? itemTotal : basePrice;
+  // En strict: línea principal = basePrice × cantidad (sin extras). Los
+  // extras se suman aparte y el "Subtotal ítem" muestra el total. Antes
+  // se renderizaba itemTotal acá, lo que duplicaba la suma cuando había
+  // extras y desalineaba con el PDF.
+  const mainLineAmount = strictMode ? basePrice * qty : basePrice;
 
   return (
     <div className="bg-white px-5 py-4 space-y-2">
