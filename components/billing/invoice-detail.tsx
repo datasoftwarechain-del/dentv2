@@ -53,6 +53,13 @@ interface InvoiceDetailProps {
      * subtotal informativo desde items para auditoría.
      */
     manually_overridden?: boolean;
+    /**
+     * [031_invoice_discounts] Descuento persistido. Si discount_amount > 0
+     * se muestra una línea "Descuento (X%)" entre subtotal e IVA.
+     */
+    discount_type?: "percent" | "amount" | null;
+    discount_value?: number | null;
+    discount_amount?: number;
   };
   isDentist: boolean;
   className?: string;
@@ -291,6 +298,23 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
             </span>
             <span className="text-sm font-semibold text-slate-700">${formatNumber(displayedSubtotal)}</span>
           </div>
+          {/* [031_invoice_discounts] Línea de descuento. Solo aparece cuando
+              discount_amount > 0. Si discount_type='percent', mostramos el %
+              tipeado; si es 'amount', solo "Descuento". El valor se muestra
+              en negativo con prefijo `−`. Las facturas legacy con
+              discount_amount=0 no muestran esta línea. */}
+          {(invoice.discount_amount ?? 0) > 0 && (
+            <div className="flex justify-between items-center px-6 py-3.5 bg-white border-b border-[#b0dde0]/30">
+              <span className="text-sm text-emerald-700 font-medium">
+                Descuento{invoice.discount_type === "percent" && invoice.discount_value != null
+                  ? ` (${invoice.discount_value}%)`
+                  : ""}
+              </span>
+              <span className="text-sm font-semibold text-emerald-700 tabular-nums">
+                −${formatNumber(invoice.discount_amount ?? 0)}
+              </span>
+            </div>
+          )}
           {hasTax && (
             <div className="flex justify-between items-center px-6 py-3.5 bg-white border-b border-[#b0dde0]/30">
               <span className="text-sm text-slate-500 font-medium">

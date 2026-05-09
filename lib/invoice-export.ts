@@ -35,6 +35,10 @@ interface Invoice {
   order_items?: OrderItem[];
   balanceBefore?: number;
   balanceAfter?: number;
+  // [031_invoice_discounts] Descuento persistido (opcional).
+  discount_type?: "percent" | "amount" | null;
+  discount_value?: number | null;
+  discount_amount?: number;
 }
 
 const statusLabels: Record<string, string> = {
@@ -202,29 +206,41 @@ function generateInvoiceHTML(invoice: Invoice, isDentist: boolean): HTMLElement 
           const basePrice = item.unit_price ?? item.catalog_item?.base_price ?? 0;
           const extras = Array.isArray(item.selected_extras) ? item.selected_extras : [];
           const extrasTotal = extras.reduce((sum: number, e: any) => sum + e.price * (e.qty ?? 1), 0);
-          // El subtotal ítem siempre suma base + extras × qty (igual que la UI).
-          const totalPrice = basePrice + extrasTotal;
-          const qty = item.quantity > 1 ? ` ×${item.quantity}` : "";
+          const itemQty = Number(item.quantity) || 1;
+          // [Auditoría 1.4] Línea principal y subtotal del ítem ahora multiplican
+          // por qty (paridad con InvoiceItemRow strict). El total de la factura
+          // sigue siendo invoice.total persistido — no se recalcula acá.
+          const lineAmount = basePrice * itemQty;
+          const itemSubtotal = (basePrice + extrasTotal) * itemQty;
+          const qtyBadge = itemQty > 1 ? ` ×${itemQty}` : "";
           return `
           <div style="background: white; padding: 16px 20px; border-bottom: 1px solid #e0f4f6;">
             <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px;">
-              <span style="font-size: 14px; font-weight: 700; color: #044c64;">${sanitize(itemName)}${qty}</span>
-              <span style="font-size: 14px; font-weight: 600; color: #044c64; white-space: nowrap;">$${formatNumber(basePrice)}</span>
+              <span style="font-size: 14px; font-weight: 700; color: #044c64;">${sanitize(itemName)}${qtyBadge}</span>
+              <span style="font-size: 14px; font-weight: 600; color: #044c64; white-space: nowrap;">$${formatNumber(lineAmount)}</span>
             </div>
             ${extras.length > 0 ? `
             <div style="margin-top: 8px; padding-left: 16px; border-left: 3px solid rgba(67,234,218,0.4);">
               ${extras.map((e: any) => {
                 const eQty = e.qty ?? 1;
+                // Cada extra se multiplica también por la cantidad del ítem
+                // padre (igual que computeItemTotal).
+                const extraLineAmount = e.price * eQty * itemQty;
                 return `
                 <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-bottom: 4px;">
-                  <span style="font-size: 12px; color: #64748b;">+ ${sanitize(e.name)}${eQty > 1 ? ` ×${eQty}` : ""}</span>
-                  <span style="font-size: 12px; color: #64748b; white-space: nowrap;">$${formatNumber(e.price * eQty)}</span>
+                  <span style="font-size: 12px; color: #64748b;">+ ${sanitize(e.name)}${eQty > 1 ? ` ×${eQty}` : ""}${itemQty > 1 ? ` × ${itemQty}` : ""}</span>
+                  <span style="font-size: 12px; color: #64748b; white-space: nowrap;">$${formatNumber(extraLineAmount)}</span>
                 </div>`;
               }).join("")}
               <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e0f4f6;">
                 <span style="font-size: 12px; font-weight: 700; color: #044c64;">Subtotal ítem</span>
-                <span style="font-size: 12px; font-weight: 700; color: #044c64; white-space: nowrap;">$${formatNumber(totalPrice)}</span>
+                <span style="font-size: 12px; font-weight: 700; color: #044c64; white-space: nowrap;">$${formatNumber(itemSubtotal)}</span>
               </div>
+            </div>
+            ` : itemQty > 1 ? `
+            <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #e0f4f6;">
+              <span style="font-size: 12px; font-weight: 700; color: #044c64;">Subtotal ítem</span>
+              <span style="font-size: 12px; font-weight: 700; color: #044c64; white-space: nowrap;">$${formatNumber(itemSubtotal)}</span>
             </div>
             ` : ""}
           </div>`;
@@ -239,6 +255,17 @@ function generateInvoiceHTML(invoice: Invoice, isDentist: boolean): HTMLElement 
           <span style="font-size: 13px; color: #64748b; font-weight: 500;">Subtotal</span>
           <span style="font-size: 13px; font-weight: 700; color: #1e293b;">$${formatNumber(invoice.subtotal || invoice.total)}</span>
         </div>
+        ${(invoice.discount_amount ?? 0) > 0 ? `
+        <!-- [031_invoice_discounts] Descuento aplicado al subtotal -->
+        <div style="display: flex; justify-content: space-between; padding: 14px 24px; background: white; border-bottom: 1px solid #e0f4f6;">
+          <span style="font-size: 13px; color: #047857; font-weight: 500;">Descuento${
+            invoice.discount_type === "percent" && invoice.discount_value != null
+              ? ` (${invoice.discount_value}%)`
+              : ""
+          }</span>
+          <span style="font-size: 13px; font-weight: 700; color: #047857;">−$${formatNumber(invoice.discount_amount ?? 0)}</span>
+        </div>
+        ` : ""}
         ${hasTax ? `
         <div style="display: flex; justify-content: space-between; padding: 14px 24px; background: white; border-bottom: 1px solid #e0f4f6;">
           <span style="font-size: 13px; color: #64748b; font-weight: 500;">IVA</span>

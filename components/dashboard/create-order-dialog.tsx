@@ -706,6 +706,23 @@ export function CreateOrderDialog({
                 return;
             }
 
+            // [Auditoría 1.3] Validar montos antes del insert directo a Supabase.
+            // El form inserta sin pasar por API → no hay Zod server-side acá.
+            // unit_price viene del catálogo (no input manual), pero defendemos
+            // por si la state queda con un valor corrupto.
+            const invalidItem = validItems.find(
+                (it) =>
+                    (it.unitPrice ?? 0) < 0 ||
+                    !Number.isFinite(it.quantity) ||
+                    (it.quantity ?? 0) < 1 ||
+                    (it.quantity ?? 0) > 100,
+            );
+            if (invalidItem) {
+                toast.error("Los items deben tener cantidad entre 1 y 100 y precio ≥ 0.");
+                setLoading(false);
+                return;
+            }
+
             const supabase = createClient();
             let finalTargetOrgId = formData.targetOrgId;
 
@@ -1214,9 +1231,15 @@ export function CreateOrderDialog({
                                                 <Input
                                                     type="number"
                                                     min={1}
+                                                    max={100}
+                                                    step={1}
                                                     className="h-9 text-sm border-[#b0dde0] focus-visible:ring-[#09919b]/20 focus-visible:border-[#09919b]"
                                                     value={it.quantity}
-                                                    onChange={(e) => patchItem(it._tempId, { quantity: parseInt(e.target.value) || 1 })}
+                                                    onChange={(e) => {
+                                                        const raw = parseInt(e.target.value) || 1;
+                                                        const clamped = Math.max(1, Math.min(100, raw));
+                                                        patchItem(it._tempId, { quantity: clamped });
+                                                    }}
                                                 />
                                             </div>
 

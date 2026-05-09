@@ -20,7 +20,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await request.json();
-    const { dentistOrgId, patientName, workType, total, dueDate, notes } = body;
+    const {
+      dentistOrgId, patientName, workType, total, dueDate, notes,
+      // [031_invoice_discounts] Inputs opcionales del descuento ya calculado
+      // por el form. Si vienen, persistimos los 3; si no, defaults limpios.
+      subtotal, taxRate, taxAmount, discountType, discountValue, discountAmount,
+    } = body;
 
     if (!dentistOrgId || total === undefined || isNaN(Number(total)) || Number(total) <= 0) {
       return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
@@ -38,6 +43,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Clínica no conectada" }, { status: 403 });
     }
 
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    const parsedTotal    = round2(Number(total));
+    const parsedSubtotal = round2(Number(subtotal ?? total));
+    const parsedTaxRate  = taxRate != null ? Number(taxRate) : 0;
+    const parsedTaxAmt   = round2(Number(taxAmount ?? 0));
+
+    // Validación defensiva del descuento: si viene type, value/amount son números.
+    const hasDiscount = discountType === "percent" || discountType === "amount";
+    const parsedDiscountValue  = hasDiscount && discountValue != null ? Number(discountValue) : null;
+    const parsedDiscountAmount = hasDiscount ? round2(Number(discountAmount ?? 0)) : 0;
+    if (hasDiscount && (parsedDiscountAmount < 0 || (parsedDiscountValue ?? 0) < 0)) {
+      return NextResponse.json({ error: "Descuento inválido" }, { status: 400 });
+    }
+
     const { data, error } = await supabase
       .from("invoices")
       .insert({
@@ -45,9 +64,13 @@ export async function POST(request: NextRequest) {
         dentist_org_id: dentistOrgId,
         patient_name: patientName?.trim() || null,
         work_type: workType || null,
-        subtotal: Number(total),
-        total: Number(total),
-        tax_amount: 0,
+        subtotal: parsedSubtotal,
+        total: parsedTotal,
+        tax_rate: parsedTaxRate,
+        tax_amount: parsedTaxAmt,
+        discount_type: hasDiscount ? discountType : null,
+        discount_value: hasDiscount ? parsedDiscountValue : null,
+        discount_amount: parsedDiscountAmount,
         status: "pending",
         due_date: localDateInputToISO(dueDate),
         notes: notes?.trim() || null,

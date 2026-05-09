@@ -75,7 +75,7 @@ export async function POST(
     const { data: invoice, error: readErr } = await supabase
       .from("invoices")
       .select(
-        "id, lab_org_id, dentist_org_id, order_id, invoice_voided_at, tax_rate, total, manually_overridden",
+        "id, lab_org_id, dentist_org_id, order_id, invoice_voided_at, tax_rate, total, manually_overridden, totals_strict",
       )
       .eq("id", id)
       .maybeSingle();
@@ -92,6 +92,19 @@ export async function POST(
       return NextResponse.json(
         { error: "Esta factura está anulada — sincronizar no aplica." },
         { status: 409 },
+      );
+    }
+    // [Auditoría 8.1] Las facturas históricas (totals_strict=false) son
+    // intocables por diseño: sus montos persistidos son fuente de verdad.
+    // Sincronizarlas las convertiría silenciosamente en strict y se perdería
+    // la naturaleza histórica. Bloquear acá; la UI ya tenía la guarda en
+    // unified-account-statement, esto cierra el flanco vía POST directo.
+    if (invoice.totals_strict === false) {
+      return NextResponse.json(
+        {
+          error: "Factura histórica. Anulá y emití una nueva si necesitás cambiar el monto.",
+        },
+        { status: 400 },
       );
     }
     if (!invoice.order_id) {

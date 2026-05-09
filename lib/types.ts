@@ -125,6 +125,15 @@ export interface Invoice {
   totals_strict: boolean;
   manually_overridden: boolean;
   invoice_voided_at: string | null;
+  /**
+   * [031_invoice_discounts] Descuento persistido como dato real.
+   * type=NULL ⇒ sin descuento. Si type='percent' o 'amount', value es lo
+   * tipeado por el usuario (10% o $500) y amount es el monto resuelto en
+   * pesos. Invariante: total = subtotal − discount_amount + tax_amount.
+   */
+  discount_type: "percent" | "amount" | null;
+  discount_value: number | null;
+  discount_amount: number;
   created_at: string;
   updated_at: string | null;
 }

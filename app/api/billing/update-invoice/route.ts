@@ -14,9 +14,15 @@ import { validateCSRF } from "@/lib/csrf";
 const UpdateInvoiceSchema = z.object({
   invoiceId: z.string().uuid("invoiceId debe ser un UUID válido"),
   total: z.coerce.number().positive("El total debe ser positivo").optional(),
-  subtotal: z.coerce.number().optional(),
+  subtotal: z.coerce.number().min(0, "El subtotal no puede ser negativo").optional(),
   tax_rate: z.coerce.number().min(0).max(100).optional(),
   tax_amount: z.coerce.number().min(0).optional(),
+  // [031_invoice_discounts] Triple opcional. Si discount_type viene null/undefined,
+  // se persiste como "sin descuento" (type=NULL, value=NULL, amount=0).
+  // Si type viene seteado, value y amount son requeridos.
+  discount_type: z.enum(["percent", "amount"]).nullable().optional(),
+  discount_value: z.coerce.number().min(0).nullable().optional(),
+  discount_amount: z.coerce.number().min(0).optional(),
   patient_name: z.string().max(200).nullable().optional(),
   work_type: z.string().max(200).nullable().optional(),
   organizationId: z.string().uuid(),
@@ -43,6 +49,7 @@ export async function PUT(request: NextRequest) {
     if (validation.error) return validation.error;
     const {
       invoiceId, total, subtotal, tax_rate, tax_amount,
+      discount_type, discount_value, discount_amount,
       patient_name, work_type,
       organizationId, clientId, isDentist,
     } = validation.data;
@@ -61,7 +68,9 @@ export async function PUT(request: NextRequest) {
     // comparar montos nuevos vs los persistidos (criterio de flageo).
     const { data: existing, error: readError } = await supabase
       .from("invoices")
-      .select("totals_strict, subtotal, total, tax_amount, manually_overridden")
+      .select(
+        "totals_strict, subtotal, total, tax_amount, manually_overridden, discount_type, discount_value, discount_amount",
+      )
       .eq("id", invoiceId)
       .single();
 
@@ -116,14 +125,31 @@ export async function PUT(request: NextRequest) {
       updateData.tax_rate   = parsedTaxRate;
       updateData.tax_amount = parsedTaxAmt;
 
+      // [031_invoice_discounts] Persistir descuento si vino. Si discount_type
+      // es null o undefined, limpiamos los 3 campos a "sin descuento". Si
+      // viene 'percent' o 'amount', persistimos value + amount tal cual los
+      // calculó el form (no recalculamos en backend, evitando drift).
+      if (discount_type === null || discount_type === undefined) {
+        updateData.discount_type   = null;
+        updateData.discount_value  = null;
+        updateData.discount_amount = 0;
+      } else {
+        updateData.discount_type   = discount_type;
+        updateData.discount_value  = discount_value ?? null;
+        updateData.discount_amount = round2(Number(discount_amount ?? 0));
+      }
+
       const dbTotal    = Number(existing.total) || 0;
       const dbSubtotal = Number(existing.subtotal) || 0;
       const dbTaxAmt   = Number(existing.tax_amount) || 0;
+      const dbDiscAmt  = Number(existing.discount_amount) || 0;
+      const newDiscAmt = Number(updateData.discount_amount) || 0;
       const EPS = 0.01;
       monetaryChanged =
         Math.abs(parsedTotal - dbTotal) > EPS ||
         Math.abs(parsedSubtotal - dbSubtotal) > EPS ||
-        Math.abs(parsedTaxAmt - dbTaxAmt) > EPS;
+        Math.abs(parsedTaxAmt - dbTaxAmt) > EPS ||
+        Math.abs(newDiscAmt - dbDiscAmt) > EPS;
 
       // Solo flagear cuando hay cambio real de montos (no idempotencia).
       // Si ya estaba en true, lo dejamos en true.
