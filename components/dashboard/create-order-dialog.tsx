@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Combobox } from "@/components/ui/combobox";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber } from "@/lib/date-utils";
+import { computeItemTotal } from "@/lib/invoice-totals";
 
 // ──────────────────────────────────────────────
 // Types
@@ -55,6 +56,10 @@ interface CatalogItem {
     name: string;
     base_price: number;
     extras: Extra[];
+    /** Precio efectivo aplicando override del cliente (si lo hay). Si no hay override, igual a base_price. */
+    effective_price?: number;
+    /** True si el cliente target tiene un override de precio para este item. */
+    has_override?: boolean;
 }
 
 // [BLOQUE 7] Multi-item draft. Matches the lab_order_items shape we
@@ -459,7 +464,15 @@ export function CreateOrderDialog({
                 .order("name");
 
             if (!cancelled) {
-                setCatalogItems(data || []);
+                // Seedear effective_price = base_price; un effect separado
+                // aplica los overrides del cliente target cuando se selecciona
+                // (formData.targetOrgId).
+                const seeded = (data || []).map((c: any) => ({
+                    ...c,
+                    effective_price: c.base_price,
+                    has_override: false,
+                }));
+                setCatalogItems(seeded);
                 setCatalogLoading(false);
             }
         }
@@ -467,6 +480,50 @@ export function CreateOrderDialog({
         loadCatalog();
         return () => { cancelled = true; };
     }, [open, mode, organizationId]);
+
+    // ── Lab mode: aplicar overrides del cliente target sobre el catálogo.
+    // Replica el patrón de app/dashboard/orders/[id]/edit/page.tsx pero del
+    // lado del cliente: lee client_price_overrides para el par
+    // (lab=organizationId, dentist=formData.targetOrgId) y actualiza
+    // effective_price/has_override en cada item del catálogo. Si no hay
+    // target seleccionado, deja effective_price = base_price.
+    useEffect(() => {
+        if (!open || mode !== "lab") return;
+        const dentistId = formData.targetOrgId;
+        let cancelled = false;
+
+        async function applyOverrides() {
+            const map = new Map<string, number>();
+            if (dentistId) {
+                const supabase = createClient();
+                const { data } = await supabase
+                    .from("client_price_overrides")
+                    .select("catalog_item_id, custom_price")
+                    .eq("lab_org_id", organizationId)
+                    .eq("dentist_org_id", dentistId);
+                for (const row of data ?? []) {
+                    map.set(row.catalog_item_id, Number(row.custom_price));
+                }
+            }
+            if (cancelled) return;
+            setCatalogItems((prev) =>
+                prev.map((c) => {
+                    const override = map.get(c.id);
+                    return {
+                        ...c,
+                        effective_price: override ?? c.base_price,
+                        has_override: override !== undefined,
+                    };
+                }),
+            );
+        }
+
+        applyOverrides();
+        return () => { cancelled = true; };
+    // catalogItems.length cubre la carrera en que el target ya está fijado
+    // pero el catálogo aún se está cargando: el effect re-corre cuando llega.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, mode, organizationId, formData.targetOrgId, catalogItems.length]);
 
     // ── Dentist mode: cargar catálogo del lab seleccionado al cambiar ──
     useEffect(() => {
@@ -546,11 +603,15 @@ export function CreateOrderDialog({
     function handleCatalogSelect(tempId: string, catalogId: string) {
         const cat = catalogItems.find((i) => i.id === catalogId);
         if (!cat) return;
+        // Snapshot ÚNICAMENTE el precio base efectivo del cliente (override
+        // si existe, base_price si no). Los extras NO se suman acá: van en
+        // selectedExtras y los recompone computeItemTotal al facturar.
+        const effective = cat.effective_price ?? cat.base_price;
         patchItem(tempId, {
             catalogItemId:   cat.id,
             catalogItemName: cat.name,
             workType:        guessWorkType(cat.name),
-            unitPrice:       cat.base_price,
+            unitPrice:       effective,
             selectedExtras:  [],
         });
     }
@@ -559,8 +620,6 @@ export function CreateOrderDialog({
     function updateExtraQty(tempId: string, extra: Extra, qty: number) {
         const item = items.find((it) => it._tempId === tempId);
         if (!item) return;
-        const cat = catalogItems.find((c) => c.id === item.catalogItemId);
-        const basePrice = cat?.base_price ?? item.unitPrice;
         const clampedQty = Math.max(0, Math.min(qty, extra.max_qty || 1));
 
         const existing = item.selectedExtras.find((e) => e.name === extra.name);
@@ -570,16 +629,26 @@ export function CreateOrderDialog({
                 ? item.selectedExtras.map((e) => (e.name === extra.name ? { ...e, qty: clampedQty } : e))
                 : [...item.selectedExtras, { name: extra.name, price: extra.price, qty: clampedQty }];
 
-        const extrasTotal = newExtras.reduce((s, e) => s + e.price * e.qty, 0);
-
-        patchItem(tempId, {
-            selectedExtras: newExtras,
-            unitPrice: basePrice + extrasTotal,
-        });
+        // Solo persistir extras. unitPrice queda como el snapshot del catálogo
+        // (effective_price del cliente). Sumar extras acá causaba doble cobro
+        // porque la factura ya hace (unit_price + extras) × qty.
+        patchItem(tempId, { selectedExtras: newExtras });
     }
 
     // ── Total estimado en vivo (sum across items) ──
-    const liveTotal = items.reduce((sum, it) => sum + (it.unitPrice * (it.quantity || 1)), 0);
+    // Usa la misma fórmula que lib/invoice-totals.ts (paridad con el cálculo
+    // de la factura): (unit_price + Σ extras) × qty.
+    const liveTotal = items.reduce(
+        (sum, it) =>
+            sum +
+            computeItemTotal({
+                unit_price: it.unitPrice,
+                quantity: it.quantity || 1,
+                selected_extras: it.selectedExtras,
+                catalog_item: null,
+            }),
+        0,
+    );
 
     // ── Reset form ──
     function resetForm() {

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserOrg } from "@/lib/get-user-org";
 import { canViewPrices } from "@/lib/permissions";
+import { getEffectivePricesBatch } from "@/lib/pricing";
 
 /**
  * GET /api/catalog/[orgId]
@@ -18,6 +19,13 @@ import { canViewPrices } from "@/lib/permissions";
  *   (`base_price`, `extras[].price`) se eliminan de la respuesta para
  *   evitar fuga vía curl directo al endpoint (defensa en dos capas
  *   junto con la UI gating en create/edit forms).
+ *
+ * Override resolution:
+ * - Cuando el caller es un dentista, enriquecemos cada item con
+ *   `effective_price` y `has_override` aplicando el override del par
+ *   (lab=orgId, dentist=org del caller). Replica el patrón de
+ *   `app/dashboard/orders/[id]/edit/page.tsx` para que el formulario
+ *   de creación pueda persistir `unit_price` correcto sin sumarle extras.
  */
 export async function GET(
   _request: NextRequest,
@@ -31,7 +39,7 @@ export async function GET(
     }
 
     // 1. Verificar sesión + cargar permisos del caller
-    const { user, permissions } = await getUserOrg();
+    const { user, org: callerOrg, permissions } = await getUserOrg();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -65,19 +73,49 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const items = catalog ?? [];
+    const items = (catalog ?? []) as {
+      id: string;
+      category: string;
+      name: string;
+      base_price: number;
+      extras: unknown;
+    }[];
 
-    // 4. Sanitizar montos para colaboradores sin view_prices.
+    // 4. Resolver effective_price por cliente cuando el caller es dentista.
+    // El par (lab=orgId, dentist=callerOrg.id) determina si hay override.
+    // Si el caller es lab (mismo org u otro), no aplica override de cliente:
+    // devolvemos effective_price = base_price.
+    let overrideMap = new Map<string, { effective: number; base: number; hasOverride: boolean }>();
+    if (callerOrg?.type === "dentist" && callerOrg.id && items.length > 0) {
+      overrideMap = await getEffectivePricesBatch(
+        admin,
+        orgId,
+        callerOrg.id,
+        items,
+      );
+    }
+
+    const enriched = items.map((c) => {
+      const eff = overrideMap.get(c.id);
+      return {
+        ...c,
+        effective_price: eff?.effective ?? c.base_price,
+        has_override: eff?.hasOverride ?? false,
+      };
+    });
+
+    // 5. Sanitizar montos para colaboradores sin view_prices.
     // Estructuralmente preservamos los campos para no romper el cliente,
     // pero seteamos los precios a 0 — el form computa unitPrice = 0 y
     // el backend (PATCH /api/orders/[id]) rellenará el unit_price real
     // desde el catálogo cuando reciba un nuevo item con catalog_item_id
     // y unit_price nulo/0.
     const safe = showPrices
-      ? items
-      : items.map((c: any) => ({
+      ? enriched
+      : enriched.map((c) => ({
           ...c,
           base_price: 0,
+          effective_price: 0,
           extras: Array.isArray(c.extras)
             ? c.extras.map((e: any) => ({ ...e, price: 0 }))
             : c.extras,
