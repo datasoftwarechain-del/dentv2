@@ -57,12 +57,16 @@ export default async function ClientAccountPage({ params }: PageProps) {
   if (!clientOrg) redirect("/dashboard/billing");
 
   // Get all invoices for this client. [BLOQUE 3] Excluye voided.
+  // [032_orders_delivered_at] JOIN a lab_orders para traer delivered_at —
+  // la columna ENTREGA del listado lo lee directo (vivo) en vez de
+  // depender de invoices.delivery_date (snapshot poco confiable).
   const { data: invoicesRaw } = await db
     .from("invoices")
     .select(`
       *,
       dentist_org:organizations!invoices_dentist_org_id_fkey(id, name),
-      lab_org:organizations!invoices_lab_org_id_fkey(id, name)
+      lab_org:organizations!invoices_lab_org_id_fkey(id, name),
+      lab_order:lab_orders!invoices_order_id_fkey(delivered_at)
     `)
     .eq(isDentist ? "lab_org_id" : "dentist_org_id", resolvedParams.clientId)
     .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)

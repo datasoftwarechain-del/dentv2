@@ -60,6 +60,12 @@ interface InvoiceDetailProps {
     discount_type?: "percent" | "amount" | null;
     discount_value?: number | null;
     discount_amount?: number;
+    /**
+     * [032_orders_delivered_at] JOIN vivo a lab_orders. Si está presente,
+     * se usa para mostrar la fecha de entrega real (cuándo la orden pasó
+     * a 'delivered'). Reemplaza el snapshot deprecado delivery_date.
+     */
+    lab_order?: { delivered_at: string | null } | { delivered_at: string | null }[] | null;
   };
   isDentist: boolean;
   className?: string;
@@ -230,15 +236,25 @@ export function InvoiceDetail({ invoice, isDentist, className, balanceBefore, ba
                 </div>
               );
             })()}
-            {invoice.delivery_date && (
-              <div className="bg-white px-5 py-4">
-                <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Fecha de Entrega</p>
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-[#09919b]" />
-                  <span className="font-bold text-[#044c64] text-sm">{formatSimpleDate(invoice.delivery_date)}</span>
+            {(() => {
+              // [032_orders_delivered_at] Fuente vivo: lab_order.delivered_at.
+              // Fallback al snapshot deprecado solo para facturas pre-migración
+              // que aún no tienen el JOIN poblado (caso edge en transición).
+              const lo = Array.isArray(invoice.lab_order)
+                ? invoice.lab_order[0]
+                : invoice.lab_order;
+              const deliveredAt = lo?.delivered_at ?? invoice.delivery_date ?? null;
+              if (!deliveredAt) return null;
+              return (
+                <div className="bg-white px-5 py-4">
+                  <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Fecha de Entrega</p>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-[#09919b]" />
+                    <span className="font-bold text-[#044c64] text-sm">{formatSimpleDate(deliveredAt)}</span>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
             <div className="bg-white px-5 py-4">
               <p className="text-[10px] text-[#09919b] font-semibold uppercase tracking-wider mb-1">Fecha de Emisión</p>
               <div className="flex items-center gap-1.5">

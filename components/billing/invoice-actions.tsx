@@ -74,6 +74,9 @@ interface Invoice {
   order_items?: OrderItem[];
   totals_strict?: boolean;
   manually_overridden?: boolean;
+  // [032_orders_delivered_at] Pasa-a-través del JOIN para que InvoiceDetail
+  // (renderizado dentro del dialog) lea delivered_at vivo.
+  lab_order?: { delivered_at: string | null } | { delivered_at: string | null }[] | null;
 }
 
 interface InvoiceActionsProps {

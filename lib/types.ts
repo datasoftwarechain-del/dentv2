@@ -85,6 +85,12 @@ export interface LabOrder {
   description: string | null;
   created_at: string;
   updated_at: string | null;
+  /**
+   * [032_orders_delivered_at] Momento en que la orden pasó a 'delivered'.
+   * Set/cleared por trigger set_delivered_at en BEFORE UPDATE OF status.
+   * NULL si nunca llegó a delivered o si se revirtió.
+   */
+  delivered_at: string | null;
 }
 
 export interface AuthUser {

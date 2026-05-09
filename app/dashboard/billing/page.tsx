@@ -76,11 +76,14 @@ export default async function BillingPage() {
             .order("first_name"),
 
       // Facturas formales (lab → clínica). [BLOQUE 3] Excluye voided.
+      // [032_orders_delivered_at] JOIN a lab_orders para que la UI lea
+      // delivered_at vivo en vez del snapshot de delivery_date.
       db
         .from("invoices")
         .select(`
           *,
-          lab_org:organizations!invoices_lab_org_id_fkey(id, name)
+          lab_org:organizations!invoices_lab_org_id_fkey(id, name),
+          lab_order:lab_orders!invoices_order_id_fkey(delivered_at)
         `)
         .eq("dentist_org_id", effectiveOrgId)
         .is("invoice_voided_at", null)
@@ -211,7 +214,8 @@ export default async function BillingPage() {
       .select(`
         *,
         dentist_org:organizations!invoices_dentist_org_id_fkey(id, name),
-        lab_org:organizations!invoices_lab_org_id_fkey(id, name)
+        lab_org:organizations!invoices_lab_org_id_fkey(id, name),
+        lab_order:lab_orders!invoices_order_id_fkey(delivered_at)
       `)
       .eq("lab_org_id", org.id)
       .is("invoice_voided_at", null) // [BLOQUE 3]

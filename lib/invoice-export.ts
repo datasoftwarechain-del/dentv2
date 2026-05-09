@@ -39,6 +39,9 @@ interface Invoice {
   discount_type?: "percent" | "amount" | null;
   discount_value?: number | null;
   discount_amount?: number;
+  // [032_orders_delivered_at] Fecha viva en que la orden pasó a delivered.
+  // Si está presente, prevalece sobre delivery_date para el PDF.
+  lab_order?: { delivered_at: string | null } | { delivered_at: string | null }[] | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -178,12 +181,20 @@ function generateInvoiceHTML(invoice: Invoice, isDentist: boolean): HTMLElement 
             <p style="margin: 0; font-size: 14px; font-weight: 700; color: #044c64;">${sanitize(invoice.work_type)}</p>
           </div>
           ` : ""}
-          ${invoice.delivery_date ? `
+          ${(() => {
+            // [032_orders_delivered_at] PDF: lee delivered_at vivo si está,
+            // fallback al snapshot deprecado para compat con datos preexistentes.
+            const lo = Array.isArray(invoice.lab_order)
+              ? invoice.lab_order[0]
+              : invoice.lab_order;
+            const deliveredAt = lo?.delivered_at ?? invoice.delivery_date ?? null;
+            if (!deliveredAt) return "";
+            return `
           <div style="background: white; padding: 16px 20px;">
             <p style="margin: 0 0 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #09919b;">Fecha de Entrega</p>
-            <p style="margin: 0; font-size: 14px; font-weight: 700; color: #044c64;">${formatDate(invoice.delivery_date)}</p>
-          </div>
-          ` : ""}
+            <p style="margin: 0; font-size: 14px; font-weight: 700; color: #044c64;">${formatDate(deliveredAt)}</p>
+          </div>`;
+          })()}
           <div style="background: white; padding: 16px 20px;">
             <p style="margin: 0 0 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #09919b;">Fecha de Emisión</p>
             <p style="margin: 0; font-size: 14px; font-weight: 700; color: #044c64;">${formatDate(invoice.created_at)}</p>
