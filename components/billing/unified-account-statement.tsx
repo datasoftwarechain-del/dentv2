@@ -67,6 +67,8 @@ interface Invoice {
   id: string;
   invoice_number: string;
   total: number;
+  subtotal?: number;
+  tax_rate?: number;
   tax_amount: number;
   status: string;
   created_at: string;
@@ -78,6 +80,11 @@ interface Invoice {
   lab_org?: Organization | null;
   totals_strict?: boolean;
   manually_overridden?: boolean;
+  // [031_invoice_discounts] Descuento persistido. NULL/0 si la factura no
+  // tiene descuento explícito (la mayoría de las históricas).
+  discount_type?: "percent" | "amount" | null;
+  discount_value?: number | null;
+  discount_amount?: number;
 }
 
 interface LedgerMovement {
@@ -258,9 +265,18 @@ export function UnifiedAccountStatement({
     setSelectedInvoice(invoice);
     const taxAmt = Number(invoice.tax_amount) || 0;
     const hasTax = taxAmt > 0;
-    const subtotalVal = hasTax ? invoice.total - taxAmt : invoice.total;
+    // [031_invoice_discounts] Si la factura tiene descuento persistido,
+    // `invoice.subtotal` es el subtotal pre-descuento (gross). Lo usamos
+    // verbatim. Para legacy (discount_amount=0), conservamos el comportamiento
+    // anterior: derivar subtotal = total - tax (la mayoría de las históricas
+    // tienen subtotal=total, así que no cambia).
+    const persistedDiscAmt = Number(invoice.discount_amount) || 0;
+    const hasPersistedDiscount = persistedDiscAmt > 0 && invoice.discount_type != null;
+    const subtotalVal = hasPersistedDiscount && invoice.subtotal != null
+      ? Number(invoice.subtotal)
+      : (hasTax ? invoice.total - taxAmt : invoice.total);
     const computedRate = hasTax && subtotalVal > 0
-      ? Math.round(taxAmt / subtotalVal * 100).toString()
+      ? Math.round(taxAmt / Math.max(subtotalVal - persistedDiscAmt, 1) * 100).toString()
       : "10";
     setEditInvoiceFormData({
       subtotal: subtotalVal.toFixed(2),
@@ -268,9 +284,11 @@ export function UnifiedAccountStatement({
       work_type: invoice.work_type || "",
       applyIva: hasTax,
       ivaRate: computedRate,
-      applyDiscount: false,
-      discountType: "percent",
-      discountValue: "",
+      applyDiscount: hasPersistedDiscount,
+      discountType: (invoice.discount_type as "percent" | "amount") || "percent",
+      discountValue: hasPersistedDiscount && invoice.discount_value != null
+        ? String(invoice.discount_value)
+        : "",
     });
     setEditInvoiceDialogOpen(true);
   }
@@ -322,10 +340,11 @@ export function UnifiedAccountStatement({
     if (!selectedInvoice) return;
 
     const parsedSubtotal = parseFloat(editInvoiceFormData.subtotal) || 0;
+    const rawDiscountValue = parseFloat(editInvoiceFormData.discountValue) || 0;
     const discountAmt = editInvoiceFormData.applyDiscount
       ? editInvoiceFormData.discountType === "percent"
-        ? parseFloat((parsedSubtotal * (parseFloat(editInvoiceFormData.discountValue) || 0) / 100).toFixed(2))
-        : parseFloat(editInvoiceFormData.discountValue) || 0
+        ? parseFloat((parsedSubtotal * rawDiscountValue / 100).toFixed(2))
+        : rawDiscountValue
       : 0;
     const subtotalAfterDiscount = parseFloat((parsedSubtotal - discountAmt).toFixed(2));
     const parsedIvaRate  = editInvoiceFormData.applyIva ? parseFloat(editInvoiceFormData.ivaRate) || 10 : 0;
@@ -346,6 +365,13 @@ export function UnifiedAccountStatement({
           subtotal: parsedSubtotal,
           tax_rate: parsedIvaRate,
           tax_amount: parsedIvaAmt,
+          // [031_invoice_discounts] Persistir descuento como dato real.
+          // Si applyDiscount=false, mandamos null/0 para limpiar.
+          discount_type: editInvoiceFormData.applyDiscount
+            ? editInvoiceFormData.discountType
+            : null,
+          discount_value: editInvoiceFormData.applyDiscount ? rawDiscountValue : null,
+          discount_amount: editInvoiceFormData.applyDiscount ? discountAmt : 0,
           patient_name: editInvoiceFormData.patient_name,
           work_type: editInvoiceFormData.work_type,
           organizationId,

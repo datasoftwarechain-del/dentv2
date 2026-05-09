@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InvoiceDetail } from "./invoice-detail";
 import { DeleteInvoiceButton } from "./delete-invoice-button";
+import { PermanentDeleteInvoiceButton } from "./permanent-delete-invoice-button";
 import { SyncInvoiceButton } from "./sync-invoice-button";
 import { computeInvoiceTotals } from "@/lib/invoice-totals";
 import {
@@ -303,6 +304,17 @@ export function InvoiceActions({ invoice, isDentist, balanceBefore, balanceAfter
             {/* [BLOQUE 3] Anular factura — solo lab con manage_billing. Histórica también puede anularse, pero el flujo es "anular + emitir nueva" sin modificar la histórica. */}
             {canManageBilling && !isDentist && (
               <DeleteInvoiceButton
+                invoiceId={invoice.id}
+                invoiceNumber={invoice.invoice_number}
+                invoiceTotal={invoice.total}
+                onDeleted={() => setDialogOpen(false)}
+              />
+            )}
+            {/* [Sección 3] Eliminar permanentemente — hard-delete irreversible.
+                Coexiste con Anular. El endpoint rechaza con 409 si la factura
+                tiene pagos asociados; en ese caso el toast muestra el motivo. */}
+            {canManageBilling && !isDentist && (
+              <PermanentDeleteInvoiceButton
                 invoiceId={invoice.id}
                 invoiceNumber={invoice.invoice_number}
                 invoiceTotal={invoice.total}

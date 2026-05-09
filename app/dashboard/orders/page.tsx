@@ -5,23 +5,42 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { OrdersList } from "@/components/orders/orders-list";
 import { getUserOrg } from "@/lib/get-user-org";
 
-export default async function OrdersPage() {
+// [Sección 5] Filtros + paginación server-side. Lectura de searchParams para
+// que la URL sea bookmarkeable y el listado refresque/comparta sin perder estado.
+const PAGE_SIZE = 25;
+
+interface OrdersSearchParams {
+  q?: string;            // Número de orden (ilike)
+  patient?: string;      // Búsqueda por nombre de paciente (ilike sobre first_name/last_name)
+  client?: string;       // ID de la clínica/lab (UUID)
+  status?: string;       // Estado de la orden
+  date_from?: string;    // YYYY-MM-DD inclusive
+  date_to?: string;      // YYYY-MM-DD inclusive
+  page?: string;         // 1-indexed
+}
+
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<OrdersSearchParams>;
+}) {
+  const sp = await searchParams;
+  const requestedPage = Math.max(1, parseInt(sp.page || "1", 10) || 1);
+  const offset = (requestedPage - 1) * PAGE_SIZE;
+
   const { user, org, isCollaborator, permissions } = await getUserOrg();
   if (isCollaborator && !permissions?.view_orders) redirect("/dashboard");
 
   const isPreview = org.type === "dentist_preview";
   const isDentist = org.type === "dentist" || isPreview;
 
-  // Preview orgs are view-only — no creating or updating
   const canCreate = isPreview ? false : (!isCollaborator || !!permissions?.create_orders);
   const canUpdateStatus = isPreview ? false : (!isCollaborator || !!permissions?.update_order_status);
   const showPrices = !isCollaborator || !!permissions?.view_prices;
 
   const supabase = await createClient();
 
-  // For preview orgs, resolve the real dentist org ID from the invitation record
   let effectiveOrgId = org.id;
-  // Admin client bypasses RLS — used for both invitation lookup and data queries for preview users
   const db = isPreview ? createAdminClient() : supabase;
 
   if (isPreview) {
@@ -35,8 +54,25 @@ export default async function OrdersPage() {
     effectiveOrgId = invitation.dentist_org_id;
   }
 
-  // Get orders based on org type — limit prevents unbounded result sets
-  const { data: orders } = await db
+  // [Sección 5] Resolver patient_ids cuando hay filtro por paciente.
+  // Sub-query separada: encontramos pacientes cuyos first/last name matchean
+  // y filtramos `lab_orders.patient_id IN (...)`. Más limpio que un join
+  // con !inner + foreignTable, y mantiene paginación correcta.
+  let patientIdFilter: string[] | null = null;
+  if (sp.patient && sp.patient.trim()) {
+    const term = sp.patient.trim();
+    const dentistScope = isDentist ? effectiveOrgId : null;
+    let patientQ = db.from("patients").select("id");
+    if (dentistScope) patientQ = patientQ.eq("dentist_org_id", dentistScope);
+    const { data: patientRows } = await patientQ.or(
+      `first_name.ilike.%${term}%,last_name.ilike.%${term}%`,
+    );
+    patientIdFilter = (patientRows || []).map((p: any) => p.id);
+    if (patientIdFilter.length === 0) patientIdFilter = ["__none__"]; // fuerza 0 resultados
+  }
+
+  // Query principal con count exact para paginación
+  let query = db
     .from("lab_orders")
     .select(`
       *,
@@ -44,12 +80,42 @@ export default async function OrdersPage() {
       patient:patients(id, first_name, last_name),
       dentist_org:organizations!lab_orders_dentist_org_id_fkey(id, name),
       lab_org:organizations!lab_orders_lab_org_id_fkey(id, name)
-    `)
-    .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)
-    .order("created_at", { ascending: false })
-    .limit(100);
+    `, { count: "exact" })
+    .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId);
 
-  // For dentists, get patients and available labs
+  if (sp.q && sp.q.trim()) {
+    query = query.ilike("order_number", `%${sp.q.trim()}%`);
+  }
+  if (sp.status && sp.status !== "all") {
+    query = query.eq("status", sp.status);
+  }
+  if (sp.client && sp.client.trim()) {
+    // Para dentista filtra por lab; para lab filtra por dentista.
+    query = query.eq(isDentist ? "lab_org_id" : "dentist_org_id", sp.client.trim());
+  }
+  if (sp.date_from) {
+    query = query.gte("created_at", sp.date_from);
+  }
+  if (sp.date_to) {
+    // Inclusivo hasta fin del día.
+    query = query.lte("created_at", sp.date_to + "T23:59:59");
+  }
+  if (patientIdFilter !== null) {
+    query = query.in("patient_id", patientIdFilter);
+  }
+
+  const { data: ordersRaw, count } = await query
+    .order("created_at", { ascending: false })
+    .range(offset, offset + PAGE_SIZE - 1);
+
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  // Si la URL pide una page más allá del total (filtro reciente), redirigimos
+  // a la última válida para evitar un listado vacío silencioso.
+  const currentPage = Math.min(requestedPage, totalPages);
+
+  // For dentists, get patients and available labs (para el dialog de creación
+  // y el dropdown de filtro de clientes).
   let patients: { id: string; first_name: string; last_name: string }[] = [];
   let labs: { id: string; name: string }[] = [];
   let defaultLabId: string | null = null;
@@ -58,7 +124,6 @@ export default async function OrdersPage() {
     type LabOrg = { id: string; name: string };
     type LabRelation = { lab_org: LabOrg | LabOrg[] | null };
 
-    // Both queries are independent — run in parallel
     const [{ data: patientsData }, { data: labRelationsRaw }] = await Promise.all([
       db
         .from("patients")
@@ -83,7 +148,6 @@ export default async function OrdersPage() {
       .filter((lab): lab is LabOrg => Boolean(lab?.id && lab?.name));
     labs.sort((a, b) => a.name.localeCompare(b.name));
 
-    // If no lab relations found, show Digital Dent as default (platform's main lab)
     if (labs.length === 0) {
       const { data: allLabs } = await supabase
         .from("organizations")
@@ -92,14 +156,12 @@ export default async function OrdersPage() {
         .eq("is_system_account", true)
         .order("name");
       const allLabsData = (allLabs || []) as LabOrg[];
-      // Prefer labs named "Digital Dent"; fall back to all if none found
       const digitalDentLabs = allLabsData.filter(l =>
         l.name.trim().toLowerCase().includes("digital dent")
       );
       labs = digitalDentLabs.length > 0 ? digitalDentLabs : allLabsData;
     }
 
-    // Auto-select: if only 1 lab, pre-select it; otherwise prefer lab named "Digital Dent"
     if (labs.length === 1) {
       defaultLabId = labs[0].id;
     } else if (labs.length > 1) {
@@ -107,13 +169,9 @@ export default async function OrdersPage() {
       defaultLabId = preferred?.id || labs[0].id;
     }
   } else {
-    // Logic for Laboratory Users
-    // 1. Get connected Dentists (Clinics)
     type DentistOrg = { id: string; name: string };
     type DentistRelation = { dentist_org: DentistOrg | DentistOrg[] | null };
 
-    // Note: We use the same 'labs' variable to store target organizations (clinics) to avoid prop drilling changes for now,
-    // though renaming it to 'targetOrgs' in the future would be better.
     const { data: dentistRelationsRaw } = await supabase
       .from("lab_dentist_relations")
       .select("dentist_org:organizations!lab_dentist_relations_dentist_org_id_fkey(id, name)")
@@ -130,9 +188,6 @@ export default async function OrdersPage() {
       .filter((dentist): dentist is DentistOrg => Boolean(dentist?.id && dentist?.name));
     labs.sort((a, b) => a.name.localeCompare(b.name));
 
-    // 2. Get Patients
-    // Ideally we should filter patients by the selected dentist in the UI, 
-    // but for the initial load we get patients from all connected clinics.
     if (labs.length > 0) {
       const connectedDentistIds = labs.map(l => l.id);
       const { data: patientsData } = await supabase
@@ -156,7 +211,7 @@ export default async function OrdersPage() {
       />
       <div className="flex-1 px-4 py-4 sm:p-6">
         <OrdersList
-          orders={orders || []}
+          orders={ordersRaw || []}
           isDentist={isDentist}
           organizationId={effectiveOrgId}
           patients={patients}
@@ -165,6 +220,18 @@ export default async function OrdersPage() {
           canCreate={canCreate}
           canUpdateStatus={canUpdateStatus}
           showPrices={showPrices}
+          totalCount={totalCount}
+          currentPage={currentPage}
+          pageSize={PAGE_SIZE}
+          totalPages={totalPages}
+          initialFilters={{
+            q: sp.q || "",
+            patient: sp.patient || "",
+            client: sp.client || "",
+            status: sp.status || "",
+            dateFrom: sp.date_from || "",
+            dateTo: sp.date_to || "",
+          }}
         />
       </div>
     </div>

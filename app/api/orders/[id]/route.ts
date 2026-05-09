@@ -52,6 +52,29 @@ export async function DELETE(
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
 
+    // [Sección 4] Bloquear eliminación si existe factura emitida no anulada
+    // para esta orden. La factura es contable: borrar la orden con la factura
+    // en pie deja un huérfano sin trazabilidad. El usuario tiene que anular o
+    // eliminar la factura primero.
+    const { data: activeInvoice, error: invErr } = await supabase
+      .from("invoices")
+      .select("id, invoice_number")
+      .eq("order_id", id)
+      .is("invoice_voided_at", null)
+      .maybeSingle();
+
+    if (invErr) throw invErr;
+    if (activeInvoice) {
+      return NextResponse.json(
+        {
+          error: `Esta orden tiene una factura emitida (${activeInvoice.invoice_number}). Eliminala o anulala primero.`,
+          invoice_id: activeInvoice.id,
+          invoice_number: activeInvoice.invoice_number,
+        },
+        { status: 409 },
+      );
+    }
+
     // Eliminar items primero (FK constraint)
     await supabase.from("lab_order_items").delete().eq("order_id", id);
 

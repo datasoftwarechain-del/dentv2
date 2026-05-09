@@ -39,12 +39,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calcular balance actual
+    // Calcular balance actual.
+    // [Auditoría 5.1] Excluir facturas anuladas (invoice_voided_at IS NOT NULL).
+    // Antes este query incluía las anuladas y diverge de recalculateBalances,
+    // dejando el ajuste manual mal calibrado cuando la relación tenía voided.
     const { data: invoices } = await supabase
       .from("invoices")
       .select("total")
       .eq(isDentist ? "dentist_org_id" : "lab_org_id", organizationId)
-      .eq(isDentist ? "lab_org_id" : "dentist_org_id", clientId);
+      .eq(isDentist ? "lab_org_id" : "dentist_org_id", clientId)
+      .is("invoice_voided_at", null);
 
     const { data: movements } = await supabase
       .from("ledger_movements")
