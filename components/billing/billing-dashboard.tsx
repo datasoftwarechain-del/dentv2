@@ -98,6 +98,11 @@ interface Invoice {
     selected_extras: { name: string; price: number; qty?: number }[];
     catalog_item: { name: string; base_price: number } | null;
   }[];
+  /**
+   * [032_orders_delivered_at] JOIN vivo a lab_orders (cuándo pasó a delivered).
+   * Reemplaza el snapshot delivery_date para la columna de entrega.
+   */
+  lab_order?: { delivered_at: string | null } | { delivered_at: string | null }[] | null;
 }
 
 interface LedgerMovement {
@@ -939,11 +944,20 @@ export function BillingDashboard({
                             <p className="font-mono text-xs font-semibold text-foreground/80">
                               {shortInvoiceNumber(invoice.invoice_number)}
                             </p>
-                            {invoice.delivery_date && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
-                                {formatSimpleDate(invoice.delivery_date)}
-                              </p>
-                            )}
+                            {(() => {
+                              // [032_orders_delivered_at] Lee delivered_at vivo
+                              // de la orden asociada en vez del snapshot.
+                              const lo = Array.isArray(invoice.lab_order)
+                                ? invoice.lab_order[0]
+                                : invoice.lab_order;
+                              const ts = lo?.delivered_at;
+                              if (!ts) return null;
+                              return (
+                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                  {formatSimpleDate(ts)}
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
                       </TableCell>
@@ -1041,7 +1055,14 @@ export function BillingDashboard({
                   {/* Row 3: delivery date + actions */}
                   <div className="flex items-center justify-between mt-2.5">
                     <span className="text-[11px] text-muted-foreground">
-                      {invoice.delivery_date ? formatSimpleDate(invoice.delivery_date) : "Sin fecha entrega"}
+                      {(() => {
+                        // [032_orders_delivered_at]
+                        const lo = Array.isArray(invoice.lab_order)
+                          ? invoice.lab_order[0]
+                          : invoice.lab_order;
+                        const ts = lo?.delivered_at;
+                        return ts ? formatSimpleDate(ts) : "Sin fecha entrega";
+                      })()}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <InvoiceActions invoice={invoice} isDentist={isDentist} canManageBilling={canManageBilling} />

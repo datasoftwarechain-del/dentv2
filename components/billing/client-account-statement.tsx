@@ -93,6 +93,13 @@ interface Invoice {
   dentist_org: Organization | null;
   lab_org: Organization | null;
   order_items?: OrderItem[];
+  /**
+   * [032_orders_delivered_at] JOIN vivo a lab_orders. La columna ENTREGA
+   * lee delivered_at directo de la orden — refleja siempre el momento real
+   * en que pasó a delivered. Null si la factura es manual (sin order_id) o
+   * si la orden todavía no llegó a delivered.
+   */
+  lab_order?: { delivered_at: string | null } | { delivered_at: string | null }[] | null;
 }
 
 interface LedgerMovement {
@@ -222,8 +229,14 @@ export function ClientAccountStatement({
     // Ordenar
     if (sortField) {
       result.sort((a, b) => {
-        let aVal: any = a[sortField];
-        let bVal: any = b[sortField];
+        // [032_orders_delivered_at] El sort por "delivery_date" ahora lee
+        // lab_order.delivered_at (vivo) en vez del snapshot deprecado.
+        const readDelivered = (inv: Invoice) => {
+          const lo = Array.isArray(inv.lab_order) ? inv.lab_order[0] : inv.lab_order;
+          return lo?.delivered_at ?? null;
+        };
+        let aVal: any = sortField === "delivery_date" ? readDelivered(a) : a[sortField];
+        let bVal: any = sortField === "delivery_date" ? readDelivered(b) : b[sortField];
 
         // Manejar valores nulos
         if (!aVal) return 1;
@@ -1004,7 +1017,16 @@ export function ClientAccountStatement({
                           })()}
                         </TableCell>
                         <TableCell className="text-sm">
-                          {invoice.delivery_date ? formatSimpleDate(invoice.delivery_date) : "-"}
+                          {(() => {
+                            // [032_orders_delivered_at] Lee delivered_at vivo
+                            // de la orden asociada. Manual invoice sin order_id
+                            // o orden no entregada → "-".
+                            const lo = Array.isArray(invoice.lab_order)
+                              ? invoice.lab_order[0]
+                              : invoice.lab_order;
+                            const ts = lo?.delivered_at;
+                            return ts ? formatSimpleDate(ts) : "-";
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -1091,12 +1113,20 @@ export function ClientAccountStatement({
                               <span className="text-[11px] text-slate-500 truncate">{invoice.patient_name}</span>
                             </div>
                           )}
-                          {invoice.delivery_date && (
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
-                              <span className="text-[11px] text-slate-400">{formatSimpleDate(invoice.delivery_date)}</span>
-                            </div>
-                          )}
+                          {(() => {
+                            // [032_orders_delivered_at] Mobile: idem desktop.
+                            const lo = Array.isArray(invoice.lab_order)
+                              ? invoice.lab_order[0]
+                              : invoice.lab_order;
+                            const ts = lo?.delivered_at;
+                            if (!ts) return null;
+                            return (
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <span className="text-[11px] text-slate-400">{formatSimpleDate(ts)}</span>
+                              </div>
+                            );
+                          })()}
                         </div>
                         <InvoiceActions
                           invoice={invoice}
