@@ -68,6 +68,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PurchasesTable } from "./purchases-table";
 import { InventoryTable } from "@/components/inventory/inventory-table";
 import { AnalyticsTab } from "./analytics-tab";
+import { ProfitabilityTab } from "./profitability-tab";
 import { useSearchParams } from "next/navigation";
 
 interface Organization {
@@ -147,6 +148,8 @@ interface BillingDashboardProps {
   canManageInventory?: boolean;
   canViewFinancialDashboard?: boolean;
   canViewAmounts?: boolean;
+  // [BLOQUE 7] Habilita la pestaña Rentabilidad (costos de producción).
+  canViewProfitability?: boolean;
 }
 
 const statusLabels: Record<string, string> = {
@@ -183,6 +186,7 @@ export function BillingDashboard({
   canManageInventory = false,
   canViewFinancialDashboard = false,
   canViewAmounts = false,
+  canViewProfitability = false,
 }: BillingDashboardProps) {
   const router = useRouter();
   const [invoices, setInvoices] = useState(initialInvoices);
@@ -442,6 +446,7 @@ export function BillingDashboard({
   const showPurchases = canViewPurchases;
   const showInventory = canViewInventory;
   const showAnalytics = canViewFinancialDashboard;
+  const showProfitability = canViewProfitability;
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -455,6 +460,9 @@ export function BillingDashboard({
         )}
         {showAnalytics && (
           <TabsTrigger value="analytics" className="data-[state=active]:bg-background">Análisis</TabsTrigger>
+        )}
+        {showProfitability && (
+          <TabsTrigger value="profitability" className="data-[state=active]:bg-background">Rentabilidad</TabsTrigger>
         )}
       </TabsList>
 
@@ -1165,6 +1173,11 @@ export function BillingDashboard({
       {showAnalytics && (
         <TabsContent value="analytics" className="mt-2">
           <AnalyticsTab invoices={invoices as never} canViewAmounts={canViewAmounts} />
+        </TabsContent>
+      )}
+      {showProfitability && (
+        <TabsContent value="profitability" className="mt-2">
+          <ProfitabilityTab />
         </TabsContent>
       )}
     </Tabs>
