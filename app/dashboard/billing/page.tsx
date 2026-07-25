@@ -341,6 +341,10 @@ export default async function BillingPage() {
           canManageInventory={canManageInventory(permissions)}
           canViewFinancialDashboard={hasPermission(permissions, "view_financial_dashboard")}
           canViewAmounts={canViewAmounts}
+          canViewProfitability={
+            hasPermission(permissions, "view_financial_dashboard") &&
+            hasPermission(permissions, "view_billing_amounts")
+          }
         />
       </div>
     </div>

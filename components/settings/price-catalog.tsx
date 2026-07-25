@@ -109,7 +109,7 @@ const DIGITALDENT_DEFAULT_CATALOG = [
       { nombre: "Completa", precio: 4400 },
       { nombre: "PPR a placa", precio: 3500 },
       { nombre: "Ganchos labrados", precio: 250 },
-      { nombre: "Tablilla de dientes", precio: 350 },
+      { nombre: "Tablilla de dientes", precio: 300 },
       { nombre: "Rebasados", precio: 2700 },
       { nombre: "DOE Termo", precio: 3800 },
       { nombre: "Fresada", precio: 3300 },

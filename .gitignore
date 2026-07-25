@@ -31,3 +31,7 @@ pnpm-debug.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Referencia personal / credenciales — nunca commitear
+ACCESOS_DIGITALDENT.md
+.claude-flow/
