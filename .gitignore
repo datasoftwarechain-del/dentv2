@@ -35,3 +35,6 @@ next-env.d.ts
 # Referencia personal / credenciales — nunca commitear
 ACCESOS_DIGITALDENT.md
 .claude-flow/
+
+# Grafo de conocimiento de graphify: artefacto local regenerable
+graphify-out/
