@@ -16,7 +16,7 @@ export interface InvoiceItemForTotals {
   unit_price: number | null;
   quantity: number;
   selected_extras: InvoiceItemExtra[] | null | undefined;
-  catalog_item: { base_price: number } | null;
+  catalog_item: { base_price: number; is_passthrough?: boolean } | null;
 }
 
 /**
@@ -58,4 +58,40 @@ export function computeInvoiceTotals(
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * [034_passthrough_items] Porción del total que corresponde a aranceles
+ * tercerizados (price_catalog.is_passthrough). Es "facturación muerta":
+ * se le cobra al cliente, pero el laboratorio no gana nada porque el
+ * costo es el 100% del precio.
+ *
+ * Se usa para descontarla de las métricas de gestión. NO se resta de
+ * invoices.total ni del saldo del cliente — la factura no cambia.
+ */
+export function computePassthroughTotal(
+  items: InvoiceItemForTotals[] | null | undefined,
+): number {
+  if (!Array.isArray(items)) return 0;
+  const sum = items.reduce(
+    (acc, it) => (it.catalog_item?.is_passthrough ? acc + computeItemTotal(it) : acc),
+    0,
+  );
+  return round2(sum);
+}
+
+/**
+ * [034_passthrough_items] Neto de gestión de una factura: su total
+ * persistido menos la parte tercerizada de sus ítems.
+ *
+ * Usa el `total` real de la factura (no la suma de ítems) para no
+ * arrastrar el drift de facturas editadas a mano, y le resta solo la
+ * porción tercerizada. Nunca devuelve negativo.
+ */
+export function computeInvoiceNetOfPassthrough(
+  invoiceTotal: number,
+  items: InvoiceItemForTotals[] | null | undefined,
+): number {
+  const net = Number(invoiceTotal ?? 0) - computePassthroughTotal(items);
+  return round2(Math.max(0, net));
 }

@@ -79,7 +79,7 @@ export default async function ClientAccountPage({ params }: PageProps) {
   if (orderIds.length > 0) {
     const { data: itemsData } = await db
       .from("lab_order_items")
-      .select("id, order_id, work_type, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price)")
+      .select("id, order_id, work_type, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price, is_passthrough)")
       .in("order_id", orderIds);
     for (const item of (itemsData || [])) {
       if (!orderItemsByOrderId[item.order_id]) orderItemsByOrderId[item.order_id] = [];

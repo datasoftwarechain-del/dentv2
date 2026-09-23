@@ -27,6 +27,12 @@ export interface ProfitItem {
 export interface CatalogCost {
   name: string;
   unit_cost: number;
+  /**
+   * [034_passthrough_items] Trabajo tercerizado sin margen. Cuando es
+   * true el costo se imputa igual al ingreso de la línea (margen 0) sin
+   * necesidad de cargar unit_cost, y el ítem NO se cuenta como "sin costo".
+   */
+  is_passthrough?: boolean;
 }
 
 export interface ProfitKPIs {
@@ -114,16 +120,22 @@ export function buildProfitabilitySummary(
     itemsTotal++;
     const qty = Number(it.quantity ?? 1);
     const cat = it.catalog_item_id ? costMap.get(it.catalog_item_id) : undefined;
-    const unitCost = cat ? cat.unit_cost : 0;
-    const hasCost = !!cat && unitCost > 0;
-    if (!hasCost) itemsWithoutCost++;
-
-    const lineCost = unitCost * qty;
-    productionCost += lineCost;
 
     const extras = Array.isArray(it.selected_extras) ? it.selected_extras : [];
     const extrasTotal = extras.reduce((s, e) => s + Number(e?.price ?? 0) * Number(e?.qty ?? 1), 0);
     const lineRevenue = Number(it.unit_price ?? 0) * qty + extrasTotal;
+
+    // [034_passthrough_items] En un tercerizado el costo ES el precio: el
+    // laboratorio solo recupera lo que paga afuera. Imputamos costo =
+    // ingreso para que el margen dé 0 en vez del 100% ficticio que salía
+    // cuando unit_cost estaba en 0 por no haberse cargado todavía.
+    const isPassthrough = !!cat?.is_passthrough;
+    const unitCost = cat ? cat.unit_cost : 0;
+    const hasCost = isPassthrough || (!!cat && unitCost > 0);
+    if (!hasCost) itemsWithoutCost++;
+
+    const lineCost = isPassthrough ? lineRevenue : unitCost * qty;
+    productionCost += lineCost;
 
     const label = cat?.name?.trim()
       || (it.work_type ? formatWorkType(it.work_type) : "(sin tipo)");

@@ -118,3 +118,57 @@ describe("buildProfitabilitySummary — bordes", () => {
     expect(s.kpis.productionCost).toBe(0);
   });
 });
+
+// ── [034_passthrough_items] Trabajos tercerizados ────────────
+describe("buildProfitabilitySummary — tercerizados (is_passthrough)", () => {
+  const CROMO = "cat-cromo";
+  const passMap = new Map<string, CatalogCost>([
+    [CROMO, { name: "Esqueleto de cromo", unit_cost: 0, is_passthrough: true }],
+  ]);
+
+  it("imputa costo = ingreso, margen 0, aunque unit_cost esté en 0", () => {
+    const inv: ProfitInvoice[] = [{ total: 4500, created_at: "2026-07-01", order_id: "x" }];
+    const it: ProfitItem[] = [{ order_id: "x", quantity: 1, unit_price: 4500, catalog_item_id: CROMO }];
+    const s = buildProfitabilitySummary(inv, it, passMap, NOW);
+    expect(s.kpis.productionCost).toBe(4500);
+    expect(s.kpis.margin).toBe(0);
+    expect(s.kpis.marginPct).toBe(0);
+  });
+
+  it("incluye los extras en el costo imputado (ej. envíos del cromo)", () => {
+    const inv: ProfitInvoice[] = [{ total: 5080, created_at: "2026-07-01", order_id: "x" }];
+    const it: ProfitItem[] = [{
+      order_id: "x", quantity: 1, unit_price: 4500, catalog_item_id: CROMO,
+      selected_extras: [{ price: 290, qty: 2 }],
+    }];
+    const s = buildProfitabilitySummary(inv, it, passMap, NOW);
+    expect(s.kpis.productionCost).toBe(5080);
+    expect(s.kpis.margin).toBe(0);
+  });
+
+  it("NO se cuenta como ítem sin costo (el flag ya define su margen)", () => {
+    const inv: ProfitInvoice[] = [{ total: 4500, created_at: "2026-07-01", order_id: "x" }];
+    const it: ProfitItem[] = [{ order_id: "x", quantity: 1, unit_price: 4500, catalog_item_id: CROMO }];
+    const s = buildProfitabilitySummary(inv, it, passMap, NOW);
+    expect(s.kpis.itemsWithoutCost).toBe(0);
+  });
+
+  it("el desglose por trabajo muestra 0% en el tercerizado y no contamina al resto", () => {
+    const inv: ProfitInvoice[] = [{ total: 5000, created_at: "2026-07-01", order_id: "x" }];
+    const it: ProfitItem[] = [
+      { order_id: "x", quantity: 1, unit_price: 4500, catalog_item_id: CROMO },
+      { order_id: "x", quantity: 1, unit_price: 500, catalog_item_id: "cat-a" },
+    ];
+    const mixed = new Map<string, CatalogCost>([
+      [CROMO, { name: "Esqueleto de cromo", unit_cost: 0, is_passthrough: true }],
+      ["cat-a", { name: "Corona", unit_cost: 100 }],
+    ]);
+    const s = buildProfitabilitySummary(inv, it, mixed, NOW);
+    const cromo = s.byWorkType.find((w) => w.label === "Esqueleto de cromo")!;
+    const corona = s.byWorkType.find((w) => w.label === "Corona")!;
+    expect(cromo.marginPct).toBe(0);
+    expect(cromo.margin).toBe(0);
+    expect(corona.margin).toBe(400);
+    expect(corona.marginPct).toBe(80);
+  });
+});

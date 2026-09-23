@@ -88,13 +88,17 @@ export async function GET(_request: NextRequest) {
     // 3) Costos de producción del catálogo (scopeado por org).
     const { data: catalog, error: catErr } = await supabase
       .from("price_catalog")
-      .select("id, name, unit_cost")
+      .select("id, name, unit_cost, is_passthrough")
       .eq("org_id", org.id);
     if (catErr) throw catErr;
 
     const costMap = new Map<string, CatalogCost>();
     for (const c of (catalog ?? []) as any[]) {
-      costMap.set(c.id, { name: c.name, unit_cost: Number(c.unit_cost ?? 0) });
+      costMap.set(c.id, {
+        name: c.name,
+        unit_cost: Number(c.unit_cost ?? 0),
+        is_passthrough: !!c.is_passthrough,
+      });
     }
 
     const summary = buildProfitabilitySummary(
