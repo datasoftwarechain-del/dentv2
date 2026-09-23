@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { DESIGN_CLIENT_HOME } from "@/lib/design/client-guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
@@ -10,6 +11,10 @@ export const dynamic = "force-dynamic";
 export default async function SchedulePage(props: any) {
   // Shares React.cache() with layout — no extra auth round-trip
   const { user, org, isCollaborator, permissions } = await getUserOrg();
+  // [037] Un cliente de solo-diseño no contrató el ERP: esta pantalla no
+  // es suya. El menú ya no se la muestra; esto frena la URL escrita a mano.
+  if (org.type === "design_client") redirect(DESIGN_CLIENT_HOME);
+
   if (isCollaborator && !permissions?.view_schedule) redirect("/dashboard");
   const supabase = await createClient();
 

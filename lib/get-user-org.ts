@@ -7,6 +7,7 @@ import {
   normalizePermissions,
   isCollaboratorRole,
 } from "@/lib/permissions";
+import { readActiveOrgId } from "@/lib/active-org";
 
 interface GetUserOrgOptions {
   /** If set, redirects to /dashboard if the org type doesn't match */
@@ -28,6 +29,11 @@ interface GetUserOrgResult {
   permissions: CollaboratorPermissions | null;
   /** True when the user is a collaborator (non-admin member) */
   isCollaborator: boolean;
+  /**
+   * [org-switcher] Todas las organizaciones del usuario, para el selector
+   * del menú. Un solo elemento = no hay nada que elegir y no se muestra.
+   */
+  availableOrgs: Array<{ id: string; name: string; type: string }>;
 }
 
 /**
@@ -66,7 +72,13 @@ export const getUserOrg = cache(async function getUserOrgImpl(
     const org = Array.isArray(orgData) ? orgData[0] : orgData;
     return { org, role: m.role as string, permissions: m.permissions, status: m.status };
   });
+  // [org-switcher] La organización elegida manda, pero SOLO si el usuario
+  // es realmente miembro: se busca dentro de sus propias membresías, así
+  // que una cookie manipulada no abre ninguna puerta, solo se ignora.
+  const activeOrgId = await readActiveOrgId();
+
   const membershipWithOrg =
+    (activeOrgId ? mapped.find(({ org }) => org?.id === activeOrgId) : undefined) ??
     mapped.find(({ org }) => org && org.type !== "dentist_preview") ??
     mapped.find(({ org }) => Boolean(org));
 
@@ -94,5 +106,8 @@ export const getUserOrg = cache(async function getUserOrgImpl(
     role: resolvedRole,
     permissions: resolvedPermissions,
     isCollaborator: collaborator,
+    availableOrgs: mapped
+      .filter(({ org: o }) => Boolean(o))
+      .map(({ org: o }) => ({ id: o.id, name: o.name, type: o.type })),
   };
 });

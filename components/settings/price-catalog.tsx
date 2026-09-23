@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Loader2,
   Plus,
@@ -25,6 +26,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import { formatMoneyForOrg } from "@/lib/money";
 import { toast } from "sonner";
 
 // ──────────────────────────────────────────────
@@ -45,6 +47,8 @@ interface CatalogItem {
   extras: Extra[];
   is_active: boolean;
   sort_order: number;
+  /** [034] Trabajo tercerizado: se cobra al cliente pero no deja margen. */
+  is_passthrough: boolean;
 }
 
 interface EditForm {
@@ -52,6 +56,7 @@ interface EditForm {
   category: string;
   base_price: string;
   extras: Extra[];
+  is_passthrough: boolean;
 }
 
 interface PriceCatalogSectionProps {
@@ -120,7 +125,40 @@ const DIGITALDENT_DEFAULT_CATALOG = [
   },
 ];
 
-const EMPTY_FORM: EditForm = { name: "", category: "", base_price: "", extras: [] };
+const EMPTY_FORM: EditForm = { name: "", category: "", base_price: "", extras: [], is_passthrough: false };
+
+// ──────────────────────────────────────────────
+// [034] Toggle "trabajo tercerizado" (facturación muerta)
+// ──────────────────────────────────────────────
+function PassthroughToggle({
+  id,
+  checked,
+  onChange,
+}: {
+  id: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex items-start gap-2.5 rounded-md border bg-muted/20 p-2.5">
+      <Checkbox
+        id={id}
+        checked={checked}
+        onCheckedChange={(v) => onChange(v === true)}
+        className="mt-0.5"
+      />
+      <div className="space-y-0.5">
+        <Label htmlFor={id} className="text-xs font-medium cursor-pointer">
+          Trabajo tercerizado (sin margen)
+        </Label>
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          Se le sigue cobrando al cliente igual, pero no cuenta como
+          facturación propia del mes porque el costo es el 100% del precio.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 // ──────────────────────────────────────────────
 // ExtrasEditor sub-componente
@@ -276,6 +314,7 @@ export function PriceCatalogSection({ orgId, orgType }: PriceCatalogSectionProps
         name: addForm.name.trim(),
         base_price: parseFloat(addForm.base_price),
         extras: addForm.extras,
+        is_passthrough: addForm.is_passthrough,
         sort_order: items.length,
       })
       .select()
@@ -305,6 +344,7 @@ export function PriceCatalogSection({ orgId, orgType }: PriceCatalogSectionProps
         category: editForm.category.trim() || item.category,
         base_price: parseFloat(editForm.base_price),
         extras: editForm.extras,
+        is_passthrough: editForm.is_passthrough,
       })
       .eq("id", item.id);
 
@@ -320,6 +360,7 @@ export function PriceCatalogSection({ orgId, orgType }: PriceCatalogSectionProps
                 category: editForm.category.trim() || item.category,
                 base_price: parseFloat(editForm.base_price),
                 extras: editForm.extras,
+                is_passthrough: editForm.is_passthrough,
               }
             : i
         )
@@ -384,6 +425,7 @@ export function PriceCatalogSection({ orgId, orgType }: PriceCatalogSectionProps
       category: item.category,
       base_price: item.base_price.toString(),
       extras: [...item.extras],
+      is_passthrough: !!item.is_passthrough,
     });
   }
 
@@ -508,6 +550,12 @@ export function PriceCatalogSection({ orgId, orgType }: PriceCatalogSectionProps
                 onChange={(extras) => setAddForm((f) => ({ ...f, extras }))}
               />
 
+              <PassthroughToggle
+                id="add-passthrough"
+                checked={addForm.is_passthrough}
+                onChange={(v) => setAddForm((f) => ({ ...f, is_passthrough: v }))}
+              />
+
               <div className="flex gap-2 justify-end">
                 <Button
                   type="button"
@@ -627,6 +675,14 @@ export function PriceCatalogSection({ orgId, orgType }: PriceCatalogSectionProps
                       }
                     />
 
+                    <PassthroughToggle
+                      id={`edit-passthrough-${item.id}`}
+                      checked={editForm.is_passthrough}
+                      onChange={(v) =>
+                        setEditForm((f) => ({ ...f, is_passthrough: v }))
+                      }
+                    />
+
                     <div className="flex gap-2 justify-end">
                       <Button
                         type="button"
@@ -691,11 +747,20 @@ export function PriceCatalogSection({ orgId, orgType }: PriceCatalogSectionProps
                             +{item.extras.length} extras
                           </Badge>
                         )}
+                        {item.is_passthrough && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 shrink-0 border-amber-500/40 text-amber-700 dark:text-amber-500"
+                            title="Se cobra al cliente pero no cuenta como facturación propia"
+                          >
+                            Tercerizado
+                          </Badge>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3 ml-3 shrink-0">
                         <span className="text-sm font-bold text-[#044c64]">
-                          ${item.base_price.toLocaleString("es-AR")}
+                          {formatMoneyForOrg(item.base_price, orgType)}
                         </span>
                         <div className="flex gap-0.5">
                           <Button
@@ -737,7 +802,7 @@ export function PriceCatalogSection({ orgId, orgType }: PriceCatalogSectionProps
                               )}
                             </span>
                             <span className="font-semibold text-foreground/70">
-                              ${extra.price.toLocaleString("es-AR")} c/u
+                              {formatMoneyForOrg(extra.price, orgType)} c/u
                             </span>
                           </div>
                         ))}

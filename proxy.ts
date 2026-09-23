@@ -9,6 +9,12 @@ const rateMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_WINDOW_MS = 60_000; // 1 minute window
 const AUTH_LIMIT = 10;          // max 10 auth requests per IP per minute
 const API_LIMIT = 120;          // max 120 API requests per IP per minute
+// [design-intake] La solicitud publica de diseno crea un usuario y una
+// organizacion por llamada. El limite general de 120/min dejaria a un
+// script llenar la base en una tarde, asi que lleva el suyo, mas estricto
+// que el de auth: pedir un diseno no es algo que se haga cinco veces por
+// minuto ni siquiera equivocandose.
+const PUBLIC_INTAKE_LIMIT = 3;  // max 3 solicitudes publicas por IP por minuto
 
 function getClientIP(request: NextRequest): string {
   return (
@@ -57,6 +63,26 @@ export async function proxy(request: NextRequest) {
     if (!checkRateLimit(key, AUTH_LIMIT)) {
       return NextResponse.json(
         { error: "Demasiados intentos. Esperá un momento antes de intentar de nuevo." },
+        { status: 429, headers: { "Retry-After": "60" } }
+      );
+    }
+  }
+
+  // [payments] Los webhooks de pago no llevan cookie de CSRF: los manda
+  // un servidor, no un navegador. Su autenticacion es la firma, que se
+  // valida dentro de la ruta contra el proveedor. Tampoco se les aplica
+  // el limite por IP: el proveedor reintenta en rafagas cuando algo
+  // falla, y bloquearlo significaria perder un pago ya cobrado.
+  if (pathname.startsWith("/api/webhooks/")) {
+    return NextResponse.next();
+  }
+
+  // Rate limit: solicitud publica de diseno (crea usuario + organizacion)
+  if (pathname === "/api/design/request" && request.method === "POST") {
+    const key = `intake:${getClientIP(request)}`;
+    if (!checkRateLimit(key, PUBLIC_INTAKE_LIMIT)) {
+      return NextResponse.json(
+        { error: "Demasiadas solicitudes seguidas. Esperá un minuto y volvé a intentar." },
         { status: 429, headers: { "Retry-After": "60" } }
       );
     }

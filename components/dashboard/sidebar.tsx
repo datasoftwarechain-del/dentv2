@@ -21,18 +21,31 @@ import {
   ShoppingCart,
   Boxes,
   BarChart3,
+  PenTool,
+  Layers,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback } from "react";
 import type { CollaboratorPermissions, PermissionKey } from "@/lib/permissions";
+import { OrgSwitcher, type SwitchableOrg } from "./org-switcher";
 
 interface SidebarProps {
-  orgType: "dentist" | "lab" | "dentist_preview";
+  orgType: "dentist" | "lab" | "dentist_preview" | "design_studio" | "design_client";
   orgName: string;
   isCollaborator?: boolean;
   permissions?: CollaboratorPermissions | null;
+  /**
+   * [035_design_studio] Contadores por ruta: cuántas cosas están esperando
+   * una acción tuya. Un 0 o un ausente no pinta nada — el aviso solo
+   * aparece cuando hay algo que hacer, así no se vuelve paisaje.
+   */
+  badges?: Record<string, number>;
+  /** [org-switcher] Id de la organización activa. */
+  orgId?: string;
+  /** [org-switcher] Todas las del usuario. Con menos de 2 no se muestra el selector. */
+  availableOrgs?: SwitchableOrg[];
 }
 
 /** Paths accessible to dentist_preview accounts without a lock */
@@ -57,6 +70,11 @@ const NAV_PERMISSION_MAP: Record<string, PermissionKey> = {
   "/dashboard/billing?tab=purchases":  "view_purchases",
   "/dashboard/billing?tab=inventory":  "view_inventory",
   "/dashboard/billing?tab=analytics":  "view_financial_dashboard",
+  // [035_design_studio]
+  "/dashboard/design":        "view_design_studio",
+  "/dashboard/design/queue":  "manage_design_queue",
+  "/dashboard/design/clients": "manage_design_clients",
+  "/dashboard/design/analytics": "view_design_studio",
 };
 
 const dentistNav = [
@@ -67,6 +85,7 @@ const dentistNav = [
   { href: "/dashboard/cases", label: "Casos Digitales", icon: Scan },
   { href: "/dashboard/schedule", label: "Agenda Semanal", icon: CalendarClock },
   { href: "/dashboard/billing", label: "Facturacion", icon: CreditCard },
+  { href: "/dashboard/design", label: "Diseño Digital", icon: PenTool },
   { href: "/dashboard/settings", label: "Configuracion", icon: Settings },
 ];
 
@@ -82,16 +101,51 @@ const labNav = [
   { href: "/dashboard/billing?tab=purchases", label: "Compras",  icon: ShoppingCart },
   { href: "/dashboard/billing?tab=inventory", label: "Stock",    icon: Boxes },
   { href: "/dashboard/billing?tab=analytics", label: "Análisis", icon: BarChart3 },
+  { href: "/dashboard/design", label: "Diseño Digital", icon: PenTool },
   { href: "/dashboard/settings", label: "Configuracion", icon: Settings },
 ];
 
-export function Sidebar({ orgType, orgName, isCollaborator = false, permissions = null }: SidebarProps) {
+/**
+ * [037] Navegación del cliente que SOLO pide diseños.
+ *
+ * Es deliberadamente corta. Esta cuenta no contrató el ERP: no tiene
+ * pacientes, ni agenda, ni producción, ni stock. Mostrarle esas secciones
+ * bloqueadas sería peor que no mostrarlas — convierte su panel en un
+ * catálogo de lo que no puede usar.
+ */
+const designClientNav = [
+  { href: "/dashboard/design", label: "Mis diseños", icon: PenTool },
+  { href: "/dashboard/settings", label: "Configuracion", icon: Settings },
+];
+
+/**
+ * [035_design_studio] Navegación del equipo de diseño. Es una org que
+ * ejecuta diseños: no tiene producción física, pacientes ni stock.
+ */
+const designStudioNav = [
+  { href: "/dashboard", label: "Dashboard", icon: Home },
+  { href: "/dashboard/design/queue", label: "Cola de Diseño", icon: Layers },
+  { href: "/dashboard/design", label: "Órdenes", icon: PenTool },
+  { href: "/dashboard/design/clients", label: "Clientes", icon: Building2 },
+  { href: "/dashboard/design/analytics", label: "Análisis", icon: BarChart3 },
+  { href: "/dashboard/billing", label: "Facturacion", icon: CreditCard },
+  { href: "/dashboard/settings", label: "Configuracion", icon: Settings },
+];
+
+export function Sidebar({
+  orgType, orgName, isCollaborator = false, permissions = null, badges = {},
+  orgId = "", availableOrgs = [],
+}: SidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  const baseNav = orgType === "lab" ? labNav : dentistNav;
+  const baseNav =
+    orgType === "design_client"  ? designClientNav
+    : orgType === "design_studio" ? designStudioNav
+    : orgType === "lab"           ? labNav
+    : dentistNav;
 
   // Filter nav items for collaborators — only show sections they have access to
   const navItems = isCollaborator && permissions
@@ -216,7 +270,15 @@ export function Sidebar({ orgType, orgName, isCollaborator = false, permissions 
         >
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/15 px-3 py-1 text-[11px] font-semibold text-white whitespace-nowrap">
             <span className="h-1.5 w-1.5 rounded-full bg-[#43eada]" />
-            {orgType === "lab" ? "Laboratorio" : orgType === "dentist_preview" ? "Vista Previa" : "Clínica Dental"}
+            {orgType === "lab"
+              ? "Laboratorio"
+              : orgType === "design_studio"
+                ? "Estudio de Diseño"
+                : orgType === "design_client"
+                  ? "Cliente de Diseño"
+                  : orgType === "dentist_preview"
+                    ? "Vista Previa"
+                    : "Clínica Dental"}
           </span>
         </div>
 
@@ -226,6 +288,7 @@ export function Sidebar({ orgType, orgName, isCollaborator = false, permissions 
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               const NavIcon = item.icon;
+              const badgeCount = badges[item.href] ?? 0;
               const isPreviewLocked =
                 orgType === "dentist_preview" && !PREVIEW_ALLOWED.includes(item.href);
 
@@ -273,6 +336,11 @@ export function Sidebar({ orgType, orgName, isCollaborator = false, permissions 
                   href={item.href}
                   onClick={handleLinkClick}
                   title={!isExpanded ? item.label : undefined}
+                  aria-label={
+                    badgeCount > 0
+                      ? `${item.label} — ${badgeCount} esperando tu acción`
+                      : undefined
+                  }
                   className={cn(
                     "group relative flex items-center gap-3 rounded-2xl py-2.5 text-[13px] font-medium transition-all duration-200 ease-out overflow-hidden",
                     // Active = white pill (inverted) like the reference; inactive = ghost
@@ -294,6 +362,14 @@ export function Sidebar({ orgType, orgName, isCollaborator = false, permissions 
                     strokeWidth={isActive ? 2.5 : 1.8}
                   />
 
+                  {/* Contador colapsado: punto sobre el icono */}
+                  {badgeCount > 0 && !isExpanded && (
+                    <span
+                      className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#43eada] ring-2 ring-[#044c64]"
+                      aria-hidden="true"
+                    />
+                  )}
+
                   {/* Label */}
                   <span
                     className={cn(
@@ -304,8 +380,20 @@ export function Sidebar({ orgType, orgName, isCollaborator = false, permissions 
                     {item.label}
                   </span>
 
+                  {/* Contador expandido: el número, que es lo accionable */}
+                  {badgeCount > 0 && isExpanded && (
+                    <span
+                      className={cn(
+                        "ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums",
+                        isActive ? "bg-[#09919b] text-white" : "bg-[#43eada] text-[#033d52]",
+                      )}
+                    >
+                      {badgeCount > 99 ? "99+" : badgeCount}
+                    </span>
+                  )}
+
                   {/* Active indicator dot */}
-                  {isExpanded && isActive && (
+                  {isExpanded && isActive && badgeCount === 0 && (
                     <div className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-[#09919b]" />
                   )}
                 </Link>
@@ -313,6 +401,11 @@ export function Sidebar({ orgType, orgName, isCollaborator = false, permissions 
             })}
           </TooltipProvider>
         </nav>
+
+        {/* ── Selector de organización ── */}
+        <div className="shrink-0 border-t border-white/10 pt-2">
+          <OrgSwitcher orgs={availableOrgs} currentOrgId={orgId} isExpanded={isExpanded} />
+        </div>
 
         {/* ── Footer ── */}
         <div className="shrink-0 space-y-0.5 border-t border-white/10 px-2 pb-3 pt-2">

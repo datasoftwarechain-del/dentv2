@@ -1,0 +1,22 @@
+-- ============================================================
+-- 037a_org_type_design_client.sql
+-- Agrega 'design_client' al enum org_type
+-- ============================================================
+-- CORRER ESTA LINEA SOLA, ANTES QUE 037.
+--
+-- Postgres no deja usar un valor de enum recien agregado dentro de la
+-- misma transaccion ("unsafe use of new value"), asi que este ALTER
+-- tiene que confirmarse solo antes de que cualquier otra sentencia
+-- mencione 'design_client'.
+--
+-- QUE ES design_client
+--   Un cliente que solo pide disenos CAD/CAM. No es una clinica con el
+--   ERP contratado: no tiene pacientes, ni citas, ni agenda, ni ordenes
+--   de laboratorio, ni stock. Se separa de 'dentist' porque es otro
+--   producto, y porque dejarlo como 'dentist' regalaba el sistema
+--   completo a cualquiera que pidiera una corona por la web.
+--
+-- IDEMPOTENTE: si ya existe, avisa y no hace nada.
+-- ============================================================
+
+ALTER TYPE public.org_type ADD VALUE IF NOT EXISTS 'design_client';

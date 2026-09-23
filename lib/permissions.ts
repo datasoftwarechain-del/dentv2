@@ -65,6 +65,13 @@ export interface CollaboratorPermissions {
 
   // ── Billing actions ──
   manage_billing: boolean;           // [BLOQUE 1.5] Issue manual invoices, edit strict, delete invoices (BLOQUE 3)
+
+  // ── Estudio de Diseño Digital (035_design_studio) ──
+  view_design_studio: boolean;       // Ver el módulo de diseño (cliente y estudio)
+  create_design_orders: boolean;     // Cliente: armar y enviar pedidos de diseño
+  manage_design_queue: boolean;      // Estudio: asignar diseñador y mover la orden de estado
+  upload_design_output: boolean;     // Estudio: subir el STL terminado y liberarlo
+  manage_design_clients: boolean;    // Estudio: alta/baja de clientes y su modo de pago
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -95,6 +102,11 @@ export const PERMISSION_KEYS = [
   "create_appointments",
   "create_patients",
   "manage_billing",
+  "view_design_studio",
+  "create_design_orders",
+  "manage_design_queue",
+  "upload_design_output",
+  "manage_design_clients",
 ] as const satisfies (keyof CollaboratorPermissions)[];
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -126,6 +138,11 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   create_appointments:      "Crear citas",
   create_patients:          "Agregar pacientes",
   manage_billing:           "Gestionar facturación (emitir/editar/eliminar)",
+  view_design_studio:       "Ver estudio de diseño digital",
+  create_design_orders:     "Crear pedidos de diseño",
+  manage_design_queue:      "Asignar y mover la cola de diseño",
+  upload_design_output:     "Subir y liberar archivos diseñados",
+  manage_design_clients:    "Gestionar clientes del estudio",
 };
 
 /** Which sections apply to which org type */
@@ -135,6 +152,8 @@ export const DENTIST_PERMISSIONS: PermissionKey[] = [
   "view_prices", "view_billing_amounts", "view_financial_dashboard",
   "create_orders", "edit_orders", "delete_orders", "update_order_status",
   "create_appointments", "create_patients", "manage_billing",
+  // Como CLIENTE del estudio: pide diseños, no los ejecuta.
+  "view_design_studio", "create_design_orders",
 ];
 
 export const LAB_PERMISSIONS: PermissionKey[] = [
@@ -146,6 +165,21 @@ export const LAB_PERMISSIONS: PermissionKey[] = [
   "view_inventory", "manage_inventory",
   "create_orders", "edit_orders", "delete_orders", "update_order_status",
   "manage_billing",
+  // Un laboratorio también puede ser cliente del estudio de diseño.
+  "view_design_studio", "create_design_orders",
+];
+
+/**
+ * [035_design_studio] Permisos del equipo de diseño. Es la org que
+ * EJECUTA los diseños, no la que los pide: no tiene producción física,
+ * ni pacientes, ni stock.
+ */
+export const DESIGN_STUDIO_PERMISSIONS: PermissionKey[] = [
+  "view_dashboard", "view_billing", "view_clients",
+  "view_prices", "view_billing_amounts", "view_financial_dashboard",
+  "view_pricing_admin", "manage_pricing", "manage_billing",
+  "view_design_studio", "create_design_orders", "manage_design_queue",
+  "upload_design_output", "manage_design_clients",
 ];
 
 /** Group labels shown as section headers in the permissions dialog */
@@ -160,7 +194,7 @@ export const PERMISSION_GROUPS: {
     keys: [
       "view_dashboard", "view_patients", "view_appointments", "view_orders",
       "view_cases", "view_schedule", "view_kanban", "view_billing", "view_clients",
-      "view_purchases", "view_inventory",
+      "view_purchases", "view_inventory", "view_design_studio",
     ],
   },
   {
@@ -178,6 +212,14 @@ export const PERMISSION_GROUPS: {
       "create_orders", "edit_orders", "delete_orders", "update_order_status",
       "create_appointments", "create_patients",
       "manage_billing", "manage_pricing", "manage_purchases", "manage_inventory",
+    ],
+  },
+  {
+    label: "Estudio de diseño digital",
+    description: "Pedir diseños CAD/CAM y, del lado del estudio, ejecutarlos",
+    keys: [
+      "create_design_orders", "manage_design_queue",
+      "upload_design_output", "manage_design_clients",
     ],
   },
 ];
@@ -211,6 +253,11 @@ export const EMPTY_PERMISSIONS: CollaboratorPermissions = {
   create_appointments: false,
   create_patients: false,
   manage_billing: false,
+  view_design_studio: false,
+  create_design_orders: false,
+  manage_design_queue: false,
+  upload_design_output: false,
+  manage_design_clients: false,
 };
 
 /** Full access — used for admins when converting to CollaboratorPermissions shape */
@@ -240,6 +287,11 @@ export const ALL_PERMISSIONS: CollaboratorPermissions = {
   create_appointments: true,
   create_patients: true,
   manage_billing: true,
+  view_design_studio: true,
+  create_design_orders: true,
+  manage_design_queue: true,
+  upload_design_output: true,
+  manage_design_clients: true,
 };
 
 // ─── Presets ──────────────────────────────────────────────────────────────────

@@ -401,16 +401,18 @@ export function SettingsForm({ user, organization, role }: SettingsFormProps) {
         </Card>
       )}
 
-      {/* Arancel / Servicios — solo admins */}
-      {role === "admin" && (
+      {/* Arancel / Servicios — solo admins, y no para clientes de
+          solo-diseño: no tienen aranceles propios que administrar. */}
+      {role === "admin" && organization.type !== "design_client" && (
         <PriceCatalogSection
           orgId={organization.id}
           orgType={organization.type}
         />
       )}
 
-      {/* Colaboradores — solo admins */}
-      {role === "admin" && (
+      {/* Colaboradores — función del producto pago. Un cliente de
+          solo-diseño no tiene equipo que gestionar acá. */}
+      {role === "admin" && organization.type !== "design_client" && (
         <CollaboratorsSection
           orgId={organization.id}
           orgType={organization.type as "dentist" | "lab"}

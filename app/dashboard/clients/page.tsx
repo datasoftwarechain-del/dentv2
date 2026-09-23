@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { DESIGN_CLIENT_HOME } from "@/lib/design/client-guard";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +12,10 @@ import { getUserOrg } from "@/lib/get-user-org";
 export default async function ClientsPage() {
   // Shares React.cache() with layout — no extra auth round-trip
   const { user, org, isCollaborator, permissions } = await getUserOrg();
+  // [037] Un cliente de solo-diseño no contrató el ERP: esta pantalla no
+  // es suya. El menú ya no se la muestra; esto frena la URL escrita a mano.
+  if (org.type === "design_client") redirect(DESIGN_CLIENT_HOME);
+
   if (org.type !== "lab") redirect("/dashboard");
   if (isCollaborator && !permissions?.view_clients) redirect("/dashboard");
 

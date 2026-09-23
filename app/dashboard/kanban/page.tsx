@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { DESIGN_CLIENT_HOME } from "@/lib/design/client-guard";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 import { ORDER_STATUS_KANBAN_COLUMNS } from "@/lib/order-status";
@@ -8,6 +9,10 @@ import { getUserOrg } from "@/lib/get-user-org";
 export default async function KanbanPage() {
   // No-arg call shares React.cache() with layout — avoids duplicate auth round-trip
   const { user, org, isCollaborator, permissions } = await getUserOrg();
+  // [037] Un cliente de solo-diseño no contrató el ERP: esta pantalla no
+  // es suya. El menú ya no se la muestra; esto frena la URL escrita a mano.
+  if (org.type === "design_client") redirect(DESIGN_CLIENT_HOME);
+
   if (org.type !== "lab") redirect("/dashboard");
   if (isCollaborator && !permissions?.view_kanban) redirect("/dashboard");
   const supabase = await createClient();

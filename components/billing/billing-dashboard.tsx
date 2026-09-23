@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { formatSimpleDate, formatNumber } from "@/lib/date-utils";
+import { formatMoney, type Currency } from "@/lib/money";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,7 @@ import {
 } from "lucide-react";
 
 import { WORK_TYPE_LABELS, formatWorkType } from "@/lib/work-types";
+import { computePassthroughTotal } from "@/lib/invoice-totals";
 
 function shortInvoiceNumber(num: string): string {
   // FAC-YYMM-NNNN is always ≤16 chars; fallback truncation for legacy data
@@ -97,7 +99,7 @@ interface Invoice {
     unit_price: number | null;
     quantity: number;
     selected_extras: { name: string; price: number; qty?: number }[];
-    catalog_item: { name: string; base_price: number } | null;
+    catalog_item: { name: string; base_price: number; is_passthrough?: boolean } | null;
   }[];
   /**
    * [032_orders_delivered_at] JOIN vivo a lab_orders (cuándo pasó a delivered).
@@ -129,6 +131,13 @@ interface ConnectedDentist {
 
 interface BillingDashboardProps {
   invoices: Invoice[];
+  /**
+   * Moneda de quien factura. El estudio de diseño vende afuera y cobra
+   * en dólares; el laboratorio factura en pesos. Importa además porque
+   * formatNumber() descarta decimales: US$ 12.99 se imprimiría como $13,
+   * que en un arancel con centavos es directamente otro precio.
+   */
+  currency?: Currency;
   movements: LedgerMovement[];
   isDentist: boolean;
   organizationId: string;
@@ -187,7 +196,13 @@ export function BillingDashboard({
   canViewFinancialDashboard = false,
   canViewAmounts = false,
   canViewProfitability = false,
+  currency = "ARS",
 }: BillingDashboardProps) {
+  // Un solo lugar donde se decide cómo se imprime la plata en esta
+  // pantalla. Reemplaza a formatNumber(), que redondeaba a entero.
+  const money = (n: number | string | null | undefined) =>
+    formatMoney(Number(n ?? 0), currency);
+
   const router = useRouter();
   const [invoices, setInvoices] = useState(initialInvoices);
   const [stats, setStats] = useState(initialStats);
@@ -418,8 +433,28 @@ export function BillingDashboard({
     new Date(inv.created_at).getFullYear() === lastMonth.getFullYear()
   );
 
-  const thisMonthTotal = thisMonthInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
-  const lastMonthTotal = lastMonthInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
+  // [034_passthrough_items] Métricas de gestión netas de trabajos
+  // tercerizados. El bruto se sigue mostrando como referencia, pero el
+  // número grande es el neto: lo tercerizado se factura al cliente y se
+  // cobra igual, pero no aporta margen, así que no debe leerse como
+  // rendimiento del mes. No toca invoices.total ni el saldo del cliente.
+  const passthroughOf = (inv: Invoice) =>
+    computePassthroughTotal(
+      (inv.order_items ?? []).map((it) => ({
+        unit_price: it.unit_price,
+        quantity: it.quantity,
+        selected_extras: it.selected_extras,
+        catalog_item: it.catalog_item,
+      })),
+    );
+
+  const thisMonthGross = thisMonthInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
+  const lastMonthGross = lastMonthInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
+  const thisMonthPassthrough = thisMonthInvoices.reduce((sum, inv) => sum + passthroughOf(inv), 0);
+  const lastMonthPassthrough = lastMonthInvoices.reduce((sum, inv) => sum + passthroughOf(inv), 0);
+
+  const thisMonthTotal = Math.max(0, thisMonthGross - thisMonthPassthrough);
+  const lastMonthTotal = Math.max(0, lastMonthGross - lastMonthPassthrough);
   const monthGrowth = lastMonthTotal > 0
     ? ((thisMonthTotal - lastMonthTotal) / lastMonthTotal * 100).toFixed(1)
     : 0;
@@ -480,7 +515,7 @@ export function BillingDashboard({
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold tracking-tight">
-              ${formatNumber(stats.totalInvoiced)}
+              {money(stats.totalInvoiced)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 font-medium flex items-center gap-1">
               <TrendingUp className="h-3 w-3 text-secondary" /> +8.2% vs mes anterior
@@ -499,7 +534,7 @@ export function BillingDashboard({
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold tracking-tight text-secondary">
-              ${formatNumber(stats.totalPaid)}
+              {money(stats.totalPaid)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 font-medium flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full bg-secondary animate-pulse" /> Estado al día
@@ -518,7 +553,7 @@ export function BillingDashboard({
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold tracking-tight text-[#09919b]">
-              ${formatNumber(stats.totalPending)}
+              {money(stats.totalPending)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 font-medium">
               {invoices.filter(i => i.status === "pending").length} facturas
@@ -555,10 +590,19 @@ export function BillingDashboard({
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
                   Este Mes
                 </p>
-                <p className="text-2xl font-bold">${formatNumber(thisMonthTotal)}</p>
+                <p className="text-2xl font-bold">{money(thisMonthTotal)}</p>
                 <p className="text-[10px] text-muted-foreground mt-1">
                   {thisMonthInvoices.length} facturas
+                  {thisMonthPassthrough > 0 && " · sin tercerizados"}
                 </p>
+                {thisMonthPassthrough > 0 && (
+                  <p className="text-[10px] text-muted-foreground/70 mt-1 leading-relaxed">
+                    Facturado {money(thisMonthGross)} · tercerizado{" "}
+                    <span className="font-semibold text-foreground/70">
+                      {money(thisMonthPassthrough)}
+                    </span>
+                  </p>
+                )}
               </div>
               <div className={cn(
                 "flex items-center gap-1 text-sm font-bold px-2 py-1 rounded-lg",
@@ -582,10 +626,19 @@ export function BillingDashboard({
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
                   Mes Anterior
                 </p>
-                <p className="text-2xl font-bold">${formatNumber(lastMonthTotal)}</p>
+                <p className="text-2xl font-bold">{money(lastMonthTotal)}</p>
                 <p className="text-[10px] text-muted-foreground mt-1">
                   {lastMonthInvoices.length} facturas
+                  {lastMonthPassthrough > 0 && " · sin tercerizados"}
                 </p>
+                {lastMonthPassthrough > 0 && (
+                  <p className="text-[10px] text-muted-foreground/70 mt-1 leading-relaxed">
+                    Facturado {money(lastMonthGross)} · tercerizado{" "}
+                    <span className="font-semibold text-foreground/70">
+                      {money(lastMonthPassthrough)}
+                    </span>
+                  </p>
+                )}
               </div>
             </div>
           </CardContent>
@@ -605,7 +658,7 @@ export function BillingDashboard({
                   </p>
                   <p className="text-2xl font-bold text-foreground">{overdueInvoices.length}</p>
                   <p className="text-[10px] text-muted-foreground mt-1">
-                    ${formatNumber(overdueInvoices.reduce((sum, inv) => sum + Number(inv.total), 0))}
+                    {money(overdueInvoices.reduce((sum, inv) => sum + Number(inv.total), 0))}
                   </p>
                 </div>
               </div>
@@ -660,7 +713,7 @@ export function BillingDashboard({
                       {client.pendingAmount > 0 ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-[#d2f2f3] text-[#09919b] border border-[#a8d8dc] px-2.5 py-1 text-xs font-bold">
                           <DollarSign className="h-3 w-3" />
-                          ${formatNumber(client.pendingAmount)}
+                          {money(client.pendingAmount)}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-primary/8 text-primary border border-primary/20 px-2.5 py-1 text-xs font-bold">
@@ -753,8 +806,8 @@ export function BillingDashboard({
                             const ov = overridesByItem[item.id];
                             const price = ov ? ov.effective : item.base_price;
                             const label = ov?.hasOverride
-                              ? `${item.name} — $${formatNumber(price)} (personalizado)`
-                              : `${item.name} — $${formatNumber(price)}`;
+                              ? `${item.name} — ${money(price)} (personalizado)`
+                              : `${item.name} — ${money(price)}`;
                             return (
                               <option key={item.id} value={item.id}>{label}</option>
                             );
@@ -763,9 +816,9 @@ export function BillingDashboard({
                         {newInvoiceForm.selectedCatalogId && overridesByItem[newInvoiceForm.selectedCatalogId]?.hasOverride && (
                           <p
                             className="text-[11px] text-[#09919b] font-semibold"
-                            title={`Precio general: $${formatNumber(overridesByItem[newInvoiceForm.selectedCatalogId].base)}. Precio para esta clínica: $${formatNumber(overridesByItem[newInvoiceForm.selectedCatalogId].effective)}.`}
+                            title={`Precio general: ${money(overridesByItem[newInvoiceForm.selectedCatalogId].base)}. Precio para esta clínica: ${money(overridesByItem[newInvoiceForm.selectedCatalogId].effective)}.`}
                           >
-                            Precio personalizado para esta clínica · general ${formatNumber(overridesByItem[newInvoiceForm.selectedCatalogId].base)}
+                            Precio personalizado para esta clínica · general {money(overridesByItem[newInvoiceForm.selectedCatalogId].base)}
                           </p>
                         )}
                       </div>
@@ -987,7 +1040,7 @@ export function BillingDashboard({
 
                       {/* Monto */}
                       <TableCell className="py-3.5">
-                        <span className="text-base font-bold">${formatNumber(invoice.total)}</span>
+                        <span className="text-base font-bold">{money(invoice.total)}</span>
                       </TableCell>
 
                       {/* Estado */}
@@ -1035,7 +1088,7 @@ export function BillingDashboard({
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold">${formatNumber(invoice.total)}</span>
+                      <span className="text-sm font-bold">{money(invoice.total)}</span>
                       <Badge
                         variant="outline"
                         className={cn("text-[9px] font-semibold uppercase tracking-wide rounded-full px-2", statusColors[invoice.status] || "")}

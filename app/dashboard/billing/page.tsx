@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { DESIGN_CLIENT_HOME } from "@/lib/design/client-guard";
+import { currencyForOrgType } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
@@ -15,6 +17,10 @@ import {
 
 export default async function BillingPage() {
   const { user, org, isCollaborator, permissions } = await getUserOrg();
+  // [037] Un cliente de solo-diseño no contrató el ERP: esta pantalla no
+  // es suya. El menú ya no se la muestra; esto frena la URL escrita a mano.
+  if (org.type === "design_client") redirect(DESIGN_CLIENT_HOME);
+
   if (isCollaborator && !permissions?.view_billing) redirect("/dashboard");
 
   const showAmounts = !isCollaborator || !!permissions?.view_billing_amounts;
@@ -202,8 +208,13 @@ export default async function BillingPage() {
     );
   }
 
-  // ─── LAB BILLING ──────────────────────────────────────────
-  // All four queries run in parallel
+  // ─── FACTURACIÓN DEL EMISOR (laboratorio o estudio de diseño) ──
+  // invoices.lab_org_id es el emisor en los dos casos: el nombre de la
+  // columna es legacy, la semántica es quién factura. Lo único que
+  // cambia es de dónde sale la lista de clientes — el laboratorio los
+  // tiene en lab_dentist_relations, el estudio en design_studio_clients.
+  const isDesignStudio = org.type === "design_studio";
+
   const [
     { data: invoices },
     { data: allMovements },
@@ -228,11 +239,17 @@ export default async function BillingPage() {
       .eq("lab_org_id", org.id)
       .order("created_at", { ascending: false }),
 
-    // Connected dentist org IDs — source of truth for client list
-    supabase
-      .from("lab_dentist_relations")
-      .select("dentist_org_id")
-      .eq("lab_org_id", org.id),
+    // Clientes conectados — la fuente cambia según quién factura.
+    isDesignStudio
+      ? supabase
+          .from("design_studio_clients")
+          .select("dentist_org_id:client_org_id")
+          .eq("studio_org_id", org.id)
+          .eq("status", "active")
+      : supabase
+          .from("lab_dentist_relations")
+          .select("dentist_org_id")
+          .eq("lab_org_id", org.id),
   ]);
 
   // Fetch org names for all connected dentists (avoids FK hint issues)
@@ -244,22 +261,55 @@ export default async function BillingPage() {
     : { data: [] };
   const connectedDentists = (dentistOrgsData || []) as { id: string; name: string }[];
 
-  // Fetch order items for invoices — enables extras display in InvoiceDetail
+  // Ítems de cada factura, para el detalle. Las facturas de producción
+  // física cuelgan de lab_order_items; las del estudio de diseño, de
+  // design_order_items. Se resuelven por separado y se normalizan a la
+  // misma forma para que InvoiceDetail no tenga que saber la diferencia.
   const invoiceOrderIds = (invoices || []).map((inv: any) => inv.order_id).filter(Boolean) as string[];
-  let orderItemsByOrderId: Record<string, any[]> = {};
+  const designOrderIds = (invoices || []).map((inv: any) => inv.design_order_id).filter(Boolean) as string[];
+
+  const orderItemsByOrderId: Record<string, any[]> = {};
+  const itemsByDesignOrderId: Record<string, any[]> = {};
+
   if (invoiceOrderIds.length > 0) {
     const { data: orderItemsData } = await supabase
       .from("lab_order_items")
-      .select("id, order_id, work_type, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price)")
+      .select("id, order_id, work_type, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price, is_passthrough)")
       .in("order_id", invoiceOrderIds);
     for (const item of (orderItemsData || [])) {
       if (!orderItemsByOrderId[item.order_id]) orderItemsByOrderId[item.order_id] = [];
       orderItemsByOrderId[item.order_id].push(item);
     }
   }
+
+  if (designOrderIds.length > 0) {
+    const { data: designItems } = await supabase
+      .from("design_order_items")
+      .select("id, design_order_id, service_code, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price)")
+      .in("design_order_id", designOrderIds);
+    for (const item of (designItems || [])) {
+      const normalized = {
+        id: item.id,
+        order_id: item.design_order_id,
+        // work_type es lo que lee InvoiceDetail; en diseño el equivalente
+        // legible es el nombre del arancel.
+        work_type: (Array.isArray(item.catalog_item) ? item.catalog_item[0] : item.catalog_item)?.name
+          ?? item.service_code,
+        unit_price: item.unit_price,
+        quantity: item.quantity,
+        selected_extras: item.selected_extras,
+        catalog_item: item.catalog_item,
+      };
+      if (!itemsByDesignOrderId[item.design_order_id]) itemsByDesignOrderId[item.design_order_id] = [];
+      itemsByDesignOrderId[item.design_order_id].push(normalized);
+    }
+  }
+
   const invoicesWithItems = (invoices || []).map((inv: any) => ({
     ...inv,
-    order_items: orderItemsByOrderId[inv.order_id] || [],
+    order_items: inv.design_order_id
+      ? (itemsByDesignOrderId[inv.design_order_id] || [])
+      : (orderItemsByOrderId[inv.order_id] || []),
   }));
 
   // Latest ledger balance per client (movements already ordered by created_at desc)
@@ -330,6 +380,7 @@ export default async function BillingPage() {
           invoices={sanitizedInvoices}
           movements={movements || []}
           isDentist={false}
+          currency={currencyForOrgType(org.type)}
           organizationId={org.id}
           clients={clients}
           connectedDentists={connectedDentists}

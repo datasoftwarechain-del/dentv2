@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { DESIGN_CLIENT_HOME } from "@/lib/design/client-guard";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { PatientsList } from "@/components/patients/patients-list";
 import { PreviewGate } from "@/components/dashboard/preview-gate";
@@ -9,6 +10,10 @@ import { Users } from "lucide-react";
 export default async function PatientsPage() {
   // No-arg call shares React.cache() with layout — avoids duplicate auth round-trip
   const { user, org, isCollaborator, permissions } = await getUserOrg();
+  // [037] Un cliente de solo-diseño no contrató el ERP: esta pantalla no
+  // es suya. El menú ya no se la muestra; esto frena la URL escrita a mano.
+  if (org.type === "design_client") redirect(DESIGN_CLIENT_HOME);
+
   if (org.type !== "dentist" && org.type !== "dentist_preview") redirect("/dashboard");
   if (isCollaborator && !permissions?.view_patients) redirect("/dashboard");
 

@@ -4,6 +4,8 @@ import { Stats } from "@/components/landing/stats";
 import { Features } from "@/components/landing/features";
 import { CurvedTextSection } from "@/components/landing/curved-text-section";
 import { HowItWorks } from "@/components/landing/how-it-works";
+import { DesignServices } from "@/components/landing/design-services";
+import { getPublicDesignPrices } from "@/lib/design/public-prices";
 import { Testimonials } from "@/components/landing/testimonials";
 import { Pricing } from "@/components/landing/pricing";
 import { Cta } from "@/components/landing/cta";
@@ -19,7 +21,11 @@ const ChatWidget = dynamic(() =>
   import("@/components/landing/chat-widget").then((m) => ({ default: m.ChatWidget }))
 );
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Los precios salen del catálogo real, no de una constante del código:
+  // la landing y la factura tienen que decir lo mismo.
+  const designPrices = await getPublicDesignPrices();
+
   return (
     <LenisProvider>
       <a
@@ -44,6 +50,9 @@ export default function HomePage() {
         </ScrollSection>
         <ScrollSection>
           <HowItWorks />
+        </ScrollSection>
+        <ScrollSection>
+          <DesignServices prices={designPrices} />
         </ScrollSection>
         <ScrollSection>
           <Testimonials />

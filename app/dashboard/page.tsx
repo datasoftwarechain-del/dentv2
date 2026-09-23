@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { DesignStudioDashboard } from "@/components/design/design-studio-dashboard";
+import { getStudioDashboardData } from "@/components/design/design-studio-dashboard-data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserOrg } from "@/lib/get-user-org";
 import { canViewPrices } from "@/lib/permissions";
@@ -12,6 +14,40 @@ export default async function DashboardPage() {
   // getUserOrg() is memoized via React.cache() — shares the result with
   // layout.tsx which calls it in the same server request, so no extra roundtrip.
   const { user, org, permissions } = await getUserOrg();
+
+  // [037] El cliente de solo-diseño no tiene nada que ver en un
+  // dashboard de clínica. Su inicio es su lista de pedidos.
+  if (org.type === "design_client") redirect("/dashboard/design");
+
+  // [035_design_studio] El estudio no tiene pacientes ni produccion
+  // fisica: el dashboard de abajo no le dice nada. Tiene el suyo, que
+  // abre con lo que pide accion hoy en vez de con totales facturados.
+  if (org.type === "design_studio") {
+    const data = await getStudioDashboardData(org.id);
+    return (
+      <div className="flex flex-col">
+        <DashboardHeader
+          title="Estudio de Diseño"
+          user={{
+            email: user.email || "",
+            firstName: user.user_metadata?.first_name,
+            lastName: user.user_metadata?.last_name,
+          }}
+        />
+        <div className="flex-1 p-6">
+          <DesignStudioDashboard
+            counts={data.counts}
+            // Los totales facturados son información financiera: un
+            // diseñador colaborador sin view_prices no tiene por qué verlos.
+            // Con null el componente omite las tarjetas de dinero.
+            facturacion={canViewPrices(permissions) ? data.facturacion : null}
+            recientes={data.recientes as any[]}
+          />
+        </div>
+      </div>
+    );
+  }
+
   const showPrices = canViewPrices(permissions);
   const supabase = await createClient();
 
