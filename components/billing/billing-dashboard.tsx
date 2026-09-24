@@ -293,7 +293,8 @@ export function BillingDashboard({
       toast.error("Seleccioná una clínica");
       return;
     }
-    if (!newInvoiceForm.total || isNaN(Number(newInvoiceForm.total)) || Number(newInvoiceForm.total) <= 0) {
+    // '0' es un total válido (sin cargo); lo que se rechaza es vacío o negativo.
+    if (newInvoiceForm.total === "" || isNaN(Number(newInvoiceForm.total)) || Number(newInvoiceForm.total) < 0) {
       toast.error("Ingresá un monto válido");
       return;
     }

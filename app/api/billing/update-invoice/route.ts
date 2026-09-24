@@ -13,7 +13,8 @@ import { validateCSRF } from "@/lib/csrf";
 // requieren para una edición de monto coherente.
 const UpdateInvoiceSchema = z.object({
   invoiceId: z.string().uuid("invoiceId debe ser un UUID válido"),
-  total: z.coerce.number().positive("El total debe ser positivo").optional(),
+  // 0 es válido: un trabajo de garantía o cortesía se factura sin cargo.
+  total: z.coerce.number().min(0, "El total no puede ser negativo").optional(),
   subtotal: z.coerce.number().min(0, "El subtotal no puede ser negativo").optional(),
   tax_rate: z.coerce.number().min(0).max(100).optional(),
   tax_amount: z.coerce.number().min(0).optional(),

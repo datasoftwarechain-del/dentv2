@@ -77,10 +77,15 @@ export default async function ClientAccountPage({ params }: PageProps) {
   const orderIds = (invoicesRaw || []).map((inv: any) => inv.order_id).filter(Boolean);
   let orderItemsByOrderId: Record<string, any[]> = {};
   if (orderIds.length > 0) {
-    const { data: itemsData } = await db
+    const { data: itemsData, error: itemsError } = await db
       .from("lab_order_items")
       .select("id, order_id, work_type, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price, is_passthrough)")
       .in("order_id", orderIds);
+    if (itemsError) {
+      // Un fallo aca deja el estado de cuenta sin desglose y parece un
+      // dato vacio, no un error. Que al menos quede en el log.
+      console.error("[billing/accounts] no se pudieron cargar los items:", itemsError.message);
+    }
     for (const item of (itemsData || [])) {
       if (!orderItemsByOrderId[item.order_id]) orderItemsByOrderId[item.order_id] = [];
       orderItemsByOrderId[item.order_id].push(item);

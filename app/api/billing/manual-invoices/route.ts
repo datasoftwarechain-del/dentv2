@@ -27,7 +27,8 @@ export async function POST(request: NextRequest) {
       subtotal, taxRate, taxAmount, discountType, discountValue, discountAmount,
     } = body;
 
-    if (!dentistOrgId || total === undefined || isNaN(Number(total)) || Number(total) <= 0) {
+    // Se admite 0: una factura sin cargo también es una factura.
+    if (!dentistOrgId || total === undefined || isNaN(Number(total)) || Number(total) < 0) {
       return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
     }
 

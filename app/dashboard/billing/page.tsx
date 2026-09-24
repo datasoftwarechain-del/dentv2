@@ -272,10 +272,16 @@ export default async function BillingPage() {
   const itemsByDesignOrderId: Record<string, any[]> = {};
 
   if (invoiceOrderIds.length > 0) {
-    const { data: orderItemsData } = await supabase
+    const { data: orderItemsData, error: orderItemsError } = await supabase
       .from("lab_order_items")
       .select("id, order_id, work_type, unit_price, quantity, selected_extras, catalog_item:price_catalog(name, base_price, is_passthrough)")
       .in("order_id", invoiceOrderIds);
+    if (orderItemsError) {
+      // Sin esto el fallo es invisible: la pantalla muestra facturas sin
+      // items y parece un dato vacio, no un error. Asi fue como una
+      // migracion sin aplicar dejo 463 facturas sin desglose.
+      console.error("[billing] no se pudieron cargar los items de las facturas:", orderItemsError.message);
+    }
     for (const item of (orderItemsData || [])) {
       if (!orderItemsByOrderId[item.order_id]) orderItemsByOrderId[item.order_id] = [];
       orderItemsByOrderId[item.order_id].push(item);
