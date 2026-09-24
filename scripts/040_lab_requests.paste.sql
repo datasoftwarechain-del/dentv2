@@ -1,0 +1,22 @@
+-- 040 (version para pegar: una sentencia por linea). La documentada es scripts/040_lab_requests.sql
+CREATE SEQUENCE IF NOT EXISTS lab_request_number_seq START 1;
+CREATE TABLE IF NOT EXISTS lab_requests (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), request_number TEXT NOT NULL UNIQUE, lab_org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE, status TEXT NOT NULL DEFAULT 'pending_review' CHECK (status IN ('pending_review','converting','converted','rejected')), professional_name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT, clinic_name TEXT NOT NULL, country TEXT NOT NULL DEFAULT 'UY', department TEXT, city TEXT, address TEXT, product_key TEXT NOT NULL, catalog_name TEXT, catalog_item_id UUID REFERENCES price_catalog(id) ON DELETE SET NULL, material TEXT, quantity INT NOT NULL DEFAULT 1 CHECK (quantity BETWEEN 1 AND 99), tooth_positions TEXT[], shade TEXT, urgency TEXT NOT NULL DEFAULT 'normal' CHECK (urgency IN ('normal','urgent')), patient_ref TEXT, notes TEXT, file_status TEXT NOT NULL DEFAULT 'none' CHECK (file_status IN ('none','pending','uploaded')), file_name TEXT, file_size BIGINT, storage_path TEXT, existing_case_ref TEXT, idempotency_key TEXT NOT NULL UNIQUE, source TEXT NOT NULL DEFAULT 'landing', accepted_terms_at TIMESTAMPTZ NOT NULL, lab_order_id UUID REFERENCES lab_orders(id) ON DELETE SET NULL, dentist_org_id UUID REFERENCES organizations(id) ON DELETE SET NULL, reviewed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL, reviewed_at TIMESTAMPTZ, rejection_reason TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS lab_requests_lab_status_idx ON lab_requests(lab_org_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS lab_requests_email_idx ON lab_requests(lower(email));
+CREATE OR REPLACE FUNCTION lab_request_set_number() RETURNS TRIGGER LANGUAGE plpgsql AS $$ BEGIN IF NEW.request_number IS NULL OR NEW.request_number = '' THEN NEW.request_number := 'SOL-' || lpad(nextval('lab_request_number_seq')::TEXT, 6, '0'); END IF; RETURN NEW; END; $$;
+DROP TRIGGER IF EXISTS lab_requests_set_number ON lab_requests;
+CREATE TRIGGER lab_requests_set_number BEFORE INSERT ON lab_requests FOR EACH ROW EXECUTE FUNCTION lab_request_set_number();
+CREATE OR REPLACE FUNCTION lab_request_touch() RETURNS TRIGGER LANGUAGE plpgsql AS $$ BEGIN NEW.updated_at := now(); IF NEW.status IN ('converted','rejected') AND OLD.status <> NEW.status AND NEW.reviewed_at IS NULL THEN NEW.reviewed_at := now(); END IF; RETURN NEW; END; $$;
+DROP TRIGGER IF EXISTS lab_requests_touch ON lab_requests;
+CREATE TRIGGER lab_requests_touch BEFORE UPDATE ON lab_requests FOR EACH ROW EXECUTE FUNCTION lab_request_touch();
+ALTER TABLE lab_requests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS lab_requests_select ON lab_requests;
+CREATE POLICY lab_requests_select ON lab_requests FOR SELECT TO authenticated USING (is_org_member(lab_org_id));
+DROP POLICY IF EXISTS lab_requests_update ON lab_requests;
+CREATE POLICY lab_requests_update ON lab_requests FOR UPDATE TO authenticated USING (is_org_member(lab_org_id)) WITH CHECK (is_org_member(lab_org_id));
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types) VALUES ('lab-request-files', 'lab-request-files', false, 209715200, NULL) ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = EXCLUDED.file_size_limit;
+DROP POLICY IF EXISTS lab_request_files_read ON storage.objects;
+CREATE POLICY lab_request_files_read ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'lab-request-files' AND EXISTS (SELECT 1 FROM lab_requests r WHERE r.id = ((storage.foldername(name))[1])::UUID AND is_org_member(r.lab_org_id)));
+DROP POLICY IF EXISTS lab_request_files_delete ON storage.objects;
+CREATE POLICY lab_request_files_delete ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'lab-request-files' AND EXISTS (SELECT 1 FROM lab_requests r WHERE r.id = ((storage.foldername(name))[1])::UUID AND is_org_member(r.lab_org_id)));
+SELECT (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'lab_requests') AS tabla_creada, (SELECT count(*) FROM pg_policies WHERE tablename = 'lab_requests') AS policies_tabla, (SELECT count(*) FROM pg_policies WHERE tablename = 'objects' AND policyname LIKE 'lab_request_files_%') AS policies_storage, (SELECT count(*) FROM storage.buckets WHERE id = 'lab-request-files' AND public = false) AS bucket_privado;
