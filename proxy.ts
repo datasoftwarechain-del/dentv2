@@ -78,7 +78,12 @@ export async function proxy(request: NextRequest) {
   }
 
   // Rate limit: solicitud publica de diseno (crea usuario + organizacion)
-  if (pathname === "/api/design/request" && request.method === "POST") {
+  // [040] La solicitud publica de fresado comparte el limite: no crea
+  // usuarios pero si filas y URLs firmadas de subida.
+  if (
+    (pathname === "/api/design/request" || pathname === "/api/lab-requests") &&
+    request.method === "POST"
+  ) {
     const key = `intake:${getClientIP(request)}`;
     if (!checkRateLimit(key, PUBLIC_INTAKE_LIMIT)) {
       return NextResponse.json(
