@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ServiceCard } from "./service-card";
+import { useDragScroll } from "./use-drag-scroll";
 import type { ServiceCardContent } from "@/content/servicios";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -40,6 +41,7 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
   const [active, setActive] = useState(0);
   const [mobileIndex, setMobileIndex] = useState(0);
   const railRef = useRef<HTMLDivElement>(null);
+  const dragScroll = useDragScroll(MOBILE_CARD + MOBILE_GAP);
 
   const go = useCallback((i: number) => setActive(((i % n) + n) % n), [n]);
 
@@ -131,8 +133,9 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
         ref={railRef}
         role="region"
         aria-label={label}
-        className="lg:hidden flex gap-3 overflow-x-auto px-5 pb-5 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className={cn("lg:hidden flex gap-3 overflow-x-auto px-5 pb-5 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", dragScroll.className)}
         style={{ scrollSnapType: "x mandatory", scrollPaddingLeft: 20 }}
+        {...dragScroll.handlers}
       >
         {items.map((item) => (
           <div key={item.key} className="flex-none" style={{ width: MOBILE_CARD, scrollSnapAlign: "start" }}>

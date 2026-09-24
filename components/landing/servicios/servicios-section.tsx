@@ -20,6 +20,8 @@ import {
 import { ScopeChip } from "./scope-chip";
 import { ServiceCard } from "./service-card";
 import { Coverflow } from "./coverflow";
+import { useDragScroll } from "./use-drag-scroll";
+import { cn } from "@/lib/utils";
 
 interface ServiciosSectionProps {
   /** Precio formateado por service_code de diseño. */
@@ -51,6 +53,8 @@ const reveal = {
 };
 
 export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionProps) {
+  // Rails móviles de 02/03: card 331 + gap 12. El mismo hook sirve para los dos.
+  const dragScroll = useDragScroll(331 + 12);
   const design = designCards();
 
   return (
@@ -143,9 +147,10 @@ export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionPr
               ))}
             </ul>
             <ul
-              className="flex gap-3 overflow-x-auto px-5 pb-5 pt-1 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className={cn("flex gap-3 overflow-x-auto px-5 pb-5 pt-1 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", dragScroll.className)}
               style={{ scrollSnapType: "x mandatory", scrollPaddingLeft: 20 }}
               aria-label={blk.title}
+              {...dragScroll.handlers}
             >
               {blk.items.map((item) => (
                 <li key={item.key} className="flex-none" style={{ width: 331, scrollSnapAlign: "start" }}>
