@@ -28,7 +28,10 @@ interface Order {
   status: string;
   created_at: string;
   due_date: string | null;
-  patient: Patient | Patient[] | null;
+  /** [032] Fecha real de entrega. NULL en órdenes anteriores a la migración. */
+  delivered_at?: string | null;
+  /** Solo lo traen las órdenes recientes; las de KPIs vienen sin paciente. */
+  patient?: Patient | Patient[] | null;
   dentist_org: Org | Org[] | null;
   lab_org?: Org | Org[] | null;
   items?: Array<{ work_type: string; catalog_item: { name: string } | null }> | null;
@@ -37,7 +40,13 @@ interface Order {
 interface LabDashboardProps {
   orgId: string;
   orgName: string;
+  /** TODAS las órdenes (livianas). De acá salen los números. */
   orders: Order[];
+  /**
+   * Las más nuevas, con paciente e ítems, para la lista de recientes.
+   * Si no viene, se recorta `orders` — así ninguna pantalla vieja se rompe.
+   */
+  recentOrders?: Order[];
   todayOrders: Order[];
   tomorrowOrders: Order[];
   patients: Patient[];
@@ -85,8 +94,8 @@ function shortDay(d: Date) {
 }
 
 export function LabDashboard({
-  orgId, orgName, orders, todayOrders, tomorrowOrders, patients, dentistOrgs,
-  showPrices = true,
+  orgId, orgName, orders, recentOrders: recentOrdersProp, todayOrders, tomorrowOrders,
+  patients, dentistOrgs, showPrices = true,
 }: LabDashboardProps) {
   const statusLabels = ORDER_STATUS_LABELS;
   const now = new Date();
@@ -101,8 +110,12 @@ export function LabDashboard({
     ["in_progress", "in_production", "quality_check", "missing_info"].includes(o.status)
   );
   const readyOrders          = orders.filter(o => o.status === "ready");
+  // Una orden creada en julio y entregada hoy es una entrega de hoy. El
+  // sello delivered_at existe desde la 032; para las anteriores se cae a
+  // created_at, que es lo único que hay.
+  const deliveredOn = (o: Order) => new Date(o.delivered_at ?? o.created_at);
   const deliveredThisMonth   = orders.filter(o =>
-    o.status === "delivered" && new Date(o.created_at) >= monthStart
+    o.status === "delivered" && deliveredOn(o) >= monthStart
   );
 
   // ── Top clients ──────────────────────────────────────────────────────────
@@ -124,7 +137,7 @@ export function LabDashboard({
       const d = new Date();
       d.setDate(d.getDate() - (6 - i));
       const prefix = d.toISOString().split("T")[0];
-      return orders.filter(o => o.status === "delivered" && o.created_at.startsWith(prefix)).length;
+      return orders.filter(o => o.status === "delivered" && (o.delivered_at ?? o.created_at).startsWith(prefix)).length;
     });
   }, [orders]);
 
@@ -138,7 +151,7 @@ export function LabDashboard({
         day:        shortDay(d),
         creados:    orders.filter(o => o.created_at.startsWith(prefix)).length,
         entregados: orders.filter(o =>
-          o.status === "delivered" && o.created_at.startsWith(prefix)
+          o.status === "delivered" && (o.delivered_at ?? o.created_at).startsWith(prefix)
         ).length,
       };
     });
@@ -159,7 +172,7 @@ export function LabDashboard({
   }, [orders, statusLabels]);
 
   // Recent orders — top 6
-  const recentOrders = orders.slice(0, 6);
+  const recentOrders = (recentOrdersProp ?? orders).slice(0, 6);
   const topClient    = clientCounts[0] || null;
 
   return (

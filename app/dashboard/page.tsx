@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserOrg } from "@/lib/get-user-org";
 import { canViewPrices } from "@/lib/permissions";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
+import { fetchAllOrdersForKpis } from "@/lib/dashboard/fetch-all-orders";
 import { redirect } from "next/navigation";
 import { LabDashboard } from "@/components/dashboard/lab-dashboard";
 import { DentistDashboard } from "@/components/dashboard/dentist-dashboard";
@@ -90,6 +91,9 @@ export default async function DashboardPage() {
       { data: allOrders },
       { data: todayOrders },
       { data: tomorrowOrders },
+      // TODAS las órdenes, livianas, para los KPIs. La lista de arriba
+      // (.limit 200, con paciente e ítems) queda solo para "recientes".
+      kpiOrders,
     ] = await Promise.all([
       supabase
         .from("organizations")
@@ -137,6 +141,7 @@ export default async function DashboardPage() {
         .gte("due_date", tomorrow.toISOString())
         .lte("due_date", tomorrowEnd.toISOString())
         .order("due_date", { ascending: true }),
+      fetchAllOrdersForKpis(supabase, "lab_org_id", org.id),
     ]);
 
     return (
@@ -152,7 +157,8 @@ export default async function DashboardPage() {
         <LabDashboard
           orgId={org.id}
           orgName={org.name}
-          orders={(allOrders as any) || []}
+          orders={kpiOrders as any}
+          recentOrders={(allOrders as any) || []}
           todayOrders={(todayOrders as any) || []}
           tomorrowOrders={(tomorrowOrders as any) || []}
           patients={patients || []}
@@ -186,6 +192,8 @@ export default async function DashboardPage() {
     { data: labRelationsRaw },
     { data: todayOrders },
     { data: tomorrowOrders },
+    // TODAS las ordenes, livianas, para los KPIs (misma correccion que el lab).
+    dentistKpiOrders,
   ] = await Promise.all([
     db
       .from("patients")
@@ -258,6 +266,7 @@ export default async function DashboardPage() {
       .gte("due_date", tomorrow.toISOString())
       .lte("due_date", tomorrowEnd.toISOString())
       .order("due_date", { ascending: true }),
+    fetchAllOrdersForKpis(db, "dentist_org_id", effectiveDentistOrgId),
   ]);
 
   const patients = patientsData || [];
@@ -286,7 +295,8 @@ export default async function DashboardPage() {
         orgName={org.name}
         patients={patients}
         appointments={appointments || []}
-        orders={(orders as any) || []}
+        orders={dentistKpiOrders as any}
+        recentOrders={(orders as any) || []}
         todayOrders={(todayOrders as any) || []}
         tomorrowOrders={(tomorrowOrders as any) || []}
         labs={labs}

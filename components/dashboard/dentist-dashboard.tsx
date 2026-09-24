@@ -36,7 +36,9 @@ interface Order {
   status: string;
   created_at: string;
   due_date: string | null;
-  patient: Patient | Patient[] | null;
+  delivered_at?: string | null;
+  /** Solo lo traen las ordenes recientes; las de KPIs vienen sin paciente. */
+  patient?: Patient | Patient[] | null;
   lab_org: Lab | Lab[] | null;
   items?: Array<{ work_type: string; arancel_type?: string | null; catalog_item: { name: string } | null }> | null;
 }
@@ -46,7 +48,10 @@ interface DentistDashboardProps {
   orgName: string;
   patients: Patient[];
   appointments: Appointment[];
+  /** TODAS las ordenes (livianas). De aca salen los numeros. */
   orders: Order[];
+  /** Las mas nuevas, con paciente e items, para la lista. Opcional: si no viene se recorta `orders`. */
+  recentOrders?: Order[];
   todayOrders: Order[];
   tomorrowOrders: Order[];
   labs: Lab[];
@@ -78,8 +83,8 @@ function shortDay(d: Date) {
 }
 
 export function DentistDashboard({
-  orgId, orgName, patients, appointments, orders, todayOrders, tomorrowOrders, labs, isReadOnly = false,
-  showPrices = true,
+  orgId, orgName, patients, appointments, orders, recentOrders: recentOrdersProp,
+  todayOrders, tomorrowOrders, labs, isReadOnly = false, showPrices = true,
 }: DentistDashboardProps) {
   const statusLabels = ORDER_STATUS_LABELS;
   const now = new Date();
@@ -158,7 +163,7 @@ export function DentistDashboard({
     .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
     .slice(0, 5);
 
-  const recentOrders = orders.slice(0, 6);
+  const recentOrders = (recentOrdersProp ?? orders).slice(0, 6);
 
   return (
     <div className="flex-1 space-y-5 px-4 py-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
