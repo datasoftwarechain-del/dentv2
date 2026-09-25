@@ -1,7 +1,10 @@
 # Sección "Servicios" de la landing · diseño, fresado e impresión
 
-Rama `feature/servicios-cards`. Integra la sección diseñada en Claude Design
-(variante A, paleta clara, Inter) y le da flujo real a cada card.
+Integra la sección diseñada en Claude Design y le da flujo real a cada card.
+Bloque 01 (Diseño digital) es una franja oscura (#1b4257→#122d3c) fundida con
+el fondo claro, con coverflow 3D de cards de vidrio; 02/03 y el abanico de
+cierre van en paleta clara. Tipografía Archivo (Neue Montreal si está instalada).
+El alcance global se etiqueta "Online".
 
 ## Qué hace cada card
 
@@ -35,9 +38,11 @@ al convertir):
 y este mapa digan el mismo nombre de catálogo: si alguien renombra un ítem
 en un lado, el test falla.
 
-Precios: los de las cards y los del formulario salen del catálogo real
-(`getPublicLabPrices`, org "Digital Dent"). Los que están en 0 (PMMA,
-MODELOS IMPRESOS) se muestran **"A cotizar"**, nunca "$0".
+Precios: **solo se publican los de diseño digital**, como "Desde US$ X"
+(salen de `getPublicDesignPrices`; los que están en 0 no se muestran).
+Fresado e impresión **no llevan precio público** ni en las cards ni en el
+formulario: se cotizan por solicitud y el laboratorio confirma antes de
+producir. `getPublicLabPrices` queda disponible pero sin uso en la landing.
 
 ## Flujo de una solicitud de fresado
 

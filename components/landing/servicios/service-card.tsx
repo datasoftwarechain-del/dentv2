@@ -1,16 +1,20 @@
 "use client";
 
 /**
- * Card de servicio, paleta clara.
+ * Card de servicio, en dos temas.
  *
- * Adaptada del export de Claude Design (variante A) a la paleta clara de
- * la variante B, por decisión de producto: la landing es clara y una
- * sección oscura de 1.900px la partía en dos.
+ *   light: paleta clara del lienzo B. Se usa en fresado/impresión.
+ *   dark : vidrio oscuro del lienzo A (valores exactos del export). Se
+ *          usa en el carrusel de "Diseño digital", que va sobre la franja
+ *          oscura: sin ese fondo la transparencia del vidrio no se ve.
  *
  * Tres estados con señal visual creciente — default, hover (elevación +
- * borde + zoom de imagen) y activa (borde teal + halo) — porque en el
- * coverflow la card activa es la única con la que se puede interactuar y
+ * borde + zoom de imagen) y activa (borde luminoso + halo) — porque en el
+ * carrusel la card activa es la única con la que se puede interactuar y
  * tiene que verse como tal sin depender del movimiento.
+ *
+ * Sin filter, rotateY ni perspective: rompen el backdrop-filter y el
+ * apilado en Safari.
  *
  * El botón es un <Link> real: navegable por teclado, abre en la misma
  * pestaña y funciona sin JavaScript.
@@ -21,22 +25,150 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ScopeChip } from "./scope-chip";
 import type { ServiceCardContent } from "@/content/servicios";
-import { ArrowUpRight, Clock, Layers } from "lucide-react";
+import { ArrowUpRight, Clock, Globe, Layers } from "lucide-react";
+
+export type ServiceCardTheme = "light" | "dark";
 
 interface ServiceCardProps {
   item: ServiceCardContent;
   size?: "hero" | "compact";
+  theme?: ServiceCardTheme;
   active?: boolean;
   /** Texto de precio ya formateado, o null para no mostrar. */
   price?: string | null;
-  /** En el coverflow las laterales no son interactivas: sin tabIndex ni CTA. */
+  /** En el carrusel las laterales no son interactivas: sin tabIndex ni CTA. */
   inert?: boolean;
   className?: string;
 }
 
-export function ServiceCard({
-  item, size = "hero", active = false, price = null, inert = false, className,
-}: ServiceCardProps) {
+export function ServiceCard(props: ServiceCardProps) {
+  return props.theme === "dark" ? <DarkCard {...props} /> : <LightCard {...props} />;
+}
+
+// ─── Vidrio oscuro (lienzo A) ─────────────────────────────────
+
+function DarkCard({ item, active = false, price = null, inert = false, className }: ServiceCardProps) {
+  // Borde y sombra van por clases: el hover tiene que poder cambiarlos y
+  // un style inline los pisaría.
+  const BASE_SHADOW = "inset_0_1px_0_rgba(255,255,255,.14),0_28px_60px_rgba(4,16,24,.5)";
+  return (
+    <article
+      aria-label={item.title}
+      className={cn(
+        "group flex h-full w-full flex-col border transition-[transform,border-color,box-shadow,background] duration-200 ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none",
+        active
+          ? `border-[rgba(144,236,220,.85)] [box-shadow:${BASE_SHADOW},0_0_44px_rgba(144,236,220,.26)]`
+          : `border-[rgba(219,245,246,.16)] [box-shadow:${BASE_SHADOW}] hover:-translate-y-1 hover:border-[rgba(144,236,220,.5)] hover:[box-shadow:${BASE_SHADOW},0_0_44px_rgba(144,236,220,.16)]`,
+        className,
+      )}
+      style={{
+        width: "100%",
+        padding: 10,
+        borderRadius: 28,
+        background: active ? "rgba(219,245,246,.11)" : "rgba(219,245,246,.06)",
+        WebkitBackdropFilter: "blur(22px) saturate(140%)",
+        backdropFilter: "blur(22px) saturate(140%)",
+        fontFamily: "'Neue Montreal', 'PP Neue Montreal', Archivo, sans-serif",
+      }}
+    >
+      {/* ─── Imagen ─────────────────────────────────────────── */}
+      <div
+        className="relative flex-none overflow-hidden"
+        style={{
+          height: 220, borderRadius: 20,
+          background: "radial-gradient(circle at 50% 38%, rgba(144,236,220,.22), rgba(219,245,246,.04) 70%)",
+        }}
+      >
+        {item.image ? (
+          <Image
+            src={item.image} alt="" fill sizes="340px" loading="lazy"
+            className={cn("object-contain transition-transform duration-[360ms] ease-[cubic-bezier(.4,0,.2,1)] motion-reduce:transition-none", active ? "scale-[1.07]" : "group-hover:scale-[1.07]")}
+            style={{ padding: "34px 22px 18px" }}
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            className={cn(
+              "absolute inset-0 flex items-center justify-center pt-5 text-center transition-transform duration-[360ms] motion-reduce:transition-none",
+              "bg-[repeating-linear-gradient(135deg,rgba(219,245,246,.05)_0_8px,transparent_8px_16px)]",
+              active ? "scale-[1.07]" : "group-hover:scale-[1.07]",
+            )}
+          >
+            <span className="px-4 font-mono text-[10.5px] uppercase leading-[1.3] tracking-[.04em] text-[#a9c6cf]">
+              {item.placeholder}
+            </span>
+          </div>
+        )}
+
+        <span
+          className="absolute inline-flex items-center gap-1.5 rounded-full font-semibold"
+          style={{ left: 12, top: 12, height: 24, padding: "0 10px", background: "#90ecdc", color: "#122d3c", fontSize: 11, letterSpacing: ".04em" }}
+        >
+          <Globe size={13} aria-hidden="true" />
+          Online
+        </span>
+
+        {!inert && (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "absolute flex items-center justify-center rounded-full transition-colors duration-200",
+              active ? "bg-[#90ecdc] text-[#122d3c]" : "bg-[rgba(219,245,246,.14)] text-[#dbf5f6] group-hover:bg-[#90ecdc] group-hover:text-[#122d3c]",
+            )}
+            style={{ right: 10, top: 10, width: 34, height: 34 }}
+          >
+            <ArrowUpRight className="h-4 w-4" />
+          </span>
+        )}
+      </div>
+
+      {/* ─── Cuerpo ────────────────────────────────────────── */}
+      <div className="flex flex-1 flex-col justify-between" style={{ padding: "18px 10px 8px", gap: 16 }}>
+        <div className="flex flex-col" style={{ gap: 6 }}>
+          <h3 className="m-0 font-semibold text-white [text-wrap:pretty]" style={{ fontSize: 22, lineHeight: 1.2, letterSpacing: "-.01em" }}>
+            {item.title}
+          </h3>
+          <p className="m-0 [text-wrap:pretty]" style={{ fontSize: 14.5, lineHeight: 1.5, color: "#a9c6cf" }}>
+            {item.description}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center" style={{ gap: 6 }}>
+          <DarkChip><Clock className="h-[13px] w-[13px]" aria-hidden="true" />{item.time}</DarkChip>
+          <DarkChip><Layers className="h-[13px] w-[13px]" aria-hidden="true" />{item.spec}</DarkChip>
+          {price && <span className="ml-auto text-[13px] font-semibold tabular-nums text-white">{price}</span>}
+        </div>
+
+        {!inert && (
+          <Link
+            href={item.href}
+            className={cn(
+              "focus-ring inline-flex h-10 w-full items-center justify-center rounded-full text-[14px] font-medium transition-colors duration-200",
+              active ? "bg-[#90ecdc] text-[#122d3c] hover:bg-[#a6f0e3]" : "bg-[rgba(219,245,246,.12)] text-[#dbf5f6] hover:bg-[rgba(219,245,246,.2)]",
+            )}
+          >
+            {item.cta}
+          </Link>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function DarkChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full font-medium tabular-nums leading-none"
+      style={{ height: 26, padding: "0 10px", fontSize: 12, background: "rgba(219,245,246,.08)", border: "1px solid rgba(219,245,246,.14)", color: "#dbf5f6" }}
+    >
+      {children}
+    </span>
+  );
+}
+
+// ─── Paleta clara (lienzo B) ──────────────────────────────────
+
+function LightCard({ item, size = "hero", active = false, price = null, inert = false, className }: ServiceCardProps) {
   const hero = size === "hero";
   const ww = item.scope === "worldwide";
 

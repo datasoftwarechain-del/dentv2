@@ -44,14 +44,13 @@ import {
 type Phase = "idle" | "sending" | "uploading" | "confirming" | "done";
 type FileMode = "upload" | "existing" | "none";
 
-interface Props {
-  /** Texto de precio por product_key, ya formateado ("$ 5.200" | "A cotizar"). */
-  priceLabels: Record<string, string>;
-}
+// Sin precios: fresado e impresión se cotizan por solicitud, el laboratorio
+// confirma el total antes de producir.
+type Props = Record<string, never>;
 
 const BLOCKS: LabProductBlock[] = ["fresado", "impresion"];
 
-export function LabRequestForm({ priceLabels }: Props) {
+export function LabRequestForm(_props: Props) {
   const uid = useId();
   const searchParams = useSearchParams();
   const fromUrl = searchParams.get("producto");
@@ -297,7 +296,6 @@ export function LabRequestForm({ priceLabels }: Props) {
                     {LAB_PRODUCTS.filter((p) => p.block === block).map((p) => (
                       <SelectItem key={p.key} value={p.key}>
                         {p.label}
-                        <span className="ml-2 text-xs text-slate-400">{priceLabels[p.key]}</span>
                       </SelectItem>
                     ))}
                   </SelectGroup>
@@ -308,9 +306,7 @@ export function LabRequestForm({ priceLabels }: Props) {
               <p className="flex items-start gap-1.5 pt-1 text-xs text-slate-500">
                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
                 <span>
-                  {product.material} · precio de referencia por {product.unit}:{" "}
-                  <strong className="text-slate-700">{priceLabels[product.key]}</strong>.
-                  El laboratorio confirma el total antes de producir.
+                  {product.material}. El laboratorio te confirma precio y plazo antes de producir.
                 </span>
               </p>
             )}

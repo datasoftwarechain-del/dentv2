@@ -185,7 +185,7 @@ export const OUT_OF_SCOPE_MESSAGE = {
  * (de izquierda a derecha).
  */
 export const DESIGN_ARC = {
-  badge: "Worldwide · 100% remoto",
+  badge: "Online · 100% remoto",
   kicker: "Diseño digital",
   title: ["Subí tu escaneo.", "Recibí el diseño."],
   featured: [

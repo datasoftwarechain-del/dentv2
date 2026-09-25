@@ -8,7 +8,7 @@
  * globals.css: la sección trae su propia paleta sin pisar el resto de la
  * landing, y si un día se quita, no queda CSS huérfano.
  *
- * Tres bloques: 01 Diseño digital (Worldwide, coverflow), 02 Fresado CAM
+ * Tres bloques: 01 Diseño digital (Online, carrusel), 02 Fresado CAM
  * y 03 Impresión 3D (Uruguay, grilla en desktop y carril con scroll-snap
  * en mobile). Los textos salen de content/servicios.ts y del catálogo.
  */
@@ -30,7 +30,6 @@ interface ServiciosSectionProps {
   /** Precio formateado por service_code de diseño. */
   designPrices: Record<string, string | null>;
   /** Precio formateado por key de card física. */
-  labPrices: Record<string, string | null>;
 }
 
 const TOKENS: React.CSSProperties = {
@@ -62,7 +61,7 @@ const reveal = {
  */
 const archivo = Archivo({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"], display: "swap" });
 
-export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionProps) {
+export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
   // Rails móviles de 02/03: card 331 + gap 12. El mismo hook sirve para los dos.
   const dragScroll = useDragScroll(331 + 12);
   const design = designCards();
@@ -107,29 +106,48 @@ export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionPr
           </div>
         </motion.div>
 
-        {/* ═══ 01 · Diseño digital ═══ */}
-        <motion.div {...reveal} className="mt-11 flex flex-col gap-3 lg:mt-[88px] lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+      </div>
+
+      {/* ═══ 01 · Diseño digital — franja oscura fundida con el fondo claro ═══
+          Full-bleed dentro de la sección (overflow-hidden). El contenido queda
+          en la zona 100% oscura (28%–72%); los tramos que se funden son solo
+          padding, sin nada encima. --page-bg = fondo de la sección. */}
+      <div
+        className="design-section relative mt-11 w-screen left-1/2 -translate-x-1/2 overflow-hidden py-[96px] lg:mt-[88px] lg:py-[160px] lg:pb-[180px]"
+        style={{
+          color: "#dbf5f6",
+          background: "linear-gradient(180deg, var(--dd-mist-050) 0%, #1b4257 14%, #122d3c 28%, #122d3c 72%, #1b4257 86%, var(--dd-mist-050) 100%)",
+        }}
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-[720px] w-[1100px] -translate-x-1/2 -translate-y-[45%]"
+          style={{ background: "radial-gradient(ellipse at center, rgba(144,236,220,.20) 0%, rgba(43,99,131,.28) 38%, transparent 70%)" }}
+        />
+        <div className="relative mx-auto max-w-[1200px] px-5 pt-12 lg:px-0 lg:pt-24">
+        <motion.div {...reveal} className="relative z-[1] flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
           <div className="flex flex-col gap-3 lg:gap-4">
             <div className="flex flex-wrap items-center gap-3 lg:gap-4">
-              <span className="text-[13px] font-medium tabular-nums text-[var(--dd-deep-400)] lg:text-[14px]">{DESIGN_BLOCK.number}</span>
-              <h3 className="m-0 text-[26px] font-medium tracking-[-.02em] text-[var(--dd-deep-800)] lg:text-[40px]">{DESIGN_BLOCK.title}</h3>
-              <ScopeChip scope="worldwide" size="lg" className="hidden lg:inline-flex" />
-              <ScopeChip scope="worldwide" size="md" className="lg:hidden" />
+              <span className="text-[13px] font-medium tabular-nums text-[#7ea6ba] lg:text-[14px]">{DESIGN_BLOCK.number}</span>
+              <h3 className="m-0 text-[26px] font-medium tracking-[-.02em] text-white lg:text-[40px]">{DESIGN_BLOCK.title}</h3>
+              <ScopeChip scope="worldwide" size="lg" className="hidden !bg-[#90ecdc] !text-[#122d3c] lg:inline-flex" />
+              <ScopeChip scope="worldwide" size="md" className="!bg-[#90ecdc] !text-[#122d3c] lg:hidden" />
             </div>
-            <p className="m-0 max-w-[560px] text-[14.5px] leading-[1.5] text-[var(--dd-neutral-700)] lg:text-[17px]">{DESIGN_BLOCK.subtitle}</p>
+            <p className="m-0 max-w-[560px] text-[14.5px] leading-[1.5] text-[#a9c6cf] lg:text-[17px]">{DESIGN_BLOCK.subtitle}</p>
           </div>
-          <ol className="hidden items-center gap-2.5 text-[13.5px] text-[var(--dd-deep-700)] lg:flex" aria-label="Cómo funciona">
+          <ol className="hidden items-center gap-2.5 text-[13.5px] text-[#dbf5f6] lg:flex" aria-label="Cómo funciona">
             {DESIGN_BLOCK.steps.map((step, i) => (
               <li key={step} className="flex items-center gap-2.5">
-                {i > 0 && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--dd-deep-700)] opacity-50" />}
+                {i > 0 && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[#90ecdc]" />}
                 {step}
               </li>
             ))}
           </ol>
         </motion.div>
 
-        <div className="mt-6 lg:mt-12">
+        <div className="relative z-[1] mt-6 lg:mt-12">
           <Coverflow items={design} prices={designPrices} label={`${DESIGN_BLOCK.number} · ${DESIGN_BLOCK.title}`} />
+        </div>
         </div>
       </div>
 
@@ -156,7 +174,7 @@ export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionPr
             <ul className="hidden gap-5 lg:grid lg:grid-cols-4" aria-label={blk.title}>
               {blk.items.map((item) => (
                 <li key={item.key}>
-                  <ServiceCard item={item} size="compact" price={labPrices[item.key] ?? null} className="h-[390px]" />
+                  <ServiceCard item={item} size="compact" className="h-[390px]" />
                 </li>
               ))}
             </ul>
@@ -168,7 +186,7 @@ export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionPr
             >
               {blk.items.map((item) => (
                 <li key={item.key} className="flex-none" style={{ width: 331, scrollSnapAlign: "start" }}>
-                  <ServiceCard item={item} size="compact" price={labPrices[item.key] ?? null} className="h-[380px]" />
+                  <ServiceCard item={item} size="compact" className="h-[380px]" />
                 </li>
               ))}
               <li className="w-2 flex-none" aria-hidden="true" />

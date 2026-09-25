@@ -1,9 +1,9 @@
 /**
- * Chip de alcance: Worldwide o Uruguay.
+ * Chip de alcance: Online o Uruguay.
  *
  * El diseño exige que el alcance se comunique por tres canales, no solo
- * por color: ícono (globo / pin + bandera), texto ("Worldwide" /
- * "Uruguay") y forma (relleno para Worldwide, borde punteado para
+ * por color: ícono (globo / pin + bandera), texto ("Online" /
+ * "Uruguay") y forma (relleno para Online, borde punteado para
  * Uruguay). Un daltónico y un lector de pantalla tienen que distinguirlos
  * igual que cualquiera.
  */
@@ -56,7 +56,7 @@ interface ScopeChipProps {
 
 export function ScopeChip({ scope, size = "sm", label, className }: ScopeChipProps) {
   const ww = scope === "worldwide";
-  const text = label ?? (ww ? "Worldwide" : "Uruguay");
+  const text = label ?? (ww ? "Online" : "Uruguay");
   const dims = {
     sm: "h-6 px-2.5 text-[11px] gap-1.5",
     md: "h-8 px-3.5 pl-2.5 text-[12px] gap-2 uppercase tracking-[.06em]",
