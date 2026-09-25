@@ -26,7 +26,7 @@ export const HERO = {
   kicker: "Plataforma de odontología digital · Montevideo",
   title: ["Del escaneo a la pieza terminada,", "sin vueltas."],
   subtitle:
-    "Subís el escaneo intraoral y recibís el diseño STL en 24–72 h, desde cualquier país. En Uruguay también lo fresamos e imprimimos. Y si querés ordenar tu clínica o laboratorio, la plataforma lo hace por US$ 49 al mes.",
+    "Subís el escaneo intraoral y recibís el diseño STL en 24–72 h, desde cualquier país. Fresado e impresión en Uruguay y software para gestionar tu clínica o laboratorio, en el mismo lugar.",
   primary: { label: "Pedir un diseño", href: "/disenos/solicitar" },
   secondary: { label: "Conocer la plataforma", href: "#plataforma" },
   tertiary: { label: "¿Estás en Uruguay? Cotizá fresado e impresión", href: "/fresado/solicitar" },
@@ -64,7 +64,7 @@ export const PILLARS = [
 export const HOW_IT_WORKS = {
   eyebrow: "Cómo funciona",
   title: "Tres pasos, sea diseño, fresado o gestión.",
-  subtitle: "Sin instalaciones ni capacitaciones. El mismo flujo para un caso suelto o para operar toda la clínica.",
+  subtitle: "Sin instalaciones ni capacitaciones. El mismo flujo para un caso suelto o para toda la clínica.",
   steps: [
     {
       number: "01",
@@ -86,6 +86,21 @@ export const HOW_IT_WORKS = {
 
 export const PLATFORM = {
   eyebrow: "La plataforma",
+  /** Etiquetas de la vista previa del producto (columnas reales del Kanban). */
+  preview: {
+    caption: "Tablero de producción y facturación, tal como se ven en la plataforma.",
+    columns: ["Recibido", "En curso", "Listo", "Entregado"],
+    cards: [
+      // Datos de muestra: piezas y clientes genéricos, no casos reales.
+      { column: 0, title: "Corona zirconio · 1.6", client: "Clínica · Pocitos", tag: "STL adjunto" },
+      { column: 1, title: "Puente 3 piezas · 2.4–2.6", client: "Consultorio · Centro", tag: "Fresando" },
+      { column: 1, title: "Férula de descarga", client: "Clínica · Carrasco", tag: "Impresión" },
+      { column: 2, title: "Modelo de trabajo", client: "Clínica · Pocitos", tag: "Para retirar" },
+      { column: 3, title: "Provisorio PMMA · 1.1", client: "Consultorio · Cordón", tag: "Facturado" },
+    ],
+    invoice: { label: "Factura generada al cerrar", number: "F-000412", total: "US$ 186" },
+  },
+  cta: { label: "Ver planes", href: "#precios" },
   title: "Todo lo que pasa con un caso, en un solo lugar.",
   subtitle:
     "Es el mismo sistema con el que operamos nuestro laboratorio. Para clínicas, consultorios y laboratorios que quieren dejar de perseguir trabajos por WhatsApp.",
@@ -116,7 +131,6 @@ export const PLATFORM = {
 export const STATS_LABELS = {
   orders: "trabajos de laboratorio gestionados",
   clinics: "clínicas y consultorios activos",
-  services: "servicios de diseño CAD",
   turnaround: "de entrega en diseño",
 } as const;
 
@@ -125,6 +139,7 @@ export const PRICING_INTRO = {
   title: "Pagás por caso o por plataforma. Nunca por los dos sin querer.",
   services: "Diseño CAD desde US$ 6 por unidad · Fresado e impresión en Uruguay, a cotizar por solicitud.",
   servicesCta: { label: "Ver servicios y precios", href: "#servicios" },
+  badge: "Recomendado",
 } as const;
 
 export const FAQ = {
@@ -158,6 +173,14 @@ export const FAQ = {
     {
       q: "¿Qué pasa con los datos del paciente?",
       a: "No pedimos nombre ni documento: solo un código de referencia interno tuyo. Los escaneos se guardan en almacenamiento privado, se sirven por enlaces firmados de corta duración y solo los ve el equipo que trabaja tu caso.",
+    },
+    {
+      q: "¿La plataforma tiene contrato o permanencia?",
+      a: "No. El plan Profesional se paga mes a mes en US$ y se puede cambiar o cancelar cuando quieras. Pedir un diseño o cotizar fresado no requiere ningún plan: se paga por caso.",
+    },
+    {
+      q: "¿Cuántas personas pueden usar la plataforma?",
+      a: "El plan Profesional incluye hasta 5 usuarios con permisos por colaborador: recepción sin precios, técnicos sin facturación, lo que definas. Para equipos más grandes está el plan Empresa, con usuarios ilimitados.",
     },
     {
       q: "¿Puedo pedir varios servicios en la misma orden?",

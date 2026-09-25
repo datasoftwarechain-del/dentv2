@@ -41,15 +41,18 @@ export default async function HomePage() {
       </a>
       <Header />
       <main id="main-content">
-        {/* Orden de venta: promesa → tres caminos → servicios (lo que paga
-            hoy) → cómo funciona → plataforma → cifras reales → precios →
-            objeciones → cierre. Sin marquee, testimonios inventados ni
-            newsletter: no vendían. */}
+        {/* Orden de venta: promesa → tres caminos → cifras reales (la prueba,
+            antes del catálogo) → servicios (lo que paga hoy) → cómo funciona
+            → plataforma → precios → objeciones → cierre. Sin marquee,
+            testimonios inventados ni newsletter: no vendían. */}
         <ScrollSection>
           <Hero />
         </ScrollSection>
         <ScrollSection>
           <Pillars />
+        </ScrollSection>
+        <ScrollSection>
+          <Stats stats={stats} />
         </ScrollSection>
         <ScrollSection>
           <ServiciosSection designPrices={designPrices} />
@@ -59,9 +62,6 @@ export default async function HomePage() {
         </ScrollSection>
         <ScrollSection>
           <Features />
-        </ScrollSection>
-        <ScrollSection>
-          <Stats stats={stats} />
         </ScrollSection>
         <ScrollSection>
           <Pricing />

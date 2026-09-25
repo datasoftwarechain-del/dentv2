@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, X, CheckCircle2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useCSRF } from "@/hooks/useCSRF";
+import { OPEN_CHAT_EVENT } from "@/lib/landing/events";
 
 const ROLES = [
   { value: "", label: "Soy... (opcional)" },
@@ -21,6 +22,12 @@ type ChatState = "closed" | "open" | "success";
 export function ChatWidget() {
   const { csrfToken } = useCSRF();
   const [state, setState] = useState<ChatState>("closed");
+
+  useEffect(() => {
+    const open = () => setState("open");
+    window.addEventListener(OPEN_CHAT_EVENT, open);
+    return () => window.removeEventListener(OPEN_CHAT_EVENT, open);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     message: "",

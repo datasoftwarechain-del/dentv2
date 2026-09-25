@@ -40,6 +40,8 @@ interface CoverflowProps {
   items: ServiceCardContent[];
   prices?: Record<string, string | null>;
   label: string;
+  /** Card activa al cargar: conviene una con imagen real, no un placeholder. */
+  initialIndex?: number;
 }
 
 const MOBILE_CARD = 331;
@@ -56,9 +58,9 @@ const PAN_VELOCITY = 350;
 const WHEEL_COOLDOWN_MS = 550;
 const MOBILE_GAP = 12;
 
-export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
+export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: CoverflowProps) {
   const n = items.length;
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(Math.min(Math.max(initialIndex, 0), Math.max(n - 1, 0)));
   const [mobileIndex, setMobileIndex] = useState(0);
   const railRef = useRef<HTMLDivElement>(null);
   const dragScroll = useDragScroll(MOBILE_CARD + MOBILE_GAP);
@@ -182,7 +184,7 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
                   animate={isActive && !reduceMotion ? { y: [0, -5, 0] } : { y: 0 }}
                   transition={isActive && !reduceMotion ? { duration: 5, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 }}
                 >
-                  <ServiceCard item={item} size="hero" theme="dark" active={isActive} inert={!isActive} price={prices[item.key] ?? null} className="h-[500px]" />
+                  <ServiceCard item={item} size="hero" theme="dark" active={isActive} inert={!isActive} showScope={false} price={prices[item.key] ?? null} className="h-[500px]" />
                 </motion.div>
               </div>
             );
@@ -223,7 +225,7 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
       >
         {items.map((item) => (
           <div key={item.key} className="flex-none" style={{ width: MOBILE_CARD, scrollSnapAlign: "start" }}>
-            <ServiceCard item={item} size="hero" theme="dark" price={prices[item.key] ?? null} className="h-[480px]" />
+            <ServiceCard item={item} size="hero" theme="dark" showScope={false} price={prices[item.key] ?? null} className="h-[480px]" />
           </div>
         ))}
         <div className="flex-none w-2" aria-hidden="true" />

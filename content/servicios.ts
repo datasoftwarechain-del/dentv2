@@ -54,6 +54,11 @@ export interface LocalBlock {
   title: string;
   subtitle: string;
   items: ServiceCardContent[];
+  /**
+   * Oferta distinta a las cards (traé tu propio archivo): va como banner
+   * ancho debajo de la grilla, no como quinta card huérfana.
+   */
+  banner?: ServiceCardContent;
 }
 
 // ─── Encabezado ───────────────────────────────────────────────
@@ -146,10 +151,10 @@ export const LOCAL_BLOCKS: LocalBlock[] = [
       U("pmma", "PMMA / provisorios",
         "Provisorios de larga duración fresados en bloque, estables y pulidos.",
         "48 h", "PMMA", "PMMA", null, "Foto · provisorio PMMA"),
-      U("fresado-stl", "Fresado de tu STL",
-        "¿Ya tenés el diseño? Lo fresamos en el material que elijas.",
-        "48–72 h", "Traé tu archivo", "Fresado de STL", null, "Foto · fresado CAM"),
     ],
+    banner: U("fresado-stl", "¿Ya tenés el diseño? Fresamos tu STL",
+      "Subís el archivo y lo fresamos en el material que elijas: zirconio, disilicato o PMMA.",
+      "48–72 h", "STL · PLY · OBJ · 3MF", "Fresado de STL", null, "Foto · fresado CAM"),
   },
   {
     number: "03",
@@ -168,6 +173,12 @@ export const LOCAL_BLOCKS: LocalBlock[] = [
 ];
 
 export const LOCAL_FOOTNOTE = "Próximamente en más países";
+
+/** Encabezado de la lista compacta del catálogo de diseño (bajo el coverflow). */
+export const DESIGN_LIST = {
+  title: "Los 12 servicios, de un vistazo",
+  hint: "Plazo desde que el caso queda pago · Precio por unidad, según piezas y revisiones",
+} as const;
 
 /** Aviso de alcance que ve un profesional fuera de Uruguay al cotizar. */
 export const OUT_OF_SCOPE_MESSAGE = {

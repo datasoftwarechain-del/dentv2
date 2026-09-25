@@ -1,14 +1,17 @@
 "use client";
 
 /**
- * "La plataforma": cuatro beneficios, no seis módulos. Nadie compra un
- * módulo; compra dejar de perseguir trabajos por WhatsApp.
+ * "La plataforma": el producto a la vista y cuatro beneficios al lado.
+ * Nadie compra un módulo, compra dejar de perseguir trabajos por
+ * WhatsApp; pero nadie paga US$ 49/mes por algo que no vio.
  */
 
-import { ClipboardCheck, KanbanSquare, Receipt, Users, type LucideIcon } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
+import { ClipboardCheck, KanbanSquare, Receipt, Users, ArrowRight, type LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 import { PLATFORM } from "@/content/landing";
+import { PlatformPreview } from "@/components/landing/platform-preview";
 
 const ICONS: Record<string, LucideIcon> = { ClipboardCheck, KanbanSquare, Receipt, Users };
 
@@ -26,31 +29,40 @@ export function Features() {
           </p>
         </div>
 
-        <div className="mt-16 grid gap-6 sm:grid-cols-2">
-          {PLATFORM.benefits.map((b, index) => {
-            const Icon = ICONS[b.icon] ?? ClipboardCheck;
-            return (
-              <motion.div
-                key={b.title}
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-60px" }}
-                transition={{ delay: index * 0.1, duration: 0.55, ease: [0.25, 0.46, 0.45, 0.94] }}
-              >
-                <Card className="glass-card h-full border-none bg-card/40">
-                  <CardHeader className="gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20">
+        <div className="mt-14 grid items-center gap-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-16">
+          <PlatformPreview />
+
+          <div>
+            <ul className="flex flex-col gap-7">
+              {PLATFORM.benefits.map((b, index) => {
+                const Icon = ICONS[b.icon] ?? ClipboardCheck;
+                return (
+                  <motion.li
+                    key={b.title}
+                    className="flex gap-4"
+                    initial={{ opacity: 0, x: 16 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true, margin: "-60px" }}
+                    transition={{ delay: index * 0.1, duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
+                  >
+                    <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent shadow-lg shadow-primary/20">
                       <Icon className="h-5 w-5 text-primary-foreground" aria-hidden="true" />
+                    </span>
+                    <div>
+                      <h3 className="text-base font-semibold leading-snug text-foreground">{b.title}</h3>
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{b.text}</p>
                     </div>
-                    <CardTitle className="text-lg font-semibold leading-snug">{b.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-sm leading-relaxed">{b.text}</CardDescription>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })}
+                  </motion.li>
+                );
+              })}
+            </ul>
+            <Button asChild variant="outline" className="premium-transition mt-8 gap-2 hover:bg-accent/10">
+              <Link href={PLATFORM.cta.href}>
+                {PLATFORM.cta.label}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     </section>

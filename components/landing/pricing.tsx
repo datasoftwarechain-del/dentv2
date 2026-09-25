@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { PRICING_INTRO } from "@/content/landing";
+import { OPEN_CHAT_EVENT } from "@/lib/landing/events";
 
 // Dos planes, en US$. Sin plan gratuito y sin prometer lo que no existe
 // (API, SLA): lo que se lista es lo que la plataforma hace hoy.
@@ -24,6 +25,7 @@ const plans = [
       "Soporte prioritario",
     ],
     cta: "Crear cuenta",
+    ctaHref: "/auth/sign-up",
     highlighted: true,
   },
   {
@@ -37,6 +39,9 @@ const plans = [
       "Soporte dedicado",
     ],
     cta: "Contactar ventas",
+    // Sin canal de ventas todavía: abre el formulario de contacto del
+    // widget en vez de mandar a crear una cuenta, que no es lo que dice.
+    ctaHref: null,
     highlighted: false,
   },
 ];
@@ -83,7 +88,7 @@ export function Pricing() {
               >
                 {plan.highlighted && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-primary px-3 py-1 text-xs font-medium text-primary-foreground">
-                    Más Popular
+                    {PRICING_INTRO.badge}
                   </div>
                 )}
                 <CardHeader>
@@ -105,14 +110,20 @@ export function Pricing() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/auth/sign-up" className="mt-auto">
+                  {plan.ctaHref ? (
+                    <Button asChild className="mt-auto w-full" variant={plan.highlighted ? "default" : "outline"}>
+                      <Link href={plan.ctaHref}>{plan.cta}</Link>
+                    </Button>
+                  ) : (
                     <Button
-                      className="w-full"
-                      variant={plan.highlighted ? "default" : "outline"}
+                      type="button"
+                      className="mt-auto w-full"
+                      variant="outline"
+                      onClick={() => window.dispatchEvent(new CustomEvent(OPEN_CHAT_EVENT))}
                     >
                       {plan.cta}
                     </Button>
-                  </Link>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>

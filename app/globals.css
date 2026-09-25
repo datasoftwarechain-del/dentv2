@@ -130,24 +130,27 @@
    mismo tono, densas cerca de los bordes (curva suave, no lineal), y se
    interpola en oklab para no pasar por gris. Meseta 25–84%: título (~24%) y
    puntos (~85%) quedan sobre azul pleno; el resto es solo padding. */
+/* Franja oscura de "01 · Diseño digital". Los fundidos miden 128px fijos
+   arriba y abajo: así el padding de la franja (>= 128px) garantiza que el
+   contenido cae siempre en la zona 100 % oscura, sea cual sea su alto. */
 .design-section {
   background: linear-gradient(
     180deg,
-    rgba(244, 253, 253, 0) 0%,
-    #e6f4f6 3%,
-    #c9e0e7 7%,
-    #a0c2ce 11%,
-    #6f97ad 15%,
-    #3f6d88 19%,
-    #1b4257 22%,
-    #122d3c 25%,
-    #122d3c 84%,
-    #1b4257 87%,
-    #3f6d88 90%,
-    #6f97ad 93%,
-    #a0c2ce 96%,
-    #c9e0e7 98%,
-    #e6f4f6 99.3%,
+    rgba(244, 253, 253, 0) 0,
+    #e6f4f6 12px,
+    #c9e0e7 30px,
+    #a0c2ce 50px,
+    #6f97ad 70px,
+    #3f6d88 90px,
+    #1b4257 108px,
+    #122d3c 128px,
+    #122d3c calc(100% - 128px),
+    #1b4257 calc(100% - 108px),
+    #3f6d88 calc(100% - 90px),
+    #6f97ad calc(100% - 70px),
+    #a0c2ce calc(100% - 50px),
+    #c9e0e7 calc(100% - 30px),
+    #e6f4f6 calc(100% - 12px),
     rgba(244, 253, 253, 0) 100%
   );
 }
@@ -155,21 +158,21 @@
   .design-section {
     background: linear-gradient(
       180deg in oklab,
-      rgba(244, 253, 253, 0) 0%,
-      #e6f4f6 3%,
-      #c9e0e7 7%,
-      #a0c2ce 11%,
-      #6f97ad 15%,
-      #3f6d88 19%,
-      #1b4257 22%,
-      #122d3c 25%,
-      #122d3c 84%,
-      #1b4257 87%,
-      #3f6d88 90%,
-      #6f97ad 93%,
-      #a0c2ce 96%,
-      #c9e0e7 98%,
-      #e6f4f6 99.3%,
+      rgba(244, 253, 253, 0) 0,
+      #e6f4f6 12px,
+      #c9e0e7 30px,
+      #a0c2ce 50px,
+      #6f97ad 70px,
+      #3f6d88 90px,
+      #1b4257 108px,
+      #122d3c 128px,
+      #122d3c calc(100% - 128px),
+      #1b4257 calc(100% - 108px),
+      #3f6d88 calc(100% - 90px),
+      #6f97ad calc(100% - 70px),
+      #a0c2ce calc(100% - 50px),
+      #c9e0e7 calc(100% - 30px),
+      #e6f4f6 calc(100% - 12px),
       rgba(244, 253, 253, 0) 100%
     );
   }
