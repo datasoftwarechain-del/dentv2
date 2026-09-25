@@ -33,14 +33,19 @@ export function useDragScroll(step: number) {
     drag.current = { el, x: e.clientX, start: el.scrollLeft, moved: false };
     el.style.scrollSnapType = "none";
     el.style.cursor = "grabbing";
-    el.setPointerCapture(e.pointerId);
+    // La captura del puntero se toma recién al arrastrar de verdad (ver
+    // onPointerMove). Tomarla acá, en el down, hacía que el click de un
+    // simple clic sin movimiento cayera en el rail y no en la card/CTA.
   }, []);
 
   const onPointerMove = useCallback((e: PointerEvent<HTMLElement>) => {
     const d = drag.current;
     if (!d || d.el !== e.currentTarget) return;
     const dx = e.clientX - d.x;
-    if (Math.abs(dx) > 3) d.moved = true;
+    if (!d.moved && Math.abs(dx) > 3) {
+      d.moved = true;
+      d.el.setPointerCapture(e.pointerId);
+    }
     d.el.scrollLeft = d.start - dx;
   }, []);
 

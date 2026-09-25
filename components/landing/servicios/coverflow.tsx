@@ -1,25 +1,23 @@
 "use client";
 
 /**
- * Coverflow 3D de los servicios de diseño.
+ * Carrusel plano de los servicios de diseño.
  *
- * DESKTOP: cinco cards visibles en perspectiva; la central es la activa y
- * la única interactiva. Flechas, puntos, contador y teclado (← →). Las
- * transformaciones vienen del export de diseño:
- *   translateX(off·270px) translateZ(−|off|·160px) rotateY(off·−28°)
- * con opacidad y saturación decrecientes hacia los lados.
+ * DESKTOP: cinco cards visibles, todas de 340px, en absoluto y centradas;
+ * la central es la activa y la única interactiva. Flechas, puntos,
+ * contador y teclado (← →). Sin 3D (ni perspective, ni rotateY, ni
+ * translateZ): cada card se desplaza translate3d(off·300px) y se escala
+ * 1 − |off|·0,14, con opacidad 1 − |off|·0,3, en 360 ms.
  *
  * MOBILE: sin 3D. Un carril con scroll-snap nativo — el gesto de swipe
  * es del navegador, no de un listener nuestro — y puntos que siguen la
  * posición de scroll. Es lo que hace el mockup en 390px, y es lo que
  * funciona con un pulgar.
  *
- * MOVIMIENTO (más allá del export): resortes en vez de tween para que
- * el paso entre cards tenga inercia; autoplay cada 4,5 s mientras la
- * sección se ve y nadie la toca (se frena con hover, foco, gesto,
- * pestaña oculta y prefers-reduced-motion); arrastre/swipe horizontal
- * sobre el escenario y gesto de trackpad; las laterales se acercan al
- * pasar el mouse y la activa respira. Nada de esto es necesario para
+ * MOVIMIENTO: autoplay cada 4,5 s mientras la sección se ve y nadie la
+ * toca (se frena con hover, foco, gesto, pestaña oculta y
+ * prefers-reduced-motion); arrastre/swipe horizontal sobre el escenario
+ * y gesto de trackpad; la activa respira. Nada de esto es necesario para
  * usarlo: flechas, puntos y teclado siguen siendo la vía principal.
  *
  * ACCESIBILIDAD: región etiquetada, contador en aria-live para que el
@@ -42,9 +40,9 @@ interface CoverflowProps {
 }
 
 const MOBILE_CARD = 331;
-/** Resorte del paso entre cards: firme, con un asomo de inercia, sin rebote visible. */
-const SPRING = { type: "spring", stiffness: 170, damping: 24, mass: 1 } as const;
-const HOVER_SPRING = { type: "spring", stiffness: 320, damping: 24 } as const;
+const EASE = "cubic-bezier(.4,0,.2,1)";
+const CARD_W = 340;
+const CARD_STEP = 300;
 const AUTOPLAY_MS = 4500;
 /** Tras una interacción, el autoplay espera esto antes de retomar. */
 const IDLE_AFTER_INTERACTION_MS = 9000;
@@ -140,8 +138,8 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
         onMouseLeave={() => setPaused(false)}
         onFocusCapture={() => setPaused(true)}
         onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPaused(false); }}
-        className="focus-ring relative hidden lg:block h-[560px] outline-none rounded-3xl cursor-grab active:cursor-grabbing"
-        style={{ perspective: 1600, touchAction: "pan-y" }}
+        className="focus-ring relative hidden lg:block h-[560px] overflow-visible outline-none rounded-3xl cursor-grab active:cursor-grabbing"
+        style={{ touchAction: "pan-y" }}
       >
         <div className="absolute inset-0">
           {items.map((item, i) => {
@@ -150,30 +148,28 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
             const abs = Math.abs(off);
             const isActive = off === 0;
             const hidden = abs > 2;
-            // Mismas coordenadas que el export (translateX 270 · translateZ −160 · rotateY −28°),
-            // pero animadas con resorte: el paso tiene inercia en vez de frenar en seco.
-            const target = {
-              x: off * 270,
-              z: -abs * 160,
-              rotateY: off * -28,
-              scale: 1,
-              opacity: hidden ? 0 : 1 - abs * 0.22,
-              filter: `saturate(${1 - abs * 0.2})`,
-            };
+            // Key estable (id del servicio): React conserva el nodo y la
+            // transición CSS se ve; con el índice las volvería a crear.
             return (
-              <motion.div
+              <div
                 key={item.key}
                 onClick={() => { if (panned.current) return; if (!isActive) goUser(i); }}
                 aria-hidden={!isActive}
-                className={cn("absolute left-1/2 top-5 w-[340px] -ml-[170px]", !isActive && !hidden && "cursor-pointer")}
-                initial={false}
-                animate={target}
-                whileHover={!isActive && !hidden ? { scale: 1.035, z: -abs * 160 + 48 } : undefined}
-                transition={reduceMotion ? { duration: 0 } : {
-                  x: SPRING, z: SPRING, rotateY: SPRING, scale: HOVER_SPRING,
-                  opacity: { duration: 0.36 }, filter: { duration: 0.36 },
+                className={cn("motion-reduce:transition-none", !isActive && !hidden && "cursor-pointer")}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: 20,
+                  width: CARD_W,
+                  marginLeft: -CARD_W / 2,
+                  transform: `translate3d(${off * CARD_STEP}px, 0, 0) scale(${1 - abs * 0.14})`,
+                  transformOrigin: "50% 50%",
+                  zIndex: 10 - abs,
+                  opacity: hidden ? 0 : 1 - abs * 0.3,
+                  pointerEvents: hidden ? "none" : "auto",
+                  transition: `transform 360ms ${EASE}, opacity 360ms ${EASE}`,
+                  willChange: "transform, opacity",
                 }}
-                style={{ zIndex: 10 - abs, pointerEvents: hidden ? "none" : "auto", transformStyle: "preserve-3d" }}
               >
                 {/* La activa respira: un vaivén lento de 5px que la mantiene viva sin distraer. */}
                 <motion.div
@@ -182,7 +178,7 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
                 >
                   <ServiceCard item={item} size="hero" active={isActive} inert={!isActive} price={prices[item.key] ?? null} className="h-[500px]" />
                 </motion.div>
-              </motion.div>
+              </div>
             );
           })}
         </div>

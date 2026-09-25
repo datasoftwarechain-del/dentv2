@@ -176,3 +176,24 @@ export const OUT_OF_SCOPE_MESSAGE = {
   cta: "Ver diseño digital",
   href: "/disenos/solicitar",
 } as const;
+
+/**
+ * Cierre de la sección: el abanico "Subí tu escaneo. Recibí el diseño."
+ * del lienzo claro del export. Seis servicios destacados sobre un arco,
+ * con un panel que describe el elegido y manda al flujo de solicitud.
+ * `featured` son códigos de DESIGN_SERVICES, en el orden del arco
+ * (de izquierda a derecha).
+ */
+export const DESIGN_ARC = {
+  badge: "Worldwide · 100% remoto",
+  kicker: "Diseño digital",
+  title: ["Subí tu escaneo.", "Recibí el diseño."],
+  featured: [
+    "crown_bridge",
+    "onlay_inlay_veneer",
+    "custom_abutment",
+    "all_on_x",
+    "night_guard_splint",
+    "smile_design_waxup",
+  ],
+} as const;

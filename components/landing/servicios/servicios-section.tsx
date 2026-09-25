@@ -15,12 +15,14 @@
 
 import { motion } from "framer-motion";
 import {
-  SERVICIOS_HEADER, DESIGN_BLOCK, LOCAL_BLOCKS, LOCAL_FOOTNOTE, designCards,
+  SERVICIOS_HEADER, DESIGN_BLOCK, DESIGN_ARC, LOCAL_BLOCKS, LOCAL_FOOTNOTE, designCards,
+  type ServiceCardContent,
 } from "@/content/servicios";
 import { ScopeChip } from "./scope-chip";
 import { ServiceCard } from "./service-card";
 import { Archivo } from "next/font/google";
 import { Coverflow } from "./coverflow";
+import { DesignArc } from "./design-arc";
 import { useDragScroll } from "./use-drag-scroll";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +66,10 @@ export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionPr
   // Rails móviles de 02/03: card 331 + gap 12. El mismo hook sirve para los dos.
   const dragScroll = useDragScroll(331 + 12);
   const design = designCards();
+  // Seis destacados para el abanico de cierre, en el orden del arco.
+  const arcItems = DESIGN_ARC.featured
+    .map((code) => design.find((d) => d.key === code))
+    .filter((d): d is ServiceCardContent => Boolean(d));
 
   return (
     <section
@@ -169,6 +175,11 @@ export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionPr
             </ul>
           </motion.div>
         ))}
+
+        {/* ═══ Cierre · Subí tu escaneo. Recibí el diseño. ═══ */}
+        <motion.div {...reveal} className="mt-16 lg:mt-24">
+          <DesignArc items={arcItems} prices={designPrices} />
+        </motion.div>
       </div>
     </section>
   );
