@@ -46,7 +46,7 @@ import { FileText, TrendingUp, TrendingDown, Calendar, Edit2, Trash2, DollarSign
 import { toast } from "sonner";
 import Link from "next/link";
 
-import { formatWorkType } from "@/lib/work-types";
+import { summarizeInvoiceItems } from "@/lib/invoice-summary";
 import { InvoiceDetail } from "./invoice-detail";
 
 interface Organization {
@@ -107,6 +107,8 @@ interface UnifiedTransaction {
   status?: string;
   has_tax?: boolean;
   order_id?: string | null;
+  /** Ítems y adicionales de la factura, en una línea ("Prótesis completa · Cubeta (+ Reborde)"). */
+  items_summary?: string;
 }
 
 interface UnifiedAccountStatementProps {
@@ -174,11 +176,11 @@ export function UnifiedAccountStatement({
       id: inv.id,
       date: inv.created_at,
       type: "invoice",
-      description: `Factura ${inv.invoice_number}${
-        inv.order_items?.[0]?.catalog_item?.name
-          ? ` (${inv.order_items[0].catalog_item.name})`
-          : inv.work_type ? ` (${formatWorkType(inv.work_type)})` : ""
-      }`,
+      // La descripción es solo el número; el detalle de trabajos va en
+      // items_summary, en su propia línea, con TODOS los ítems y sus
+      // adicionales (antes se mostraba solo el primero, entre paréntesis).
+      description: `Factura ${inv.invoice_number}`,
+      items_summary: summarizeInvoiceItems(inv.order_items, inv.work_type),
       patient_name: inv.patient_name,
       debit: Number(inv.total), // Cargo
       credit: 0,
@@ -567,6 +569,11 @@ export function UnifiedAccountStatement({
                               <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-1.5 py-0.5">IVA</span>
                             )}
                           </div>
+                          {transaction.items_summary && (
+                            <span className="text-[12px] leading-snug text-slate-600 line-clamp-2" title={transaction.items_summary}>
+                              {transaction.items_summary}
+                            </span>
+                          )}
                           {transaction.type === "invoice" && transaction.order_id && (
                             <Link
                               href={`/dashboard/orders/${transaction.order_id}`}
@@ -758,6 +765,11 @@ export function UnifiedAccountStatement({
                         <span className="shrink-0 text-[9px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-1.5 py-0.5">IVA</span>
                       )}
                     </div>
+                    {transaction.items_summary && (
+                      <span className="text-[12px] leading-snug text-slate-600 line-clamp-2" title={transaction.items_summary}>
+                        {transaction.items_summary}
+                      </span>
+                    )}
                     {transaction.type === "invoice" && transaction.order_id && (
                       <Link
                         href={`/dashboard/orders/${transaction.order_id}`}
