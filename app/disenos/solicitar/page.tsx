@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { PublicDesignRequestForm } from "@/components/design/public-design-request-form";
 
 export const metadata: Metadata = {
@@ -35,7 +36,10 @@ export default function SolicitarDisenoPage() {
           </p>
         </div>
 
-        <PublicDesignRequestForm />
+        {/* useSearchParams (?servicio=) exige Suspense o el prerender falla en build. */}
+        <Suspense fallback={null}>
+          <PublicDesignRequestForm />
+        </Suspense>
       </div>
     </main>
   );

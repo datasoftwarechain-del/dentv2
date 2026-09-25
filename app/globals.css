@@ -125,45 +125,52 @@
 }
 
 /* [servicios] Franja oscura de "Diseño digital", fundida con el fondo claro.
-   Zona 100% oscura entre 22% y 86%: el contenido (título a ~24%, puntos a
-   ~85%) queda siempre sobre el azul pleno; los tramos que se funden son solo
-   padding. Las paradas intermedias son azules del mismo tono (no grises)
-   y la interpolación en oklab evita el gris sucio del sRGB. */
+   Los extremos son TRANSPARENTES: la franja se disuelve sobre el fondo de la
+   sección sea cual sea, sin costura. El fundido va con paradas azules del
+   mismo tono, densas cerca de los bordes (curva suave, no lineal), y se
+   interpola en oklab para no pasar por gris. Meseta 25–84%: título (~24%) y
+   puntos (~85%) quedan sobre azul pleno; el resto es solo padding. */
 .design-section {
   background: linear-gradient(
     180deg,
-    #f4fdfd 0%,
-    #e4f3f5 4%,
-    #c3dde3 8%,
-    #8fb4c2 12%,
-    #56809a 16%,
-    #2b566e 19%,
-    #122d3c 22%,
-    #122d3c 86%,
-    #2b566e 89%,
-    #56809a 92%,
-    #8fb4c2 95%,
-    #c3dde3 97%,
-    #e4f3f5 99%,
-    #f4fdfd 100%
+    rgba(244, 253, 253, 0) 0%,
+    #e6f4f6 3%,
+    #c9e0e7 7%,
+    #a0c2ce 11%,
+    #6f97ad 15%,
+    #3f6d88 19%,
+    #1b4257 22%,
+    #122d3c 25%,
+    #122d3c 84%,
+    #1b4257 87%,
+    #3f6d88 90%,
+    #6f97ad 93%,
+    #a0c2ce 96%,
+    #c9e0e7 98%,
+    #e6f4f6 99.3%,
+    rgba(244, 253, 253, 0) 100%
   );
 }
 @supports (background: linear-gradient(in oklab, red, blue)) {
   .design-section {
     background: linear-gradient(
       180deg in oklab,
-      #f4fdfd 0%,
-      #dbeef2 5%,
-      #9dbfcb 10%,
-      #4d7a93 15%,
-      #1b4257 19%,
-      #122d3c 22%,
-      #122d3c 86%,
-      #1b4257 89%,
-      #4d7a93 92%,
-      #9dbfcb 95%,
-      #dbeef2 98%,
-      #f4fdfd 100%
+      rgba(244, 253, 253, 0) 0%,
+      #e6f4f6 3%,
+      #c9e0e7 7%,
+      #a0c2ce 11%,
+      #6f97ad 15%,
+      #3f6d88 19%,
+      #1b4257 22%,
+      #122d3c 25%,
+      #122d3c 84%,
+      #1b4257 87%,
+      #3f6d88 90%,
+      #6f97ad 93%,
+      #a0c2ce 96%,
+      #c9e0e7 98%,
+      #e6f4f6 99.3%,
+      rgba(244, 253, 253, 0) 100%
     );
   }
 }
