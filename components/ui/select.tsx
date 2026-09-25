@@ -225,12 +225,17 @@ export interface SelectValueProps
 }
 
 const SelectValue = React.forwardRef<HTMLSpanElement, SelectValueProps>(
-  ({ className, placeholder, ...props }, ref) => {
+  ({ className, placeholder, children, ...props }, ref) => {
     const context = React.useContext(SelectContext)
-    const label =
+    // Las etiquetas se registran cuando los <SelectItem> montan, o sea al
+    // abrir el menú. Con un valor preseleccionado (p. ej. desde la URL) el
+    // trigger mostraría el valor crudo: si el llamador pasa children, esos
+    // mandan. Sin children, comportamiento de siempre.
+    const registered =
       context?.value && context.getLabel(context.value)
         ? context.getLabel(context.value as string)
         : context?.value
+    const label = children ?? registered
     return (
       <span ref={ref} className={cn("pointer-events-none", className)} {...props}>
         {label || placeholder || "Select..."}

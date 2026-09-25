@@ -4,8 +4,10 @@ import { Stats } from "@/components/landing/stats";
 import { Features } from "@/components/landing/features";
 import { CurvedTextSection } from "@/components/landing/curved-text-section";
 import { HowItWorks } from "@/components/landing/how-it-works";
-import { DesignServices } from "@/components/landing/design-services";
-import { getPublicDesignPrices } from "@/lib/design/public-prices";
+import { ServiciosSection } from "@/components/landing/servicios/servicios-section";
+import { getPublicDesignPrices, getPublicLabPrices } from "@/lib/design/public-prices";
+import { LOCAL_BLOCKS } from "@/content/servicios";
+import { formatMoney } from "@/lib/money";
 import { Testimonials } from "@/components/landing/testimonials";
 import { Pricing } from "@/components/landing/pricing";
 import { Cta } from "@/components/landing/cta";
@@ -23,8 +25,23 @@ const ChatWidget = dynamic(() =>
 
 export default async function HomePage() {
   // Los precios salen del catálogo real, no de una constante del código:
-  // la landing y la factura tienen que decir lo mismo.
-  const designPrices = await getPublicDesignPrices();
+  // la landing y la factura tienen que decir lo mismo. Diseño en US$,
+  // laboratorio en $; lo que no tiene precio dice "a cotizar".
+  const [designRaw, labRaw] = await Promise.all([
+    getPublicDesignPrices(),
+    getPublicLabPrices(
+      LOCAL_BLOCKS.flatMap((b) => b.items.map((i) => i.catalogName)).filter((n): n is string => !!n),
+    ),
+  ]);
+  const designPrices = Object.fromEntries(
+    Object.entries(designRaw).map(([code, p]) => [code, p > 0 ? formatMoney(p, "USD") : null]),
+  );
+  const labPrices = Object.fromEntries(
+    LOCAL_BLOCKS.flatMap((b) => b.items).map((i) => [
+      i.key,
+      i.catalogName && labRaw[i.catalogName] ? formatMoney(labRaw[i.catalogName]!, "ARS") : "A cotizar",
+    ]),
+  );
 
   return (
     <LenisProvider>
@@ -52,7 +69,7 @@ export default async function HomePage() {
           <HowItWorks />
         </ScrollSection>
         <ScrollSection>
-          <DesignServices prices={designPrices} />
+          <ServiciosSection designPrices={designPrices} labPrices={labPrices} />
         </ScrollSection>
         <ScrollSection>
           <Testimonials />

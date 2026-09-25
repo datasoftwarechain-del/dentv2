@@ -23,6 +23,7 @@ import {
   BarChart3,
   PenTool,
   Layers,
+  Inbox,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Icon } from "@iconify/react";
@@ -66,6 +67,7 @@ const NAV_PERMISSION_MAP: Record<string, PermissionKey> = {
   "/dashboard/kanban":       "view_kanban",
   "/dashboard/billing":      "view_billing",
   "/dashboard/clients":      "view_clients",
+  "/dashboard/lab-requests": "view_orders",   // [040]
   // [BLOQUE 6] Tabs of /dashboard/billing — deep-linked via ?tab=...
   "/dashboard/billing?tab=purchases":  "view_purchases",
   "/dashboard/billing?tab=inventory":  "view_inventory",
@@ -92,6 +94,8 @@ const dentistNav = [
 const labNav = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
   { href: "/dashboard/orders", label: "Órdenes", icon: FileText },
+  // [040] Solicitudes que llegan desde las cards de fresado/impresión.
+  { href: "/dashboard/lab-requests", label: "Solicitudes web", icon: Inbox },
   { href: "/dashboard/cases", label: "Casos Digitales", icon: Scan },
   { href: "/dashboard/kanban", label: "Produccion", icon: Package },
   { href: "/dashboard/schedule", label: "Agenda Semanal", icon: CalendarClock },

@@ -49,3 +49,48 @@ export async function getPublicDesignPrices(): Promise<Record<string, number>> {
     return {};
   }
 }
+
+/**
+ * Precios publicados del LABORATORIO (fresado e impresión), por nombre
+ * de arancel. Misma lógica que los de diseño: se leen del catálogo real
+ * y solo se publican los que tienen precio; los que están en 0 vuelven
+ * como null y la card dice "a cotizar" en vez de "$0".
+ *
+ * Se busca por nombre exacto porque es lo único estable entre el
+ * contenido de la landing y el catálogo; el id cambia por organización.
+ */
+export async function getPublicLabPrices(
+  names: string[],
+): Promise<Record<string, number | null>> {
+  const out: Record<string, number | null> = Object.fromEntries(names.map((n) => [n, null]));
+  if (names.length === 0) return out;
+
+  try {
+    const supabase = createAdminClient();
+
+    const { data: lab } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("type", "lab")
+      .ilike("name", "digital dent%")
+      .limit(1)
+      .maybeSingle();
+
+    if (!lab) return out;
+
+    const { data: rows } = await supabase
+      .from("price_catalog")
+      .select("name, base_price")
+      .eq("org_id", lab.id)
+      .eq("is_active", true)
+      .in("name", names);
+
+    for (const r of rows ?? []) {
+      const price = Number(r.base_price);
+      out[r.name] = price > 0 ? price : null;
+    }
+    return out;
+  } catch {
+    return out;
+  }
+}

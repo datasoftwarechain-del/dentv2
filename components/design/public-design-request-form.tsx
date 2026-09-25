@@ -15,6 +15,7 @@
  */
 
 import { useId, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -67,7 +68,15 @@ export function PublicDesignRequestForm() {
   const nextKey = useRef(0);
   const emptyItem = () => makeItem(idPrefix, nextKey.current++);
 
-  const [items, setItems] = useState<DraftItem[]>(() => [makeItem(idPrefix, nextKey.current++)]);
+  // La card de la landing llega con ?servicio=<code>. Se preselecciona
+  // SOLO si el código existe en el catálogo: una URL manipulada o un
+  // código viejo no puede dejar el formulario en un estado inválido.
+  const preselected = useSearchParams().get("servicio");
+  const initialCode = preselected && getDesignService(preselected) ? preselected : "";
+
+  const [items, setItems] = useState<DraftItem[]>(() => [
+    { ...makeItem(idPrefix, nextKey.current++), service_code: initialCode },
+  ]);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [clinicName, setClinicName] = useState("");
@@ -186,7 +195,7 @@ export function PublicDesignRequestForm() {
                     }
                   >
                     <SelectTrigger id={`s-${item.key}`}>
-                      <SelectValue placeholder="Elegí el servicio de diseño" />
+                      <SelectValue placeholder="Elegí el servicio de diseño">{service?.label}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {groupServicesByCategory().map((g) => (
