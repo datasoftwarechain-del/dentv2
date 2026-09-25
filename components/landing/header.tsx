@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
+import { NAV, HERO } from "@/content/landing";
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -21,27 +22,21 @@ export function Header() {
           <span className="sr-only">DigitalDent — inicio</span>
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex">
-          <Link href="#features" className="premium-transition text-sm text-muted-foreground hover:text-foreground focus-ring rounded-sm">
-            Funciones
-          </Link>
-          <Link href="#how-it-works" className="premium-transition text-sm text-muted-foreground hover:text-foreground focus-ring rounded-sm">
-            Cómo Funciona
-          </Link>
-          <Link href="#pricing" className="premium-transition text-sm text-muted-foreground hover:text-foreground focus-ring rounded-sm">
-            Precios
-          </Link>
+        <nav className="hidden items-center gap-7 md:flex" aria-label="Principal">
+          {NAV.map((item) => (
+            <Link key={item.href} href={item.href} className="premium-transition text-sm text-muted-foreground hover:text-foreground focus-ring rounded-sm">
+              {item.label}
+            </Link>
+          ))}
         </nav>
 
-        <div className="hidden items-center gap-4 md:flex">
-          <Link href="/auth/login">
-            <Button variant="ghost" size="sm">
-              Iniciar Sesión
-            </Button>
-          </Link>
-          <Link href="/auth/sign-up">
-            <Button size="sm">Registrarse</Button>
-          </Link>
+        <div className="hidden items-center gap-3 md:flex">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/auth/login">Iniciar sesión</Link>
+          </Button>
+          <Button asChild size="sm">
+            <Link href={HERO.primary.href}>{HERO.primary.label}</Link>
+          </Button>
         </div>
 
         <button
@@ -73,37 +68,24 @@ export function Header() {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="border-t border-border md:hidden"
           >
-            <nav className="flex flex-col gap-4 p-4">
-              <Link
-                href="#features"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-ring rounded-sm"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Funciones
-              </Link>
-              <Link
-                href="#how-it-works"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-ring rounded-sm"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Cómo Funciona
-              </Link>
-              <Link
-                href="#pricing"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-ring rounded-sm"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Precios
-              </Link>
+            <nav className="flex flex-col gap-4 p-4" aria-label="Principal">
+              {NAV.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-sm text-muted-foreground transition-colors hover:text-foreground focus-ring rounded-sm"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
               <div className="flex flex-col gap-2 pt-4">
-                <Link href="/auth/login">
-                  <Button variant="outline" className="w-full">
-                    Iniciar Sesión
-                  </Button>
-                </Link>
-                <Link href="/auth/sign-up">
-                  <Button className="w-full">Registrarse</Button>
-                </Link>
+                <Button asChild className="w-full">
+                  <Link href={HERO.primary.href} onClick={() => setMobileMenuOpen(false)}>{HERO.primary.label}</Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/auth/login" onClick={() => setMobileMenuOpen(false)}>Iniciar sesión</Link>
+                </Button>
               </div>
             </nav>
           </motion.div>

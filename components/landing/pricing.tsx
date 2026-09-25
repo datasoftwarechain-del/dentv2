@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { PRICING_INTRO } from "@/content/landing";
 
 const plans = [
   {
@@ -55,17 +56,25 @@ const plans = [
 
 export function Pricing() {
   return (
-    <section id="pricing" className="py-20 sm:py-32">
+    <section id="precios" className="scroll-mt-20 py-20 sm:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="section-label mb-3">Elige tu plan</p>
+          <p className="section-label mb-3">{PRICING_INTRO.eyebrow}</p>
           <h2 className="text-[#044c64] text-balance text-3xl font-bold tracking-tight sm:text-4xl">
-            Sin contratos. Sin letras chicas. Cambiá de plan cuando quieras.
+            {PRICING_INTRO.title}
           </h2>
         </div>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground/70">
-          ✓ Cancela cuando quieras &nbsp;·&nbsp; ✓ Sin contratos largos &nbsp;·&nbsp; ✓ Soporte incluido en todos los planes
+        {/* Servicios: precio por caso. Los planes de abajo son la plataforma. */}
+        <p className="mx-auto mt-6 flex max-w-3xl flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-4 text-center text-sm text-muted-foreground sm:flex-row sm:gap-4">
+          <span>{PRICING_INTRO.services}</span>
+          <Link href={PRICING_INTRO.servicesCta.href} className="focus-ring whitespace-nowrap rounded-sm font-medium text-primary underline-offset-4 hover:underline">
+            {PRICING_INTRO.servicesCta.label} →
+          </Link>
+        </p>
+
+        <p className="mt-8 text-center text-sm text-muted-foreground/70">
+          Planes de la plataforma · Sin contratos · Cambiá o cancelá cuando quieras
         </p>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-3">

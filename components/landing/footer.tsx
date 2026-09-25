@@ -1,26 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+import { FOOTER } from "@/content/landing";
 
-const footerLinks = {
-  producto: [
-    { label: "Funciones", href: "#features" },
-    { label: "Precios", href: "#pricing" },
-    { label: "Integraciones", href: "#" },
-    { label: "Changelog", href: "#" },
-  ],
-  empresa: [
-    { label: "Acerca de", href: "#" },
-    { label: "Blog", href: "#" },
-    { label: "Carreras", href: "#" },
-    { label: "Contacto", href: "#" },
-  ],
-  legal: [
-    { label: "Privacidad", href: "#" },
-    { label: "Terminos", href: "#" },
-    { label: "Cookies", href: "#" },
-  ],
-};
-
+/**
+ * Solo enlaces que llevan a algún lado. Términos, Privacidad y Contacto
+ * vuelven cuando existan las páginas y el canal: un link a "#" resta
+ * más confianza que no tenerlo.
+ */
 export function Footer() {
   return (
     <footer className="border-t border-border bg-card">
@@ -33,63 +19,28 @@ export function Footer() {
                 <span className="text-primary">Digital</span><span className="text-secondary">Dent</span>
               </span>
             </Link>
-            <p className="mt-4 text-sm text-muted-foreground">
-              La plataforma líder para conectar clínicas dentales con laboratorios.
-            </p>
+            <p className="mt-4 text-sm text-muted-foreground">{FOOTER.tagline}</p>
           </div>
 
-          <div>
-            <h3 className="mb-4 text-sm font-semibold">Producto</h3>
-            <ul className="space-y-3">
-              {footerLinks.producto.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="mb-4 text-sm font-semibold">Empresa</h3>
-            <ul className="space-y-3">
-              {footerLinks.empresa.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="mb-4 text-sm font-semibold">Legal</h3>
-            <ul className="space-y-3">
-              {footerLinks.legal.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground transition-colors hover:text-primary"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {FOOTER.groups.map((group) => (
+            <div key={group.title}>
+              <h3 className="mb-4 text-sm font-semibold">{group.title}</h3>
+              <ul className="space-y-3">
+                {group.links.map((link) => (
+                  <li key={link.label}>
+                    <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-primary">
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
 
         <div className="mt-12 border-t border-border pt-8">
           <p className="text-center text-sm text-muted-foreground">
-            2026 DigitalDent. Todos los derechos reservados.
+            {new Date().getFullYear()} DigitalDent · Montevideo, Uruguay.
           </p>
         </div>
       </div>

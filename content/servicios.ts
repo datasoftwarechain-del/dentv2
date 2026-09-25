@@ -60,7 +60,7 @@ export interface LocalBlock {
 
 export const SERVICIOS_HEADER = {
   eyebrow: "Servicios",
-  title: "Del escaneo a la pieza terminada.",
+  title: "Elegí cómo trabajar con nosotros.",
   subtitle: "Diseñamos para clínicas y laboratorios. Fresamos e imprimimos en Uruguay.",
   scopes: {
     worldwide: "Archivo digital",

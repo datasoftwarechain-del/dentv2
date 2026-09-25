@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { PublicStats } from "@/lib/landing/public-stats";
+import { STATS_LABELS } from "@/content/landing";
 import { useInView } from "framer-motion";
 
 interface StatValue {
@@ -51,26 +53,31 @@ function AnimatedStat({ value, label }: { value: string; label: string }) {
   return (
     <div ref={ref} className="flex flex-col items-center gap-1.5 px-4">
       <p className="text-3xl font-bold tabular-nums tracking-tight text-primary sm:text-4xl" aria-label={value}>
-        {prefix}{display}{suffix}
+        {/* Un rango como "24–72 h" no se anima: se muestra tal cual. */}
+        {num > 0 ? `${prefix}${display}${suffix}` : value}
       </p>
       <p className="text-sm leading-snug text-muted-foreground text-center">{label}</p>
     </div>
   );
 }
 
-const stats = [
-  { value: "40%", label: "Reducción en errores operativos" },
-  { value: "x10", label: "Más rápida la comunicación clínica-laboratorio" },
-  { value: "25%", label: "Ahorro en costos de gestión" },
-  { value: "99.9%", label: "Uptime garantizado" },
-];
-
-export function Stats() {
+/**
+ * Cifras REALES: vienen del servidor (lib/landing/public-stats.ts), no de
+ * una constante. Si no hay datos, la sección no se renderiza.
+ */
+export function Stats({ stats }: { stats: PublicStats | null }) {
+  if (!stats) return null;
+  const items = [
+    { value: `+${stats.orders}`, label: STATS_LABELS.orders },
+    { value: `+${stats.clinics}`, label: STATS_LABELS.clinics },
+    { value: `${stats.services}`, label: STATS_LABELS.services },
+    { value: stats.turnaround, label: STATS_LABELS.turnaround },
+  ];
   return (
-    <section className="border-y border-border bg-card">
+    <section className="border-y border-border bg-card" aria-label="Cifras">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 gap-y-8 sm:grid-cols-4 sm:divide-x sm:divide-border">
-          {stats.map((stat) => (
+          {items.map((stat) => (
             <AnimatedStat key={stat.label} value={stat.value} label={stat.label} />
           ))}
         </div>

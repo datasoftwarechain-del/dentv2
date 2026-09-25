@@ -74,7 +74,7 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
     <section
       id="servicios"
       style={TOKENS}
-      className={cn(archivo.className, "relative overflow-hidden bg-[var(--dd-mist-050)] text-[var(--dd-deep-800)]")}
+      className={cn(archivo.className, "relative scroll-mt-16 overflow-hidden bg-[var(--dd-mist-050)] text-[var(--dd-deep-800)]")}
     >
       {/* Halo menta detrás del coverflow, como en el mockup pero sobre claro. */}
       <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[260px] h-[720px] w-[1100px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(144,236,220,.28)_0%,rgba(43,99,131,.10)_38%,rgba(244,253,253,0)_70%)]" />
