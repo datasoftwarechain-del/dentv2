@@ -123,3 +123,47 @@
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
   }
 }
+
+/* [servicios] Franja oscura de "Diseño digital", fundida con el fondo claro.
+   Zona 100% oscura entre 22% y 86%: el contenido (título a ~24%, puntos a
+   ~85%) queda siempre sobre el azul pleno; los tramos que se funden son solo
+   padding. Las paradas intermedias son azules del mismo tono (no grises)
+   y la interpolación en oklab evita el gris sucio del sRGB. */
+.design-section {
+  background: linear-gradient(
+    180deg,
+    #f4fdfd 0%,
+    #e4f3f5 4%,
+    #c3dde3 8%,
+    #8fb4c2 12%,
+    #56809a 16%,
+    #2b566e 19%,
+    #122d3c 22%,
+    #122d3c 86%,
+    #2b566e 89%,
+    #56809a 92%,
+    #8fb4c2 95%,
+    #c3dde3 97%,
+    #e4f3f5 99%,
+    #f4fdfd 100%
+  );
+}
+@supports (background: linear-gradient(in oklab, red, blue)) {
+  .design-section {
+    background: linear-gradient(
+      180deg in oklab,
+      #f4fdfd 0%,
+      #dbeef2 5%,
+      #9dbfcb 10%,
+      #4d7a93 15%,
+      #1b4257 19%,
+      #122d3c 22%,
+      #122d3c 86%,
+      #1b4257 89%,
+      #4d7a93 92%,
+      #9dbfcb 95%,
+      #dbeef2 98%,
+      #f4fdfd 100%
+    );
+  }
+}

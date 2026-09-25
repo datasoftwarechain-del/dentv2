@@ -114,10 +114,11 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
           padding, sin nada encima. --page-bg = fondo de la sección. */}
       <div
         className="design-section relative mt-11 w-screen left-1/2 -translate-x-1/2 overflow-hidden py-[96px] lg:mt-[88px] lg:py-[160px] lg:pb-[180px]"
-        style={{
-          color: "#dbf5f6",
-          background: "linear-gradient(180deg, var(--dd-mist-050) 0%, #1b4257 14%, #122d3c 28%, #122d3c 72%, #1b4257 86%, var(--dd-mist-050) 100%)",
-        }}
+        // El degradado vive en globals.css (.design-section): un gradiente
+        // sRGB entre azul oscuro y casi blanco pasa por un gris sucio; ahí
+        // se interpola en oklab con paradas intermedias azules, y hay
+        // fallback sRGB para navegadores sin soporte.
+        style={{ color: "#dbf5f6" }}
       >
         <div
           aria-hidden="true"
