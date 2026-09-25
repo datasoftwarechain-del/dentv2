@@ -8,6 +8,7 @@ import {
   canManagePricing,
   hasPermission,
 } from "@/lib/permissions";
+import { computeAccountBalance } from "@/lib/balance-utils";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { ClientAccountStatement } from "@/components/billing/client-account-statement";
 import { ClientPricingSection } from "@/components/billing/client-pricing-section";
@@ -106,17 +107,12 @@ export default async function ClientAccountPage({ params }: PageProps) {
     .eq(isDentist ? "dentist_org_id" : "lab_org_id", effectiveOrgId)
     .order("created_at", { ascending: false });
 
-  // Calculate balance from RAW data — collapse to 0 if caller can't view amounts.
-  const totalInvoicedRaw = invoicesEnriched.reduce((sum, inv: any) => sum + Number(inv.total), 0);
-  const totalPaidRaw     = (movements || []).filter((m: any) => m.type === "payment").reduce((sum, m: any) => sum + Number(m.amount), 0);
-  const totalChargesRaw  = (movements || []).filter((m: any) => m.type === "charge").reduce((sum, m: any) => sum + Number(m.amount), 0);
-  const otherCreditsRaw  = (movements || []).filter((m: any) => m.type !== "payment" && m.type !== "charge").reduce((sum, m: any) => sum + Number(m.amount), 0);
-
-  const totalInvoiced = canViewAmounts ? totalInvoicedRaw : 0;
-  const totalPaid     = canViewAmounts ? totalPaidRaw : 0;
-  const balance       = canViewAmounts
-    ? (totalInvoicedRaw + totalChargesRaw - totalPaidRaw - otherCreditsRaw)
-    : 0;
+  // Saldo con la fórmula compartida (lib/balance-utils.ts): la misma que
+  // usa la lista de clientes en /dashboard/billing. Colapsa a 0 sin permiso.
+  const account = computeAccountBalance(invoicesEnriched, movements || []);
+  const totalInvoiced = canViewAmounts ? account.totalInvoiced : 0;
+  const totalPaid     = canViewAmounts ? account.totalPaid : 0;
+  const balance       = canViewAmounts ? account.balance : 0;
 
   // [BLOQUE 2.5] Sanitize before passing to client.
   const invoices = invoicesEnriched.map((inv: any) =>

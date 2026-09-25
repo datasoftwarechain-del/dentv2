@@ -1,6 +1,42 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/logger";
 
+/**
+ * Saldo de una cuenta (lo que el cliente DEBE), con la misma fórmula en
+ * todas las pantallas: facturas vigentes + cargos − pagos − otros créditos.
+ *
+ * Antes la lista de "Estado de Cuenta por Cliente" sumaba las facturas no
+ * marcadas como pagas, pero registrar un pago no marca facturas: escribe
+ * un movimiento en el libro mayor. Resultado: la lista mostraba un número
+ * y el estado de cuenta del cliente, otro. Este helper es la única fuente.
+ */
+export interface AccountBalance {
+  totalInvoiced: number;
+  totalPaid: number;
+  totalCharges: number;
+  otherCredits: number;
+  /** > 0: el cliente debe · < 0: saldo a favor del cliente. */
+  balance: number;
+}
+
+export function computeAccountBalance(
+  invoices: ReadonlyArray<{ total: unknown }>,
+  movements: ReadonlyArray<{ type: string; amount: unknown }>,
+): AccountBalance {
+  const totalInvoiced = invoices.reduce((s, inv) => s + Number(inv.total ?? 0), 0);
+  let totalPaid = 0, totalCharges = 0, otherCredits = 0;
+  for (const m of movements) {
+    const amount = Number(m.amount ?? 0);
+    if (m.type === "payment") totalPaid += amount;
+    else if (m.type === "charge") totalCharges += amount;
+    else otherCredits += amount;
+  }
+  return {
+    totalInvoiced, totalPaid, totalCharges, otherCredits,
+    balance: totalInvoiced + totalCharges - totalPaid - otherCredits,
+  };
+}
+
 export async function recalculateBalances(
   supabase: SupabaseClient,
   organizationId: string,

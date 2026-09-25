@@ -7,6 +7,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { BillingDashboard } from "@/components/billing/billing-dashboard";
 import { DentistBillingDashboard } from "@/components/billing/dentist-billing-dashboard";
 import { getUserOrg } from "@/lib/get-user-org";
+import { computeAccountBalance } from "@/lib/balance-utils";
 import {
   sanitizeInvoiceForCollaborator,
   canManageBilling,
@@ -318,14 +319,6 @@ export default async function BillingPage() {
       : (orderItemsByOrderId[inv.order_id] || []),
   }));
 
-  // Latest ledger balance per client (movements already ordered by created_at desc)
-  const balanceMap = new Map<string, number>();
-  (allMovements || []).forEach((m: any) => {
-    if (!balanceMap.has(m.dentist_org_id)) {
-      balanceMap.set(m.dentist_org_id, Number(m.balance));
-    }
-  });
-
   // Movements for recent display (limit to 20)
   const movements = (allMovements || []).slice(0, 20);
 
@@ -347,6 +340,15 @@ export default async function BillingPage() {
     clientsMap.set(d.id, { id: d.id, name: d.name, invoiceCount: 0, totalAmount: 0, paidAmount: 0 });
   });
 
+  // Facturas y movimientos agrupados por cliente, para el saldo real.
+  const invoicesByClient = new Map<string, any[]>();
+  const movementsByClient = new Map<string, any[]>();
+  (allMovements || []).forEach((m: any) => {
+    const list = movementsByClient.get(m.dentist_org_id) ?? [];
+    list.push(m);
+    movementsByClient.set(m.dentist_org_id, list);
+  });
+
   // Overlay invoice data — montos solo si canViewAmounts
   invoices?.forEach((invoice) => {
     const clientOrg = invoice.dentist_org as { id: string; name: string } | null;
@@ -360,14 +362,19 @@ export default async function BillingPage() {
       if (invoice.status === "paid") entry.paidAmount += Number(invoice.total);
     }
     clientsMap.set(clientOrg.id, entry);
+    const list = invoicesByClient.get(clientOrg.id) ?? [];
+    list.push(invoice);
+    invoicesByClient.set(clientOrg.id, list);
   });
 
+  // Lo que DEBE cada cliente: misma fórmula que su estado de cuenta
+  // (computeAccountBalance), no "facturas sin marcar como pagas".
   const clients = Array.from(clientsMap.values()).map((c) => {
-    const invoicePending = c.totalAmount - c.paidAmount;
-    // If client has no invoices yet, use ledger balance as pending amount
-    const ledgerBalance = balanceMap.get(c.id) ?? 0;
-    const pendingAmount = c.invoiceCount > 0 ? invoicePending : Math.max(0, ledgerBalance);
-    return { ...c, pendingAmount };
+    const { balance } = computeAccountBalance(
+      invoicesByClient.get(c.id) ?? [],
+      movementsByClient.get(c.id) ?? [],
+    );
+    return { ...c, pendingAmount: canViewAmounts ? balance : 0 };
   });
 
   // [BLOQUE 2.5] Sanitize the lab→dentist invoices array before passing to client.
