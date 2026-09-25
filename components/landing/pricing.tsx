@@ -7,23 +7,12 @@ import { CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { PRICING_INTRO } from "@/content/landing";
 
+// Dos planes, en US$. Sin plan gratuito y sin prometer lo que no existe
+// (API, SLA): lo que se lista es lo que la plataforma hace hoy.
 const plans = [
   {
-    name: "Starter",
-    price: "Gratis",
-    description: "Para comenzar a digitalizar tu consultorio sin riesgo.",
-    features: [
-      "Hasta 20 pedidos/mes",
-      "1 usuario",
-      "Gestión básica de pacientes",
-      "Soporte dentro de la plataforma",
-    ],
-    cta: "Comenzar Gratis",
-    highlighted: false,
-  },
-  {
     name: "Profesional",
-    price: "$49",
+    price: "US$ 49",
     period: "/mes",
     description: "Para clínicas en crecimiento que necesitan control total de su operación.",
     features: [
@@ -34,7 +23,7 @@ const plans = [
       "Reportes avanzados",
       "Soporte prioritario",
     ],
-    cta: "Iniciar Prueba Gratis",
+    cta: "Crear cuenta",
     highlighted: true,
   },
   {
@@ -44,12 +33,10 @@ const plans = [
     features: [
       "Todo en Profesional",
       "Usuarios ilimitados",
-      "API personalizada",
       "Integraciones custom",
-      "Soporte dedicado 24/7",
-      "SLA garantizado",
+      "Soporte dedicado",
     ],
-    cta: "Contactar Ventas",
+    cta: "Contactar ventas",
     highlighted: false,
   },
 ];
@@ -77,7 +64,7 @@ export function Pricing() {
           Planes de la plataforma · Sin contratos · Cambiá o cancelá cuando quieras
         </p>
 
-        <div className="mt-10 grid gap-8 lg:grid-cols-3">
+        <div className="mx-auto mt-10 grid max-w-4xl gap-8 lg:grid-cols-2">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}

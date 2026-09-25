@@ -2,7 +2,7 @@
 
 /**
  * Hero de dos caminos. Un titular de resultado y dos CTAs que dicen a
- * dónde van: pedir un diseño (paga hoy) o probar la plataforma (gratis).
+ * dónde van: pedir un diseño (paga hoy) o conocer la plataforma (US$ 49/mes).
  * El tercero, en texto, es para quien está en Uruguay y quiere pieza física.
  */
 

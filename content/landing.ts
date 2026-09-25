@@ -26,9 +26,9 @@ export const HERO = {
   kicker: "Plataforma de odontología digital · Montevideo",
   title: ["Del escaneo a la pieza terminada,", "sin vueltas."],
   subtitle:
-    "Subís el escaneo intraoral y recibís el diseño STL en 24–72 h, desde cualquier país. En Uruguay también lo fresamos e imprimimos. Y si querés ordenar tu clínica o laboratorio, la plataforma es gratis para empezar.",
+    "Subís el escaneo intraoral y recibís el diseño STL en 24–72 h, desde cualquier país. En Uruguay también lo fresamos e imprimimos. Y si querés ordenar tu clínica o laboratorio, la plataforma lo hace por US$ 49 al mes.",
   primary: { label: "Pedir un diseño", href: "/disenos/solicitar" },
-  secondary: { label: "Probar la plataforma gratis", href: "/auth/sign-up" },
+  secondary: { label: "Conocer la plataforma", href: "#plataforma" },
   tertiary: { label: "¿Estás en Uruguay? Cotizá fresado e impresión", href: "/fresado/solicitar" },
   trust: ["Sin cuenta previa para pedir", "Pagás antes de que diseñemos, sin sorpresas", "Sin datos del paciente: solo un código"],
 } as const;
@@ -56,8 +56,8 @@ export const PILLARS = [
     scope: "online",
     title: "Plataforma para clínicas y laboratorios",
     text: "Órdenes con archivos, Kanban de producción, facturación automática y permisos por colaborador.",
-    cta: "Probar gratis",
-    href: "/auth/sign-up",
+    cta: "Ver la plataforma",
+    href: "#plataforma",
   },
 ] as const;
 
