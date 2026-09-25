@@ -14,12 +14,21 @@
  * posición de scroll. Es lo que hace el mockup en 390px, y es lo que
  * funciona con un pulgar.
  *
+ * MOVIMIENTO (más allá del export): resortes en vez de tween para que
+ * el paso entre cards tenga inercia; autoplay cada 4,5 s mientras la
+ * sección se ve y nadie la toca (se frena con hover, foco, gesto,
+ * pestaña oculta y prefers-reduced-motion); arrastre/swipe horizontal
+ * sobre el escenario y gesto de trackpad; las laterales se acercan al
+ * pasar el mouse y la activa respira. Nada de esto es necesario para
+ * usarlo: flechas, puntos y teclado siguen siendo la vía principal.
+ *
  * ACCESIBILIDAD: región etiquetada, contador en aria-live para que el
  * lector anuncie "3 de 12" al navegar, y las cards laterales sin foco
  * (inert) para que Tab no recorra doce botones invisibles.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, useInView, useReducedMotion, type PanInfo } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ServiceCard } from "./service-card";
 import { useDragScroll } from "./use-drag-scroll";
@@ -32,8 +41,16 @@ interface CoverflowProps {
   label: string;
 }
 
-const EASE = "cubic-bezier(.4,0,.2,1)";
 const MOBILE_CARD = 331;
+/** Resorte del paso entre cards: firme, con un asomo de inercia, sin rebote visible. */
+const SPRING = { type: "spring", stiffness: 170, damping: 24, mass: 1 } as const;
+const HOVER_SPRING = { type: "spring", stiffness: 320, damping: 24 } as const;
+const AUTOPLAY_MS = 4500;
+/** Tras una interacción, el autoplay espera esto antes de retomar. */
+const IDLE_AFTER_INTERACTION_MS = 9000;
+const PAN_THRESHOLD_PX = 40;
+const PAN_VELOCITY = 350;
+const WHEEL_COOLDOWN_MS = 550;
 const MOBILE_GAP = 12;
 
 export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
@@ -45,10 +62,51 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
 
   const go = useCallback((i: number) => setActive(((i % n) + n) % n), [n]);
 
+  // ─── Vida propia: autoplay, gesto, trackpad ─────────────────
+  const reduceMotion = useReducedMotion();
+  const stageRef = useRef<HTMLDivElement>(null);
+  const inView = useInView(stageRef, { amount: 0.5 });
+  const [paused, setPaused] = useState(false);
+  const idleUntil = useRef(0);
+  const panned = useRef(false);
+  const lastWheel = useRef(0);
+
+  useEffect(() => {
+    if (reduceMotion || !inView || paused) return;
+    const id = window.setInterval(() => {
+      if (document.hidden || Date.now() < idleUntil.current) return;
+      setActive((a) => (a + 1) % n);
+    }, AUTOPLAY_MS);
+    return () => window.clearInterval(id);
+  }, [reduceMotion, inView, paused, n]);
+
+  /** Navegación hecha por la persona: cuenta como interacción y posterga el autoplay. */
+  const goUser = useCallback((i: number) => {
+    idleUntil.current = Date.now() + IDLE_AFTER_INTERACTION_MS;
+    go(i);
+  }, [go]);
+
+  const onPanStart = () => { panned.current = true; };
+  const onPanEnd = (_e: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
+    const dx = info.offset.x, vx = info.velocity.x;
+    if (dx < -PAN_THRESHOLD_PX || vx < -PAN_VELOCITY) goUser(active + 1);
+    else if (dx > PAN_THRESHOLD_PX || vx > PAN_VELOCITY) goUser(active - 1);
+    // El click que cierra el gesto no debe elegir una card.
+    window.setTimeout(() => { panned.current = false; }, 0);
+  };
+  // Solo el gesto horizontal del trackpad: la rueda vertical es del scroll de la página.
+  const onWheel = (e: React.WheelEvent) => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 12) return;
+    const now = Date.now();
+    if (now - lastWheel.current < WHEEL_COOLDOWN_MS) return;
+    lastWheel.current = now;
+    goUser(e.deltaX > 0 ? active + 1 : active - 1);
+  };
+
   // Teclado sobre el carrusel de escritorio.
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowLeft") { e.preventDefault(); go(active - 1); }
-    if (e.key === "ArrowRight") { e.preventDefault(); go(active + 1); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); goUser(active - 1); }
+    if (e.key === "ArrowRight") { e.preventDefault(); goUser(active + 1); }
   };
 
   // Los puntos de mobile siguen el scroll real, no un estado propio.
@@ -68,14 +126,22 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
   return (
     <>
       {/* ═══ Desktop: coverflow 3D ═══ */}
-      <div
+      <motion.div
+        ref={stageRef}
         role="region"
         aria-roledescription="carrusel"
         aria-label={label}
         tabIndex={0}
         onKeyDown={onKey}
-        className="focus-ring relative hidden lg:block h-[560px] outline-none rounded-3xl"
-        style={{ perspective: 1600 }}
+        onPanStart={onPanStart}
+        onPanEnd={onPanEnd}
+        onWheel={onWheel}
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
+        onFocusCapture={() => setPaused(true)}
+        onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPaused(false); }}
+        className="focus-ring relative hidden lg:block h-[560px] outline-none rounded-3xl cursor-grab active:cursor-grabbing"
+        style={{ perspective: 1600, touchAction: "pan-y" }}
       >
         <div className="absolute inset-0">
           {items.map((item, i) => {
@@ -84,30 +150,46 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
             const abs = Math.abs(off);
             const isActive = off === 0;
             const hidden = abs > 2;
+            // Mismas coordenadas que el export (translateX 270 · translateZ −160 · rotateY −28°),
+            // pero animadas con resorte: el paso tiene inercia en vez de frenar en seco.
+            const target = {
+              x: off * 270,
+              z: -abs * 160,
+              rotateY: off * -28,
+              scale: 1,
+              opacity: hidden ? 0 : 1 - abs * 0.22,
+              filter: `saturate(${1 - abs * 0.2})`,
+            };
             return (
-              <div
+              <motion.div
                 key={item.key}
-                onClick={() => !isActive && go(i)}
+                onClick={() => { if (panned.current) return; if (!isActive) goUser(i); }}
                 aria-hidden={!isActive}
-                className={cn("absolute left-1/2 top-5 w-[340px] -ml-[170px] motion-reduce:transition-none", !isActive && !hidden && "cursor-pointer")}
-                style={{
-                  transform: `translateX(${off * 270}px) translateZ(${-abs * 160}px) rotateY(${off * -28}deg)`,
-                  zIndex: 10 - abs,
-                  opacity: hidden ? 0 : 1 - abs * 0.22,
-                  filter: abs ? `saturate(${1 - abs * 0.2})` : "none",
-                  pointerEvents: hidden ? "none" : "auto",
-                  transition: `transform 360ms ${EASE}, opacity 360ms ${EASE}, filter 360ms ${EASE}`,
+                className={cn("absolute left-1/2 top-5 w-[340px] -ml-[170px]", !isActive && !hidden && "cursor-pointer")}
+                initial={false}
+                animate={target}
+                whileHover={!isActive && !hidden ? { scale: 1.035, z: -abs * 160 + 48 } : undefined}
+                transition={reduceMotion ? { duration: 0 } : {
+                  x: SPRING, z: SPRING, rotateY: SPRING, scale: HOVER_SPRING,
+                  opacity: { duration: 0.36 }, filter: { duration: 0.36 },
                 }}
+                style={{ zIndex: 10 - abs, pointerEvents: hidden ? "none" : "auto", transformStyle: "preserve-3d" }}
               >
-                <ServiceCard item={item} size="hero" active={isActive} inert={!isActive} price={prices[item.key] ?? null} className="h-[500px]" />
-              </div>
+                {/* La activa respira: un vaivén lento de 5px que la mantiene viva sin distraer. */}
+                <motion.div
+                  animate={isActive && !reduceMotion ? { y: [0, -5, 0] } : { y: 0 }}
+                  transition={isActive && !reduceMotion ? { duration: 5, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 }}
+                >
+                  <ServiceCard item={item} size="hero" active={isActive} inert={!isActive} price={prices[item.key] ?? null} className="h-[500px]" />
+                </motion.div>
+              </motion.div>
             );
           })}
         </div>
 
-        <ArrowButton side="left" onClick={() => go(active - 1)} />
-        <ArrowButton side="right" onClick={() => go(active + 1)} />
-      </div>
+        <ArrowButton side="left" onClick={() => goUser(active - 1)} />
+        <ArrowButton side="right" onClick={() => goUser(active + 1)} />
+      </motion.div>
 
       <div className="hidden lg:flex items-center justify-center gap-5 mt-2">
         <div className="flex items-center gap-2.5" role="tablist" aria-label="Ir a un servicio">
@@ -117,7 +199,7 @@ export function Coverflow({ items, prices = {}, label }: CoverflowProps) {
               role="tab"
               aria-selected={i === active}
               aria-label={item.title}
-              onClick={() => go(i)}
+              onClick={() => goUser(i)}
               className="h-2 rounded-full transition-all duration-200 motion-reduce:transition-none"
               style={{ width: i === active ? 22 : 8, background: i === active ? "var(--dd-deep-600)" : "rgba(75,127,155,.3)" }}
             />

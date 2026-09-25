@@ -19,6 +19,7 @@ import {
 } from "@/content/servicios";
 import { ScopeChip } from "./scope-chip";
 import { ServiceCard } from "./service-card";
+import { Archivo } from "next/font/google";
 import { Coverflow } from "./coverflow";
 import { useDragScroll } from "./use-drag-scroll";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,13 @@ const reveal = {
   transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as const },
 };
 
+/**
+ * Tipografía del design system del export: Archivo (sustituto documentado
+ * de la grotesca Helvetica de las listas de precios de Digital Dent).
+ * Solo esta sección; el resto de la landing sigue en Inter.
+ */
+const archivo = Archivo({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"], display: "swap" });
+
 export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionProps) {
   // Rails móviles de 02/03: card 331 + gap 12. El mismo hook sirve para los dos.
   const dragScroll = useDragScroll(331 + 12);
@@ -61,7 +69,7 @@ export function ServiciosSection({ designPrices, labPrices }: ServiciosSectionPr
     <section
       id="servicios"
       style={TOKENS}
-      className="relative overflow-hidden bg-[var(--dd-mist-050)] text-[var(--dd-deep-800)]"
+      className={cn(archivo.className, "relative overflow-hidden bg-[var(--dd-mist-050)] text-[var(--dd-deep-800)]")}
     >
       {/* Halo menta detrás del coverflow, como en el mockup pero sobre claro. */}
       <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[260px] h-[720px] w-[1100px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(144,236,220,.28)_0%,rgba(43,99,131,.10)_38%,rgba(244,253,253,0)_70%)]" />
