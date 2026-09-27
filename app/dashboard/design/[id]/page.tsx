@@ -6,6 +6,8 @@ import { getUserOrg } from "@/lib/get-user-org";
 import { createClient } from "@/lib/supabase/server";
 import { DesignOrderDetail } from "@/components/design/design-order-detail";
 import { canViewPrices } from "@/lib/permissions";
+import { SendCaseToDesigner } from "@/components/design/send-case-to-designer";
+import { isEmailConfigured } from "@/lib/email";
 import { ArrowLeft } from "lucide-react";
 
 /**
@@ -71,6 +73,19 @@ export default async function DesignOrderPage({
 
   const orgById = new Map((orgs ?? []).map((o: any) => [o.id, o]));
 
+  // [042] Destinatarios del envío por correo. Solo el estudio reparte, y
+  // solo quien tiene permiso de cola: mandar un caso afuera es asignar
+  // trabajo, no mirarlo.
+  const canDispatch = side === "studio" && (!isCollaborator || Boolean(permissions?.manage_design_queue));
+  const { data: approvedDesigners } = canDispatch
+    ? await supabase
+        .from("design_applications")
+        .select("id, full_name, email")
+        .eq("studio_org_id", order.studio_org_id)
+        .eq("status", "approved")
+        .order("full_name")
+    : { data: null };
+
   const detail = {
     ...order,
     // Las notas internas del estudio nunca viajan al cliente.
@@ -105,6 +120,15 @@ export default async function DesignOrderPage({
             Volver a las órdenes
           </Link>
         </Button>
+
+        {canDispatch && (
+          <SendCaseToDesigner
+            orderId={order.id}
+            orderNumber={order.order_number}
+            designers={approvedDesigners ?? []}
+            emailConfigured={isEmailConfigured()}
+          />
+        )}
 
         <DesignOrderDetail order={detail as any} />
       </div>
