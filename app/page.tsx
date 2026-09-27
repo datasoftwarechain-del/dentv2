@@ -11,6 +11,7 @@ import { formatMoney } from "@/lib/money";
 import { Pricing } from "@/components/landing/pricing";
 import { Faq } from "@/components/landing/faq";
 import { Cta } from "@/components/landing/cta";
+import { DesignTeam } from "@/components/landing/design-team";
 import { Footer } from "@/components/landing/footer";
 import { ScrollSection } from "@/components/landing/scroll-section";
 import { LenisProvider } from "@/components/landing/lenis-provider";
@@ -71,6 +72,10 @@ export default async function HomePage() {
         </ScrollSection>
         <ScrollSection>
           <Cta />
+        </ScrollSection>
+        {/* Convocatoria a diseñadores: fuera del embudo de venta, al final. */}
+        <ScrollSection>
+          <DesignTeam />
         </ScrollSection>
       </main>
       <Footer />

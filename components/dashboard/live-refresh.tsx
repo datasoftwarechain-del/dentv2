@@ -54,6 +54,8 @@ const SUBSCRIPTIONS: Record<OrgType, Subscription[]> = {
     { table: "design_orders", column: "studio_org_id" },
     { table: "invoices", column: "lab_org_id" },
     { table: "ledger_movements", column: "lab_org_id" },
+    // [042] La bandeja de postulaciones se actualiza sola al entrar una.
+    { table: "design_applications", column: "studio_org_id" },
   ],
   design_client: [
     { table: "design_orders", column: "client_org_id" },

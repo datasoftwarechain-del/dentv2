@@ -197,6 +197,13 @@ export const FINAL_CTA = {
   note: "Sin cuenta previa · Previsualización antes de entregar · Soporte por email",
 } as const;
 
+export const DESIGN_TEAM = {
+  title: "¿Sos diseñador dental?",
+  subtitle: "Sumate a nuestro equipo de diseño. Contanos tu experiencia en CAD y te escribimos.",
+  cta: "Quiero sumarme",
+  href: "/disenadores",
+} as const;
+
 export const FOOTER = {
   tagline: "Plataforma de odontología digital. Diseño CAD online, fresado e impresión en Uruguay y software para clínicas y laboratorios.",
   groups: [
@@ -221,6 +228,7 @@ export const FOOTER = {
       title: "Ayuda",
       links: [
         { label: "Preguntas frecuentes", href: "#faq" },
+        { label: "Sumate como diseñador", href: "/disenadores" },
       ],
     },
   ],
