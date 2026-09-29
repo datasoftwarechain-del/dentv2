@@ -38,3 +38,8 @@ ACCESOS_DIGITALDENT.md
 
 # Grafo de conocimiento de graphify: artefacto local regenerable
 graphify-out/
+
+# log del servidor de desarrollo
+dev.log
+build.log
+supabase/.temp/

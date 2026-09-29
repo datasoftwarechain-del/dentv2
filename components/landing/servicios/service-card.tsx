@@ -38,6 +38,12 @@ interface ServiceCardProps {
   price?: string | null;
   /** En el carrusel las laterales no son interactivas: sin tabIndex ni CTA. */
   inert?: boolean;
+  /**
+   * Chip de alcance sobre la imagen. Va en false cuando toda la lista es
+   * del mismo alcance y el bloque ya lo dice en su título: repetirlo en
+   * cada card es ruido, no información.
+   */
+  showScope?: boolean;
   className?: string;
 }
 
@@ -47,7 +53,7 @@ export function ServiceCard(props: ServiceCardProps) {
 
 // ─── Vidrio oscuro (lienzo A) ─────────────────────────────────
 
-function DarkCard({ item, active = false, price = null, inert = false, className }: ServiceCardProps) {
+function DarkCard({ item, active = false, price = null, inert = false, showScope = true, className }: ServiceCardProps) {
   // Borde y sombra van por clases: el hover tiene que poder cambiarlos y
   // un style inline los pisaría.
   const BASE_SHADOW = "inset_0_1px_0_rgba(255,255,255,.14),0_28px_60px_rgba(4,16,24,.5)";
@@ -100,13 +106,15 @@ function DarkCard({ item, active = false, price = null, inert = false, className
           </div>
         )}
 
-        <span
-          className="absolute inline-flex items-center gap-1.5 rounded-full font-semibold"
-          style={{ left: 12, top: 12, height: 24, padding: "0 10px", background: "#90ecdc", color: "#122d3c", fontSize: 11, letterSpacing: ".04em" }}
-        >
-          <Globe size={13} aria-hidden="true" />
-          Online
-        </span>
+        {showScope && (
+          <span
+            className="absolute inline-flex items-center gap-1.5 rounded-full font-semibold"
+            style={{ left: 12, top: 12, height: 24, padding: "0 10px", background: "#90ecdc", color: "#122d3c", fontSize: 11, letterSpacing: ".04em" }}
+          >
+            <Globe size={13} aria-hidden="true" />
+            Online
+          </span>
+        )}
 
         {!inert && (
           <span
@@ -168,7 +176,7 @@ function DarkChip({ children }: { children: React.ReactNode }) {
 
 // ─── Paleta clara (lienzo B) ──────────────────────────────────
 
-function LightCard({ item, size = "hero", active = false, price = null, inert = false, className }: ServiceCardProps) {
+function LightCard({ item, size = "hero", active = false, price = null, inert = false, showScope = true, className }: ServiceCardProps) {
   const hero = size === "hero";
   const ww = item.scope === "worldwide";
 
@@ -221,9 +229,11 @@ function LightCard({ item, size = "hero", active = false, price = null, inert = 
           </div>
         )}
 
-        <div className="absolute left-3 top-3">
-          <ScopeChip scope={item.scope} size="sm" />
-        </div>
+        {showScope && (
+          <div className="absolute left-3 top-3">
+            <ScopeChip scope={item.scope} size="sm" />
+          </div>
+        )}
 
         {hero && !inert && (
           <span

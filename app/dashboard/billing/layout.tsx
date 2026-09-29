@@ -12,5 +12,7 @@ export default async function BillingLayout({
     redirect("/dashboard");
   }
 
+  // El refresco en vivo (LiveRefresh) vive en app/dashboard/layout.tsx:
+  // un solo canal para todo el dashboard.
   return <>{children}</>;
 }

@@ -15,6 +15,10 @@ const API_LIMIT = 120;          // max 120 API requests per IP per minute
 // que el de auth: pedir un diseno no es algo que se haga cinco veces por
 // minuto ni siquiera equivocandose.
 const PUBLIC_INTAKE_LIMIT = 3;  // max 3 solicitudes publicas por IP por minuto
+// [043] Portal de entrega del disenador. El token de la URL es la unica
+// credencial, asi que adivinarlo tiene que salir caro. Un disenador real
+// carga la pagina una vez y sube un archivo: 10/min le sobra.
+const DELIVERY_LIMIT = 10;      // max 10 requests al portal por IP por minuto
 
 function getClientIP(request: NextRequest): string {
   return (
@@ -77,17 +81,39 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // [046] El bot de reparto tampoco: lo llaman el cron de Vercel y el
+  // webhook de la base, no un navegador. Se autentica con secreto
+  // compartido dentro de la ruta. Limitarlo por IP cortaria el barrido
+  // justo cuando hay muchos casos que repartir, que es cuando importa.
+  if (pathname.startsWith("/api/bots/")) {
+    return NextResponse.next();
+  }
+
   // Rate limit: solicitud publica de diseno (crea usuario + organizacion)
   // [040] La solicitud publica de fresado comparte el limite: no crea
   // usuarios pero si filas y URLs firmadas de subida.
+  // [042] La postulacion publica de disenadores comparte el limite.
   if (
-    (pathname === "/api/design/request" || pathname === "/api/lab-requests") &&
+    (pathname === "/api/design/request" ||
+      pathname === "/api/lab-requests" ||
+      pathname === "/api/designer-applications") &&
     request.method === "POST"
   ) {
     const key = `intake:${getClientIP(request)}`;
     if (!checkRateLimit(key, PUBLIC_INTAKE_LIMIT)) {
       return NextResponse.json(
         { error: "Demasiadas solicitudes seguidas. Esperá un minuto y volvé a intentar." },
+        { status: 429, headers: { "Retry-After": "60" } }
+      );
+    }
+  }
+
+  // [043] Rate limit del portal de entrega: la pagina y sus dos rutas.
+  if (pathname.startsWith("/d/entrega/") || pathname.startsWith("/api/entrega/")) {
+    const key = `entrega:${getClientIP(request)}`;
+    if (!checkRateLimit(key, DELIVERY_LIMIT)) {
+      return NextResponse.json(
+        { error: "Demasiados intentos. Espera un minuto." },
         { status: 429, headers: { "Retry-After": "60" } }
       );
     }

@@ -11,6 +11,7 @@ import { formatMoney } from "@/lib/money";
 import { Pricing } from "@/components/landing/pricing";
 import { Faq } from "@/components/landing/faq";
 import { Cta } from "@/components/landing/cta";
+import { DesignTeam } from "@/components/landing/design-team";
 import { Footer } from "@/components/landing/footer";
 import { ScrollSection } from "@/components/landing/scroll-section";
 import { LenisProvider } from "@/components/landing/lenis-provider";
@@ -41,15 +42,18 @@ export default async function HomePage() {
       </a>
       <Header />
       <main id="main-content">
-        {/* Orden de venta: promesa → tres caminos → servicios (lo que paga
-            hoy) → cómo funciona → plataforma → cifras reales → precios →
-            objeciones → cierre. Sin marquee, testimonios inventados ni
-            newsletter: no vendían. */}
+        {/* Orden de venta: promesa → tres caminos → cifras reales (la prueba,
+            antes del catálogo) → servicios (lo que paga hoy) → cómo funciona
+            → plataforma → precios → objeciones → cierre. Sin marquee,
+            testimonios inventados ni newsletter: no vendían. */}
         <ScrollSection>
           <Hero />
         </ScrollSection>
         <ScrollSection>
           <Pillars />
+        </ScrollSection>
+        <ScrollSection>
+          <Stats stats={stats} />
         </ScrollSection>
         <ScrollSection>
           <ServiciosSection designPrices={designPrices} />
@@ -61,9 +65,6 @@ export default async function HomePage() {
           <Features />
         </ScrollSection>
         <ScrollSection>
-          <Stats stats={stats} />
-        </ScrollSection>
-        <ScrollSection>
           <Pricing />
         </ScrollSection>
         <ScrollSection>
@@ -71,6 +72,10 @@ export default async function HomePage() {
         </ScrollSection>
         <ScrollSection>
           <Cta />
+        </ScrollSection>
+        {/* Convocatoria a diseñadores: fuera del embudo de venta, al final. */}
+        <ScrollSection>
+          <DesignTeam />
         </ScrollSection>
       </main>
       <Footer />

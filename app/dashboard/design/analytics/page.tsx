@@ -33,7 +33,7 @@ export default async function DesignAnalyticsPage() {
       .from("design_orders")
       .select(`
         id, status, submitted_at, first_delivery_at, approved_at, delivered_at,
-        due_at, revision_count, assigned_to,
+        due_at, revision_count, assigned_to, assigned_application_id,
         items:design_order_items(service_code, quantity, unit_price, unit_cost, is_revision_fee)
       `)
       .eq("studio_org_id", org.id)
@@ -57,9 +57,22 @@ export default async function DesignAnalyticsPage() {
     (members ?? []).map((m: any) => [m.user_id, m.display_name as string | null]),
   );
 
+  // [043] Los diseñadores externos (design_applications) no están en
+  // org_members: su nombre sale de la postulación aprobada.
+  const { data: externos } = await supabase
+    .from("design_applications")
+    .select("id, full_name")
+    .eq("studio_org_id", org.id)
+    .eq("status", "approved");
+  const nameByApplication = new Map((externos ?? []).map((a: any) => [a.id, a.full_name as string]));
+
   const byDesigner = breakdownByDesigner(rows).map((d) => ({
     ...d,
-    name: nameByUser.get(d.userId) ?? "Sin nombre",
+    name:
+      (d.applicationId ? nameByApplication.get(d.applicationId) : null) ??
+      (d.userId ? nameByUser.get(d.userId) : null) ??
+      "Sin nombre",
+    isExternal: d.applicationId !== null,
   }));
 
   return (

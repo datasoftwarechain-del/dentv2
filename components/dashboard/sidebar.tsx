@@ -13,6 +13,7 @@ import {
   Settings,
   Package,
   Building2,
+  UserPlus,
   Menu,
   CalendarClock,
   Scan,
@@ -76,6 +77,7 @@ const NAV_PERMISSION_MAP: Record<string, PermissionKey> = {
   "/dashboard/design":        "view_design_studio",
   "/dashboard/design/queue":  "manage_design_queue",
   "/dashboard/design/clients": "manage_design_clients",
+  "/dashboard/design/designers": "view_design_studio",
   "/dashboard/design/analytics": "view_design_studio",
 };
 
@@ -131,6 +133,8 @@ const designStudioNav = [
   { href: "/dashboard/design/queue", label: "Cola de Diseño", icon: Layers },
   { href: "/dashboard/design", label: "Órdenes", icon: PenTool },
   { href: "/dashboard/design/clients", label: "Clientes", icon: Building2 },
+  // [042_designers] Bandeja de postulaciones del equipo de diseño.
+  { href: "/dashboard/design/designers", label: "Diseñadores", icon: UserPlus },
   { href: "/dashboard/design/analytics", label: "Análisis", icon: BarChart3 },
   { href: "/dashboard/billing", label: "Facturacion", icon: CreditCard },
   { href: "/dashboard/settings", label: "Configuracion", icon: Settings },

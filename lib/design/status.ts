@@ -90,6 +90,13 @@ export const DESIGN_STATUS_BADGE_CLASSES: Record<DesignOrderStatus, string> = {
  * Leer así: desde `submitted`, el estudio puede mandarla a needs_info,
  * assigned o cancelled; el cliente solo puede cancelarla.
  */
+/**
+ * [043] El lado `system` es el bot de reparto y su lista es a propósito más
+ * corta que la del estudio: solo los cuatro movimientos del camino feliz.
+ * Cancelar, aprobar en nombre del cliente y pedir datos que faltan siguen
+ * siendo humanos. Un bot que puede cancelar órdenes es un bot que algún día
+ * cancela una orden.
+ */
 const TRANSITIONS: Record<DesignOrderStatus, Partial<Record<ActorSide, DesignOrderStatus[]>>> = {
   draft: {
     client: ["submitted", "cancelled"],
@@ -98,6 +105,8 @@ const TRANSITIONS: Record<DesignOrderStatus, Partial<Record<ActorSide, DesignOrd
   submitted: {
     studio: ["needs_info", "assigned", "in_design", "cancelled"],
     client: ["cancelled"], // todavía no se tocó: puede arrepentirse
+    // [043] El bot despachó el caso a un diseñador.
+    system: ["assigned"],
   },
   awaiting_payment: {
     // El camino normal lo hace solo: al registrarse el pago, el trigger
@@ -113,9 +122,14 @@ const TRANSITIONS: Record<DesignOrderStatus, Partial<Record<ActorSide, DesignOrd
   },
   assigned: {
     studio: ["in_design", "needs_info", "cancelled"],
+    // [043] El diseñador abrió el enlace y confirmó que lo toma.
+    system: ["in_design"],
   },
   in_design: {
     studio: ["internal_review", "client_review", "needs_info", "cancelled"],
+    // [043] Llegó el archivo terminado. A cuál de los dos va lo decide el
+    // interruptor auto_release_designs del estudio.
+    system: ["internal_review", "client_review"],
   },
   internal_review: {
     // Vuelve a in_design si el QC interno lo rebota.
@@ -129,6 +143,8 @@ const TRANSITIONS: Record<DesignOrderStatus, Partial<Record<ActorSide, DesignOrd
   },
   revision_requested: {
     studio: ["in_design", "cancelled"],
+    // [043] El bot re-despachó el pedido de cambios al mismo diseñador.
+    system: ["in_design"],
   },
   approved: {
     // Terminal salvo entrega. No se vuelve atrás: ya está facturado.
@@ -197,14 +213,13 @@ export function canTransition(
   side: ActorSide,
 ): boolean {
   if (from === to) return false;
-  // `system` no se mueve solo: los triggers sellan tiempos, no cambian estado.
-  if (side === "system") return false;
+  // [043] `system` (el bot de reparto) sí mueve estados, pero solo los cuatro
+  // del camino feliz que declara TRANSITIONS. Antes tenía la lista vacía.
   return TRANSITIONS[from]?.[side]?.includes(to) ?? false;
 }
 
 /** Estados a los que este actor puede llevar la orden desde donde está. */
 export function nextStatuses(from: DesignOrderStatus, side: ActorSide): DesignOrderStatus[] {
-  if (side === "system") return [];
   return TRANSITIONS[from]?.[side] ?? [];
 }
 

@@ -23,6 +23,9 @@ import { ServiceCard } from "./service-card";
 import { Archivo } from "next/font/google";
 import { Coverflow } from "./coverflow";
 import { DesignArc } from "./design-arc";
+import { DesignCatalogList } from "./design-catalog-list";
+import { ArrowUpRight, Clock, Layers } from "lucide-react";
+import Link from "next/link";
 import { useDragScroll } from "./use-drag-scroll";
 import { cn } from "@/lib/utils";
 
@@ -64,7 +67,12 @@ const archivo = Archivo({ subsets: ["latin"], weight: ["300", "400", "500", "600
 export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
   // Rails móviles de 02/03: card 331 + gap 12. El mismo hook sirve para los dos.
   const dragScroll = useDragScroll(331 + 12);
-  const design = designCards();
+  const catalog = designCards();
+  // La primera card que se ve tiene que tener imagen real, no un placeholder.
+  // Se rota el catálogo (no se reordena la lista por categoría) para que
+  // valga igual en el coverflow de desktop y en el carril nativo de mobile.
+  const firstWithImage = Math.max(0, catalog.findIndex((d) => d.image));
+  const design = [...catalog.slice(firstWithImage), ...catalog.slice(0, firstWithImage)];
   // Seis destacados para el abanico de cierre, en el orden del arco.
   const arcItems = DESIGN_ARC.featured
     .map((code) => design.find((d) => d.key === code))
@@ -86,7 +94,7 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
             <span className="text-[11px] font-medium uppercase tracking-[.14em] text-[var(--dd-mint-600)] lg:text-[12px]">
               {SERVICIOS_HEADER.eyebrow}
             </span>
-            <h2 className="m-0 max-w-[760px] text-[36px] font-medium leading-[1.05] tracking-[-.025em] text-[var(--dd-deep-800)] [text-wrap:balance] lg:text-[60px] lg:leading-[1.02]">
+            <h2 className="m-0 max-w-[760px] text-[32px] font-medium leading-[1.05] tracking-[-.025em] text-[var(--dd-deep-800)] [text-wrap:balance] lg:text-[48px] lg:leading-[1.04]">
               {SERVICIOS_HEADER.title}
             </h2>
             <p className="m-0 max-w-[600px] text-[15.5px] leading-[1.55] text-[var(--dd-neutral-700)] [text-wrap:pretty] lg:text-[18px]">
@@ -113,7 +121,7 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
           en la zona 100% oscura (28%–72%); los tramos que se funden son solo
           padding, sin nada encima. --page-bg = fondo de la sección. */}
       <div
-        className="design-section relative mt-11 w-screen left-1/2 -translate-x-1/2 overflow-hidden py-[96px] lg:mt-[88px] lg:py-[160px] lg:pb-[180px]"
+        className="design-section relative mt-10 w-screen left-1/2 -translate-x-1/2 overflow-hidden py-[144px] lg:mt-14 lg:py-[176px]"
         // El degradado vive en globals.css (.design-section): un gradiente
         // sRGB entre azul oscuro y casi blanco pasa por un gris sucio; ahí
         // se interpola en oklab con paradas intermedias azules, y hay
@@ -125,7 +133,7 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
           className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-[720px] w-[1100px] -translate-x-1/2 -translate-y-[45%]"
           style={{ background: "radial-gradient(ellipse at center, rgba(144,236,220,.20) 0%, rgba(43,99,131,.28) 38%, transparent 70%)" }}
         />
-        <div className="relative mx-auto max-w-[1200px] px-5 pt-12 lg:px-0 lg:pt-24">
+        <div className="relative mx-auto max-w-[1200px] px-5 lg:px-0">
         <motion.div {...reveal} className="relative z-[1] flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
           <div className="flex flex-col gap-3 lg:gap-4">
             <div className="flex flex-wrap items-center gap-3 lg:gap-4">
@@ -149,12 +157,19 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
         <div className="relative z-[1] mt-6 lg:mt-12">
           <Coverflow items={design} prices={designPrices} label={`${DESIGN_BLOCK.number} · ${DESIGN_BLOCK.title}`} />
         </div>
+        <div className="relative z-[1]">
+          <DesignCatalogList items={design} prices={designPrices} />
+        </div>
         </div>
       </div>
 
       {/* ═══ 02 · 03 · Fresado e Impresión ═══ */}
       <div className="relative mx-auto flex max-w-[1200px] flex-col gap-10 px-0 pb-16 pt-10 lg:gap-20 lg:pb-28">
-        {LOCAL_BLOCKS.map((blk) => (
+        {LOCAL_BLOCKS.map((blk, bi) => {
+          // Impresión tiene dos productos: a dos columnas en tamaño hero
+          // llenan la fila; a cuatro dejaban media fila vacía.
+          const twoUp = blk.items.length <= 2;
+          return (
           <motion.div key={blk.key} {...reveal} className="flex flex-col gap-4 border-t border-[rgba(32,80,104,.12)] pt-8 lg:gap-7 lg:pt-14">
             <div className="flex flex-col gap-3 px-5 lg:flex-row lg:items-end lg:justify-between lg:gap-8 lg:px-0">
               <div className="flex flex-col gap-2.5 lg:gap-3">
@@ -165,17 +180,19 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
                 </div>
                 <p className="m-0 text-[14px] leading-[1.55] text-[var(--dd-neutral-700)] lg:text-[15.5px]">{blk.subtitle}</p>
               </div>
-              <span className="flex items-center gap-2 whitespace-nowrap text-[12px] text-[var(--dd-deep-400)] lg:text-[13px]">
-                <span aria-hidden="true" className="h-[7px] w-[7px] rounded-full border-[1.5px] border-[var(--dd-deep-400)]" />
-                {LOCAL_FOOTNOTE}
-              </span>
+              {bi === 0 && (
+                <span className="flex items-center gap-2 text-[12px] text-[var(--dd-deep-400)] lg:whitespace-nowrap lg:text-[13px]">
+                  <span aria-hidden="true" className="h-[7px] w-[7px] flex-none rounded-full border-[1.5px] border-[var(--dd-deep-400)]" />
+                  {LOCAL_FOOTNOTE}
+                </span>
+              )}
             </div>
 
             {/* Desktop: grilla. Mobile: carril con snap. */}
-            <ul className="hidden gap-5 lg:grid lg:grid-cols-4" aria-label={blk.title}>
+            <ul className={cn("hidden gap-5 lg:grid", twoUp ? "lg:grid-cols-2" : "lg:grid-cols-4")} aria-label={blk.title}>
               {blk.items.map((item) => (
                 <li key={item.key}>
-                  <ServiceCard item={item} size="compact" className="h-[390px]" />
+                  <ServiceCard item={item} size={twoUp ? "hero" : "compact"} showScope={false} className={twoUp ? "h-[440px]" : "h-[390px]"} />
                 </li>
               ))}
             </ul>
@@ -187,13 +204,16 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
             >
               {blk.items.map((item) => (
                 <li key={item.key} className="flex-none" style={{ width: 331, scrollSnapAlign: "start" }}>
-                  <ServiceCard item={item} size="compact" className="h-[380px]" />
+                  <ServiceCard item={item} size="compact" showScope={false} className="h-[380px]" />
                 </li>
               ))}
               <li className="w-2 flex-none" aria-hidden="true" />
             </ul>
+
+            {blk.banner && <BringYourFileBanner item={blk.banner} />}
           </motion.div>
-        ))}
+          );
+        })}
 
         {/* ═══ Cierre · Subí tu escaneo. Recibí el diseño. ═══ */}
         <motion.div {...reveal} className="mt-16 lg:mt-24">
@@ -201,5 +221,38 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
         </motion.div>
       </div>
     </section>
+  );
+}
+
+/**
+ * "¿Ya tenés el diseño?": es otra oferta (traé tu archivo), no un
+ * material más. Como banner ancho cierra la grilla de fresado en vez de
+ * quedar como quinta card sola en una segunda fila.
+ */
+function BringYourFileBanner({ item }: { item: ServiceCardContent }) {
+  return (
+    <div className="px-5 lg:px-0">
+      <Link
+        href={item.href}
+        className="focus-ring group flex flex-col gap-4 rounded-[24px] border border-[rgba(32,80,104,.1)] bg-white p-5 shadow-[0_6px_18px_rgba(18,45,60,.06)] transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-[rgba(32,80,104,.28)] hover:shadow-[0_18px_44px_rgba(18,45,60,.14)] sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:px-7 sm:py-6"
+      >
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className="text-[18px] font-semibold leading-[1.25] tracking-[-.01em] text-[var(--dd-deep-800)] lg:text-[20px]">{item.title}</span>
+          <span className="text-[13.5px] leading-[1.5] text-[var(--dd-neutral-700)] lg:text-[14.5px]">{item.description}</span>
+          <span className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full border border-[rgba(32,80,104,.1)] bg-[var(--dd-mist-050)] px-2.5 text-[12px] font-medium tabular-nums leading-none text-[var(--dd-deep-700)]">
+              <Clock className="h-[13px] w-[13px]" aria-hidden="true" />{item.time}
+            </span>
+            <span className="inline-flex h-[26px] items-center gap-1.5 rounded-full border border-[rgba(32,80,104,.1)] bg-[var(--dd-mist-050)] px-2.5 text-[12px] font-medium tabular-nums leading-none text-[var(--dd-deep-700)]">
+              <Layers className="h-[13px] w-[13px]" aria-hidden="true" />{item.spec}
+            </span>
+          </span>
+        </div>
+        <span className="inline-flex h-10 flex-none items-center justify-center gap-1.5 rounded-full bg-[var(--dd-deep-600)] px-5 text-[14px] font-medium text-white transition-colors duration-200 group-hover:bg-[var(--dd-deep-700)]">
+          {item.cta}
+          <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+        </span>
+      </Link>
+    </div>
   );
 }

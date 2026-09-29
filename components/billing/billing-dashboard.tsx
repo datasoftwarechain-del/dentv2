@@ -557,7 +557,9 @@ export function BillingDashboard({
               {money(stats.totalPending)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-              {invoices.filter(i => i.status === "pending").length} facturas
+              {/* El monto es el SALDO de las cuentas, no la suma de facturas
+                  sin marcar pagas. Contar facturas acá contradecía la cifra. */}
+              {clients.filter((c) => (c.pendingAmount ?? 0) > 0).length} cuentas con saldo
             </p>
           </CardContent>
         </Card>
@@ -712,9 +714,14 @@ export function BillingDashboard({
                     </div>
                     <div className="shrink-0">
                       {client.pendingAmount > 0 ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#d2f2f3] text-[#09919b] border border-[#a8d8dc] px-2.5 py-1 text-xs font-bold">
-                          <DollarSign className="h-3 w-3" />
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#d2f2f3] text-[#09919b] border border-[#a8d8dc] px-2.5 py-1 text-xs font-bold" title="Saldo pendiente: facturas + cargos − pagos">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">Debe</span>
                           {money(client.pendingAmount)}
+                        </span>
+                      ) : client.pendingAmount < 0 ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/[0.08] text-secondary border border-secondary/20 px-2.5 py-1 text-xs font-bold" title="Saldo a favor del cliente">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">A favor</span>
+                          {money(Math.abs(client.pendingAmount))}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-primary/8 text-primary border border-primary/20 px-2.5 py-1 text-xs font-bold">

@@ -27,6 +27,8 @@ export interface MetricOrderRow {
   due_at: string | null;
   revision_count: number;
   assigned_to: string | null;
+  /** [043] Diseñador externo (design_applications). Excluyente con assigned_to. */
+  assigned_application_id?: string | null;
   items: Array<{
     service_code: string;
     quantity: number;
@@ -200,7 +202,12 @@ export function breakdownByService(orders: MetricOrderRow[]): ServiceBreakdown[]
 }
 
 export interface DesignerBreakdown {
-  userId: string;
+  /** [043] Clave estable: "user:<uuid>" o "app:<uuid>". Es la que usa React. */
+  key: string;
+  /** Miembro del estudio. null si el caso lo hizo un diseñador externo. */
+  userId: string | null;
+  /** [043] Diseñador externo. null si lo hizo alguien del estudio. */
+  applicationId: string | null;
   orders: number;
   revenue: number;
   cost: number;
@@ -212,21 +219,32 @@ export interface DesignerBreakdown {
 /**
  * Producción por diseñador.
  *
- * Solo cuenta órdenes con `assigned_to`. Las sin asignar no se reparten
- * entre nadie: inventar un dueño para que los totales cierren haría que
- * la comparación entre diseñadores deje de significar algo.
+ * Solo cuenta órdenes asignadas. Las sin asignar no se reparten entre
+ * nadie: inventar un dueño para que los totales cierren haría que la
+ * comparación entre diseñadores deje de significar algo.
+ *
+ * [043] Hay dos clases de diseñador y se cuentan juntas: el miembro del
+ * estudio (`assigned_to` → auth.users) y el externo que trabaja por correo
+ * (`assigned_application_id` → design_applications). Son tablas distintas
+ * porque el externo no tiene cuenta, pero producen el mismo trabajo y
+ * separarlos en dos tableros haría imposible comparar carga o rentabilidad.
+ * Si una orden trae las dos, gana la externa: es quien lo diseñó.
  */
 export function breakdownByDesigner(orders: MetricOrderRow[]): DesignerBreakdown[] {
   const map = new Map<string, {
-    userId: string; orders: number; revenue: number; cost: number;
+    key: string; userId: string | null; applicationId: string | null;
+    orders: number; revenue: number; cost: number;
     turnarounds: number[]; revisionSum: number;
   }>();
 
   for (const order of orders) {
-    if (!order.assigned_to) continue;
+    const applicationId = order.assigned_application_id ?? null;
+    const userId = applicationId ? null : order.assigned_to;
+    const key = applicationId ? `app:${applicationId}` : userId ? `user:${userId}` : null;
+    if (!key) continue;
 
-    const entry = map.get(order.assigned_to) ?? {
-      userId: order.assigned_to,
+    const entry = map.get(key) ?? {
+      key, userId, applicationId,
       orders: 0, revenue: 0, cost: 0, turnarounds: [], revisionSum: 0,
     };
 
@@ -242,12 +260,14 @@ export function breakdownByDesigner(orders: MetricOrderRow[]): DesignerBreakdown
     const hours = hoursBetween(order.submitted_at, order.first_delivery_at);
     if (hours !== null) entry.turnarounds.push(hours);
 
-    map.set(order.assigned_to, entry);
+    map.set(key, entry);
   }
 
   return Array.from(map.values())
     .map((e) => ({
+      key: e.key,
       userId: e.userId,
+      applicationId: e.applicationId,
       orders: e.orders,
       revenue: round2(e.revenue),
       cost: round2(e.cost),

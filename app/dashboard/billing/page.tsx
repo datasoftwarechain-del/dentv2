@@ -7,6 +7,7 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { BillingDashboard } from "@/components/billing/billing-dashboard";
 import { DentistBillingDashboard } from "@/components/billing/dentist-billing-dashboard";
 import { getUserOrg } from "@/lib/get-user-org";
+import { computeAccountBalance } from "@/lib/balance-utils";
 import {
   sanitizeInvoiceForCollaborator,
   canManageBilling,
@@ -62,6 +63,7 @@ export default async function BillingPage() {
       { data: labInvoices },
       ledgerResult,
       labOrgResult,
+      { data: dentistMovements },
     ] = await Promise.all([
       // Facturas a pacientes — vacío para preview (ellos no facturan pacientes)
       isPreview
@@ -114,6 +116,14 @@ export default async function BillingPage() {
             .eq("id", previewLabOrgId)
             .single()
         : Promise.resolve({ data: null }),
+
+      // Movimientos con TODOS los laboratorios. Es lo que convierte
+      // "facturado sin marcar pago" en "lo que realmente se debe": un pago
+      // registrado escribe acá, no marca la factura.
+      db
+        .from("ledger_movements")
+        .select("lab_org_id, type, amount")
+        .eq("dentist_org_id", effectiveOrgId),
     ]);
 
     // Enriquecer labInvoices con order_items (para mostrar nombre del catálogo)
@@ -134,8 +144,18 @@ export default async function BillingPage() {
       order_items: labOrderItemsByOrderId[inv.order_id] || [],
     }));
 
+    // Movimientos agrupados por laboratorio, para el saldo real.
+    const movementsByLab = new Map<string, any[]>();
+    (dentistMovements || []).forEach((m: any) => {
+      if (!m.lab_org_id) return;
+      const list = movementsByLab.get(m.lab_org_id) ?? [];
+      list.push(m);
+      movementsByLab.set(m.lab_org_id, list);
+    });
+
     // Construir resumen por lab desde facturas formales — montos colapsan a 0 sin permiso
     const labClientsMap = new Map<string, any>();
+    const invoicesByLab = new Map<string, any[]>();
     (labInvoices || []).forEach((inv: any) => {
       const lab = Array.isArray(inv.lab_org) ? inv.lab_org[0] : inv.lab_org;
       if (!lab) return;
@@ -143,11 +163,22 @@ export default async function BillingPage() {
         id: lab.id, name: lab.name, invoiceCount: 0, totalAmount: 0, pendingAmount: 0,
       };
       existing.invoiceCount++;
-      if (canViewAmounts) {
-        existing.totalAmount += Number(inv.total);
-        if (inv.status === "pending") existing.pendingAmount += Number(inv.total);
-      }
+      if (canViewAmounts) existing.totalAmount += Number(inv.total);
       labClientsMap.set(lab.id, existing);
+      const list = invoicesByLab.get(lab.id) ?? [];
+      list.push(inv);
+      invoicesByLab.set(lab.id, list);
+    });
+
+    // Lo que la clínica DEBE a cada laboratorio: misma fórmula que usa el
+    // laboratorio del otro lado del mostrador, así los dos ven el mismo número.
+    labClientsMap.forEach((entry, labId) => {
+      if (!canViewAmounts) { entry.pendingAmount = 0; return; }
+      const { balance } = computeAccountBalance(
+        invoicesByLab.get(labId) ?? [],
+        movementsByLab.get(labId) ?? [],
+      );
+      entry.pendingAmount = balance;
     });
 
     // Para preview: si no hay facturas formales, usar el saldo del libro mayor
@@ -318,24 +349,22 @@ export default async function BillingPage() {
       : (orderItemsByOrderId[inv.order_id] || []),
   }));
 
-  // Latest ledger balance per client (movements already ordered by created_at desc)
-  const balanceMap = new Map<string, number>();
-  (allMovements || []).forEach((m: any) => {
-    if (!balanceMap.has(m.dentist_org_id)) {
-      balanceMap.set(m.dentist_org_id, Number(m.balance));
-    }
-  });
-
   // Movements for recent display (limit to 20)
   const movements = (allMovements || []).slice(0, 20);
 
-  // Invoice stats — colapsan a 0 sin view_billing_amounts
+  // Invoice stats — colapsan a 0 sin view_billing_amounts.
+  //
+  // "Cobrado" y "Pendiente" salen del LIBRO MAYOR, no del estado de las
+  // facturas: registrar un pago escribe un movimiento, no marca facturas.
+  // Contarlas por estado daba una tarjeta "Pendiente" que no coincidía con
+  // la suma de los saldos de la lista de clientes, justo debajo.
   const totalInvoiced = canViewAmounts
     ? invoices?.reduce((sum, inv) => sum + Number(inv.total), 0) || 0 : 0;
   const totalPaid = canViewAmounts
-    ? invoices?.filter((inv) => inv.status === "paid").reduce((sum, inv) => sum + Number(inv.total), 0) || 0 : 0;
-  const totalPending = canViewAmounts
-    ? invoices?.filter((inv) => inv.status === "pending").reduce((sum, inv) => sum + Number(inv.total), 0) || 0 : 0;
+    ? (allMovements || [])
+        .filter((m: any) => m.type === "payment")
+        .reduce((sum: number, m: any) => sum + Number(m.amount ?? 0), 0)
+    : 0;
 
   // Build clients from connected dentists (source of truth) + invoice data overlay + ledger balance
   const clientsMap = new Map<string, {
@@ -345,6 +374,15 @@ export default async function BillingPage() {
   // Seed with ALL connected dentists
   connectedDentists.forEach((d) => {
     clientsMap.set(d.id, { id: d.id, name: d.name, invoiceCount: 0, totalAmount: 0, paidAmount: 0 });
+  });
+
+  // Facturas y movimientos agrupados por cliente, para el saldo real.
+  const invoicesByClient = new Map<string, any[]>();
+  const movementsByClient = new Map<string, any[]>();
+  (allMovements || []).forEach((m: any) => {
+    const list = movementsByClient.get(m.dentist_org_id) ?? [];
+    list.push(m);
+    movementsByClient.set(m.dentist_org_id, list);
   });
 
   // Overlay invoice data — montos solo si canViewAmounts
@@ -360,15 +398,24 @@ export default async function BillingPage() {
       if (invoice.status === "paid") entry.paidAmount += Number(invoice.total);
     }
     clientsMap.set(clientOrg.id, entry);
+    const list = invoicesByClient.get(clientOrg.id) ?? [];
+    list.push(invoice);
+    invoicesByClient.set(clientOrg.id, list);
   });
 
+  // Lo que DEBE cada cliente: misma fórmula que su estado de cuenta
+  // (computeAccountBalance), no "facturas sin marcar como pagas".
   const clients = Array.from(clientsMap.values()).map((c) => {
-    const invoicePending = c.totalAmount - c.paidAmount;
-    // If client has no invoices yet, use ledger balance as pending amount
-    const ledgerBalance = balanceMap.get(c.id) ?? 0;
-    const pendingAmount = c.invoiceCount > 0 ? invoicePending : Math.max(0, ledgerBalance);
-    return { ...c, pendingAmount };
+    const { balance } = computeAccountBalance(
+      invoicesByClient.get(c.id) ?? [],
+      movementsByClient.get(c.id) ?? [],
+    );
+    return { ...c, pendingAmount: canViewAmounts ? balance : 0 };
   });
+
+  // La tarjeta "Pendiente" es exactamente la suma de lo que muestra la
+  // lista de abajo. Si alguna vez dejan de coincidir, es un bug.
+  const totalPending = clients.reduce((sum, c) => sum + c.pendingAmount, 0);
 
   // [BLOQUE 2.5] Sanitize the lab→dentist invoices array before passing to client.
   const sanitizedInvoices = invoicesWithItems.map((inv: any) =>

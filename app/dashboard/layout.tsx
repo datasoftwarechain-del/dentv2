@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { SupportWidget } from "@/components/support/support-widget";
 import { WhatsAppButton } from "@/components/support/whatsapp-button";
 import { PageTransition } from "@/components/dashboard/page-transition";
+import { LiveRefresh } from "@/components/dashboard/live-refresh";
 import { countPendingDesignOrders } from "@/lib/design/pending";
 
 export default async function DashboardLayout({
@@ -38,6 +39,9 @@ export default async function DashboardLayout({
       </main>
       <SupportWidget />
       <WhatsAppButton />
+      {/* Órdenes, facturas y movimientos: cualquier cambio en otra ventana
+          refresca la pantalla actual sin recargar. */}
+      <LiveRefresh orgId={org.id} orgType={org.type} />
     </div>
   );
 }
