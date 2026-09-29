@@ -62,7 +62,13 @@ describe("[040] productos públicos ↔ landing ↔ catálogo", () => {
   });
 
   it("no hay productos sin card (el mapa no inventa servicios)", () => {
-    const cardKeys = new Set(LOCAL_BLOCKS.flatMap((b) => b.items.map((i) => i.key)));
+    // El banner de "traé tu propio STL" ES una card: misma forma, mismo href
+    // y misma clave de producto. Solo se pinta ancho debajo de la grilla en
+    // vez de como quinta card. Contar solo `items` daba fresado-stl por
+    // huérfano cuando en realidad sí está publicado.
+    const cardKeys = new Set(
+      LOCAL_BLOCKS.flatMap((b) => [...b.items, ...(b.banner ? [b.banner] : [])].map((i) => i.key)),
+    );
     for (const p of LAB_PRODUCTS) expect(cardKeys.has(p.key), p.key).toBe(true);
   });
 

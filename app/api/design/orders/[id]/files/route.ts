@@ -363,3 +363,110 @@ export async function PATCH(
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
+
+// ════════════════════════════════════════════════════════════
+const DeleteSchema = z.object({
+  file_id: z.string().uuid("Archivo inválido"),
+});
+
+/**
+ * DELETE — borra un archivo subido por error.
+ *
+ * Faltaba: hasta acá un archivo mal subido se quedaba para siempre, en el
+ * bucket y en la lista. Reglas, en orden:
+ *
+ *   1. Solo puede borrar el lado que podría haberlo subido (UPLOADER_SIDE)
+ *      y con el mismo permiso que exige subirlo. Quien no puede poner,
+ *      no puede sacar.
+ *   2. Un archivo LIBERADO no se borra. Ya es del cliente: puede haberlo
+ *      descargado y estar fresándolo. Para reemplazarlo se sube otra
+ *      versión, que es lo que deja rastro.
+ *   3. Primero el objeto del bucket, después la fila. Si se hiciera al
+ *      revés, un fallo en el medio dejaría el objeto huérfano y sin
+ *      ninguna fila que lo nombre, o sea imposible de encontrar.
+ */
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const csrfError = validateCSRF(request);
+  if (csrfError) return csrfError;
+
+  try {
+    const { id } = await params;
+    const { access, error: accessError } = await resolveDesignAccess(id);
+    if (accessError) {
+      return NextResponse.json({ error: accessError.message }, { status: accessError.status });
+    }
+
+    const { data: body, error: bodyError } = await validateBody(request, DeleteSchema);
+    if (bodyError) return bodyError;
+
+    const { side, userId } = access;
+    const supabase = await createClient();
+
+    const { data: file } = await supabase
+      .from("design_order_files")
+      .select("id, kind, version, file_name, storage_path, is_released")
+      .eq("id", body.file_id)
+      .eq("design_order_id", id)
+      .maybeSingle();
+
+    if (!file) return NextResponse.json({ error: "Archivo no encontrado." }, { status: 404 });
+
+    const kind = file.kind as DesignFileKind;
+
+    if (!canUpload(kind, side)) {
+      return NextResponse.json({ error: "No autorizado para este archivo." }, { status: 403 });
+    }
+    const denied = requireDesignPermission(access, uploadPermissionFor(kind, side));
+    if (denied) return NextResponse.json({ error: denied.message }, { status: denied.status });
+
+    if (file.is_released) {
+      return NextResponse.json(
+        {
+          error:
+            "Este archivo ya está liberado al cliente. Subí una versión nueva en lugar de borrarlo.",
+        },
+        { status: 409 },
+      );
+    }
+
+    const { error: storageError } = await supabase.storage
+      .from(DESIGN_BUCKET)
+      .remove([file.storage_path]);
+
+    if (storageError) {
+      return NextResponse.json(
+        { error: `No se pudo borrar del almacenamiento: ${storageError.message}` },
+        { status: 502 },
+      );
+    }
+
+    const { error: rowError } = await supabase
+      .from("design_order_files")
+      .delete()
+      .eq("id", file.id);
+
+    if (rowError) {
+      // El objeto ya no está; dejar la fila sería peor que no tenerla.
+      return NextResponse.json(
+        { error: "El archivo se borró del almacenamiento pero quedó la referencia. Avisá al equipo." },
+        { status: 500 },
+      );
+    }
+
+    await supabase.from("design_order_events").insert({
+      design_order_id: id,
+      type: "file_upload",
+      actor_side: side,
+      actor_id: userId,
+      message: `Borró ${file.file_name} (v${file.version})`,
+      is_internal: true,
+    });
+
+    return NextResponse.json({ data: { id: file.id } });
+  } catch {
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+  }
+}
