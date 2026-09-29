@@ -44,6 +44,8 @@ export interface CaseEmailInput {
   files: CaseEmailFile[];
   studioName: string;
   designerName: string;
+  /** [043] Portal de entrega con token. El diseñador acepta y sube ahí. */
+  deliveryUrl: string;
 }
 
 function formatDate(iso: string | null): string {
@@ -98,7 +100,14 @@ export function buildCaseEmail(input: CaseEmailInput): { subject: string; text: 
     );
   }
 
-  textLines.push("", "Respondé este correo con el diseño terminado o cualquier consulta.");
+  textLines.push(
+    "",
+    "Para aceptar el caso y subir el diseño terminado, entrá acá:",
+    input.deliveryUrl,
+    "",
+    "El enlace es solo tuyo y para este caso. No subas el diseño por correo:",
+    "los archivos pesados no entran como adjunto.",
+  );
 
   const li = (s: string) => `<li style="margin:4px 0;">${escapeHtml(s)}</li>`;
 
@@ -140,7 +149,12 @@ export function buildCaseEmail(input: CaseEmailInput): { subject: string; text: 
           ? `<p style="margin:0 0 20px;font-size:13px;color:#b45309;">Hay ${withoutUrl.length} archivo(s) que no se pudieron enlazar. Pedilos al estudio.</p>`
           : ""
       }
-      <p style="margin:0;font-size:14px;color:#475569;">Respondé este correo con el diseño terminado o cualquier consulta.</p>
+      <p style="margin:0 0 20px;">
+        <a href="${escapeHtml(input.deliveryUrl)}" style="display:inline-block;background:#09919b;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:15px;">Aceptar y subir el diseño</a>
+      </p>
+      <p style="margin:0;font-size:13px;color:#64748b;">
+        El enlace es solo tuyo y para este caso. No subas el diseño por correo: los archivos pesados no entran como adjunto.
+      </p>
     </div>
   </div>
 </body></html>`;
