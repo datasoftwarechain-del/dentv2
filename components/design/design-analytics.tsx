@@ -30,7 +30,7 @@ interface DesignAnalyticsProps {
   needsInfo: Measure;
   revisions: Measure;
   byService: ServiceBreakdown[];
-  byDesigner: Array<DesignerBreakdown & { name: string }>;
+  byDesigner: Array<DesignerBreakdown & { name: string; isExternal: boolean }>;
   showAmounts: boolean;
 }
 
@@ -274,8 +274,17 @@ export function DesignAnalytics({
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {byDesigner.map((row) => (
-                    <tr key={row.userId}>
-                      <td className="px-6 py-2.5 text-slate-700">{row.name}</td>
+                    <tr key={row.key}>
+                      <td className="px-6 py-2.5 text-slate-700">
+                        {row.name}
+                        {/* [043] Externo = trabaja por correo, sin cuenta. Se
+                            compara en la misma tabla, pero se distingue. */}
+                        {row.isExternal && (
+                          <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">
+                            externo
+                          </span>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5 text-right text-slate-500">{row.orders}</td>
                       <td className="px-3 py-2.5 text-right text-slate-500">
                         {row.medianTurnaroundHours > 0 ? `${row.medianTurnaroundHours} h` : "—"}

@@ -98,10 +98,39 @@ describe("máquina de estados — quién puede mover qué", () => {
     expect(isAwaitingClient("in_design")).toBe(false);
   });
 
-  it("nadie se queda en el mismo estado ni se mueve por 'system'", () => {
+  it("nadie se queda en el mismo estado", () => {
     expect(canTransition("in_design", "in_design", "studio")).toBe(false);
-    expect(canTransition("draft", "submitted", "system")).toBe(false);
+    expect(canTransition("assigned", "assigned", "system")).toBe(false);
+  });
+
+  // [043] El bot de reparto. Su lista es más corta que la del estudio a
+  // propósito: si alguien se la amplía sin pensarlo, estos tests avisan.
+  it("el bot solo hace los cuatro movimientos del camino feliz", () => {
+    expect(nextStatuses("submitted", "system")).toEqual(["assigned"]);
+    expect(nextStatuses("assigned", "system")).toEqual(["in_design"]);
+    expect(nextStatuses("in_design", "system")).toEqual(["internal_review", "client_review"]);
+    expect(nextStatuses("revision_requested", "system")).toEqual(["in_design"]);
+  });
+
+  it("el bot no puede cancelar, aprobar ni pedir datos", () => {
+    expect(canTransition("submitted", "cancelled", "system")).toBe(false);
+    expect(canTransition("in_design", "cancelled", "system")).toBe(false);
+    expect(canTransition("client_review", "approved", "system")).toBe(false);
+    expect(canTransition("submitted", "needs_info", "system")).toBe(false);
+    expect(canTransition("approved", "delivered", "system")).toBe(false);
+    // Draft es del cliente: el bot no existe hasta que la orden se envía.
     expect(nextStatuses("draft", "system")).toEqual([]);
+  });
+
+  it("el bot nunca puede más que el estudio", () => {
+    const todos = Object.keys(DESIGN_STATUS_LABELS) as DesignOrderStatus[];
+    for (const from of todos) {
+      const delBot = nextStatuses(from, "system");
+      const delEstudio = nextStatuses(from, "studio");
+      for (const to of delBot) {
+        expect(delEstudio, `${from} → ${to}`).toContain(to);
+      }
+    }
   });
 
   it("toda transición declarada apunta a un estado válido", () => {

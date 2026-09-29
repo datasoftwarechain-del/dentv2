@@ -215,6 +215,42 @@ describe("desglose por diseñador", () => {
     expect(rows[0].orders).toBe(1);
   });
 
+  // [043] Los diseñadores externos trabajan por correo y no tienen cuenta,
+  // pero producen el mismo trabajo: van en la misma tabla.
+  it("cuenta al diseñador externo igual que al del estudio", () => {
+    const rows = breakdownByDesigner([
+      order({ assigned_to: "u1" }),
+      order({ assigned_to: null, assigned_application_id: "a1" }),
+      order({ assigned_to: null, assigned_application_id: "a1" }),
+    ]);
+    expect(rows).toHaveLength(2);
+    const externo = rows.find((r) => r.applicationId === "a1");
+    expect(externo?.orders).toBe(2);
+    expect(externo?.userId).toBeNull();
+    expect(externo?.key).toBe("app:a1");
+    const interno = rows.find((r) => r.userId === "u1");
+    expect(interno?.applicationId).toBeNull();
+    expect(interno?.key).toBe("user:u1");
+  });
+
+  it("si la orden trae los dos, gana el externo: es quien la diseñó", () => {
+    const rows = breakdownByDesigner([
+      order({ assigned_to: "u1", assigned_application_id: "a1" }),
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].applicationId).toBe("a1");
+    expect(rows[0].userId).toBeNull();
+  });
+
+  it("un externo y un miembro nunca se mezclan aunque compartan uuid", () => {
+    const rows = breakdownByDesigner([
+      order({ assigned_to: "mismo-uuid" }),
+      order({ assigned_to: null, assigned_application_id: "mismo-uuid" }),
+    ]);
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((r) => r.key)).size).toBe(2);
+  });
+
   it("acumula ingreso, margen y mediana de turnaround por persona", () => {
     const rows = breakdownByDesigner([
       order({
