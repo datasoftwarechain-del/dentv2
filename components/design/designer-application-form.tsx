@@ -23,7 +23,20 @@ import { Loader2, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 
 /** Software declarable. Lista corta y abierta: "Otro" va en el comentario. */
 const SOFTWARE = ["exocad", "3Shape", "Meshmixer", "Blender", "Dental Wings", "inLab", "Zirkonzahn"];
-const SPECIALTIES = ["Coronas y puentes", "Prótesis removible", "All-on-X", "Férulas", "Ortodoncia", "Implantes"];
+
+/**
+ * [045] Las especialidades son las CATEGORÍAS del catálogo de diseño, no
+ * texto libre. El bot elige diseñador comparando la categoría del caso
+ * contra lo que cada uno declaró; si acá se guardaran etiquetas inventadas
+ * ("All-on-X", "Ortodoncia") nunca coincidirían con nada y el criterio de
+ * especialidad quedaría muerto sin que se notara.
+ */
+const SPECIALTIES: Array<{ value: string; label: string }> = [
+  { value: "restaurador", label: "Coronas, puentes y carillas" },
+  { value: "implantes", label: "Implantes y pilares" },
+  { value: "removible", label: "Prótesis removible" },
+  { value: "otros", label: "Férulas, cubetas y modelos" },
+];
 
 function csrf(): string {
   if (typeof document === "undefined") return "";
@@ -188,7 +201,12 @@ export function DesignerApplicationForm() {
           <span className="text-sm text-muted-foreground">Trabajos que hacés</span>
           <div className="flex flex-wrap gap-2">
             {SPECIALTIES.map((s) => (
-              <Chip key={s} label={s} checked={specialties.includes(s)} onToggle={() => toggle(specialties, setSpecialties, s)} />
+              <Chip
+                key={s.value}
+                label={s.label}
+                checked={specialties.includes(s.value)}
+                onToggle={() => toggle(specialties, setSpecialties, s.value)}
+              />
             ))}
           </div>
         </div>

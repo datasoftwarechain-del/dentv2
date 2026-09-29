@@ -1,16 +1,18 @@
 "use client";
 
 /**
- * [042_designers] Enviar el caso por correo a uno o más diseñadores.
+ * [043] Despachar el caso a un diseñador.
  *
  * Paso manual previo al bot: el moderador elige a quién mandarle el caso.
  * La lista son los aprobados de la bandeja de postulaciones, no un campo
  * de texto libre: un email tipeado a mano manda datos clínicos a donde no
  * corresponde y no hay forma de deshacerlo.
  *
- * El resultado se informa por destinatario. Si el proveedor acepta a unos
- * y rechaza a otros, se ve exactamente quién quedó afuera en vez de un
- * "listo" que esconde la mitad.
+ * **Uno solo.** La selección es única porque un caso no puede estar
+ * despachado a dos personas a la vez: mandarlo a tres significa que dos
+ * van a trabajar gratis. La base lo garantiza con un índice único parcial;
+ * acá se refleja en la interfaz para que el límite se entienda antes de
+ * chocarlo.
  */
 
 import { useState, useTransition } from "react";
@@ -47,15 +49,11 @@ export function SendCaseToDesigner({ orderId, orderNumber, designers, emailConfi
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
   const [includeFiles, setIncludeFiles] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ sent: string[]; failed: { name: string; reason: string }[] } | null>(null);
-
-  function toggle(id: string) {
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  }
+  const [result, setResult] = useState<{ sent: string } | null>(null);
 
   async function handleSend() {
     setIsSending(true);
@@ -64,15 +62,15 @@ export function SendCaseToDesigner({ orderId, orderNumber, designers, emailConfi
       const response = await fetch(`/api/design/orders/${orderId}/send-to-designer`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-csrf-token": csrf() },
-        body: JSON.stringify({ designer_ids: selected, include_files: includeFiles }),
+        body: JSON.stringify({ designer_id: selected, include_files: includeFiles }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload?.error ?? "No se pudo enviar el caso");
+      if (!response.ok) throw new Error(payload?.error ?? "No se pudo despachar el caso");
       setResult(payload.data);
-      setSelected([]);
+      setSelected(null);
       startTransition(() => router.refresh());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo enviar el caso");
+      setError(err instanceof Error ? err.message : "No se pudo despachar el caso");
     } finally {
       setIsSending(false);
     }
@@ -83,22 +81,22 @@ export function SendCaseToDesigner({ orderId, orderNumber, designers, emailConfi
       open={open}
       onOpenChange={(v) => {
         setOpen(v);
-        if (!v) { setResult(null); setError(null); setSelected([]); }
+        if (!v) { setResult(null); setError(null); setSelected(null); }
       }}
     >
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2">
           <Send className="h-4 w-4" aria-hidden="true" />
-          Enviar por email a un diseñador
+          Despachar a un diseñador
         </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Enviar {orderNumber}</DialogTitle>
+          <DialogTitle>Despachar {orderNumber}</DialogTitle>
           <DialogDescription>
-            El correo lleva el detalle del caso y, si lo dejás marcado, enlaces de descarga
-            a los escaneos que vencen en 72 horas.
+            Un caso va a un solo diseñador. El correo lleva el detalle, un enlace propio para
+            aceptar y subir el diseño, y si lo dejás marcado, los escaneos.
           </DialogDescription>
         </DialogHeader>
 
@@ -111,22 +109,11 @@ export function SendCaseToDesigner({ orderId, orderNumber, designers, emailConfi
 
         {result ? (
           <div className="space-y-3 py-2">
-            {result.sent.length > 0 && (
-              <p className="flex items-start gap-2 text-sm">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                Enviado a {result.sent.join(", ")}.
-              </p>
-            )}
-            {result.failed.length > 0 && (
-              <div className="space-y-1">
-                {result.failed.map((f) => (
-                  <p key={f.name} className="flex items-start gap-2 text-sm text-destructive">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                    {f.name}: {f.reason}
-                  </p>
-                ))}
-              </div>
-            )}
+            <p className="flex items-start gap-2 text-sm">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              Despachado a {result.sent}. Recibió un enlace propio para aceptar el caso y subir el
+              diseño terminado.
+            </p>
           </div>
         ) : designers.length === 0 ? (
           <p className="py-4 text-sm text-muted-foreground">
@@ -138,10 +125,13 @@ export function SendCaseToDesigner({ orderId, orderNumber, designers, emailConfi
             <ul className="max-h-64 space-y-2 overflow-y-auto">
               {designers.map((d) => (
                 <li key={d.id} className="flex items-start gap-3 rounded-md border border-border p-3">
-                  <Checkbox
+                  <input
+                    type="radio"
+                    name="designer"
                     id={`designer-${d.id}`}
-                    checked={selected.includes(d.id)}
-                    onCheckedChange={() => toggle(d.id)}
+                    className="mt-1 h-4 w-4 accent-[hsl(var(--primary))]"
+                    checked={selected === d.id}
+                    onChange={() => setSelected(d.id)}
                   />
                   <Label htmlFor={`designer-${d.id}`} className="cursor-pointer font-normal leading-tight">
                     <span className="block font-medium">{d.full_name}</span>
@@ -177,11 +167,11 @@ export function SendCaseToDesigner({ orderId, orderNumber, designers, emailConfi
           ) : (
             <Button
               onClick={() => void handleSend()}
-              disabled={selected.length === 0 || isSending || !emailConfigured}
+              disabled={!selected || isSending || !emailConfigured}
               className="gap-2"
             >
               {isSending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Send className="h-4 w-4" aria-hidden="true" />}
-              {isSending ? "Enviando…" : `Enviar a ${selected.length || ""}`.trim()}
+              {isSending ? "Despachando…" : "Despachar el caso"}
             </Button>
           )}
         </DialogFooter>

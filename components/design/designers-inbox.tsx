@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { DESIGN_SERVICE_CATEGORY_LABELS } from "@/lib/design/services";
 import {
   APPLICATION_STATUS_LABEL,
   type DesignApplication,
@@ -151,7 +152,9 @@ export function DesignersInbox({ applications, pendingCount, status, canReview }
                           <Badge key={`sw-${s}`} variant="secondary" className="text-xs">{s}</Badge>
                         ))}
                         {(a.specialties ?? []).map((s) => (
-                          <Badge key={`sp-${s}`} variant="outline" className="text-xs">{s}</Badge>
+                          <Badge key={`sp-${s}`} variant="outline" className="text-xs">
+                            {DESIGN_SERVICE_CATEGORY_LABELS[s as keyof typeof DESIGN_SERVICE_CATEGORY_LABELS] ?? s}
+                          </Badge>
                         ))}
                       </div>
                     )}
