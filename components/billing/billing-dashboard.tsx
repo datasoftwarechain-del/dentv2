@@ -557,7 +557,9 @@ export function BillingDashboard({
               {money(stats.totalPending)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-2 font-medium">
-              {invoices.filter(i => i.status === "pending").length} facturas
+              {/* El monto es el SALDO de las cuentas, no la suma de facturas
+                  sin marcar pagas. Contar facturas acá contradecía la cifra. */}
+              {clients.filter((c) => (c.pendingAmount ?? 0) > 0).length} cuentas con saldo
             </p>
           </CardContent>
         </Card>
