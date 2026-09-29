@@ -41,3 +41,5 @@ graphify-out/
 
 # log del servidor de desarrollo
 dev.log
+build.log
+supabase/.temp/
