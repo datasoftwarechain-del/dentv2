@@ -77,14 +77,26 @@ export const LAB_PRODUCTS: LabProduct[] = [
   // ─── 02 · Fresado CAM ────────────────────────────────────────
   P("zirconio",    "Zirconio",              "fresado", "Zirconio",                          "Zirconio",           "corona_zirconia"),
   P("zirconio-fx", "Zirconio FX",           "fresado", "ZIRCONIO FX",                       "Zirconio multicapa", "corona_zirconia"),
-  P("disilicato",  "Disilicato de litio",   "fresado", "Disilicato de litio o Feldespato",  "Disilicato de litio","corona_emax"),
   P("pmma",        "PMMA / provisorios",    "fresado", "PMMA",                              "PMMA",               "otro"),
+  P("pmma-protesis", "Prótesis PMMA fresada", "fresado", "PROTESIS PMMA FRESADA",           "PMMA",               "otro",
+    { asksTeeth: false, unit: "prótesis" }),
+  P("doe-fresada", "DOE fresada",           "fresado", "DOE Fresada",                       "PMMA",               "otro",
+    { asksTeeth: false, asksShade: false, unit: "dispositivo" }),
   P("fresado-stl", "Fresado de tu STL",     "fresado", "Fresado de STL",                    "A elección",         "otro",
     { file: "required" }),
   // ─── 03 · Impresión 3D ───────────────────────────────────────
   P("modelos",     "Modelos de trabajo y estudio", "impresion", "MODELOS IMPRESOS",         "Resina dental",      "otro",
     { asksTeeth: false, asksShade: false, unit: "modelo" }),
   P("provisorio-flex", "Provisorios impresos", "impresion", "PROVISORIO FLEX (Hasta 4 piezas)", "Resina flex",   "otro"),
+  P("mockups",     "Mockups",               "impresion", "MOCKUP IMPRESO",                  "Resina dental",      "otro",
+    { asksShade: false, unit: "mockup" }),
+  P("doe-impresa", "DOE impresa",           "impresion", "DOE Impresa",                     "Resina dental",      "otro",
+    { asksTeeth: false, asksShade: false, unit: "dispositivo" }),
+  P("ceramica-impresa", "Restauraciones en cerámica impresa", "impresion", "CERAMICA IMPRESA", "Resina cerámica", "otro"),
+  P("ppr-3d-flex", "Prótesis 3D Flex",      "impresion", "PPR 3D FLEX",                     "Resina flex",        "otro",
+    { asksTeeth: false, unit: "prótesis" }),
+  P("completa-3d", "Prótesis completas 3D", "impresion", "PROTESIS COMPLETA 3D",            "Resina dental",      "otro",
+    { asksTeeth: false, unit: "prótesis" }),
 ];
 
 const BY_KEY = new Map(LAB_PRODUCTS.map((p) => [p.key, p]));

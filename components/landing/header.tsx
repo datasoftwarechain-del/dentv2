@@ -12,7 +12,13 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="glass sticky top-0 z-50 w-full border-b border-border/40">
+    // El header flota sobre secciones claras Y oscuras (el coverflow de
+    // Servicios es oscuro). Con `glass` (bg-white/10) tomaba el color de lo
+    // que pasara por debajo y sobre el fondo oscuro se volvía ilegible: los
+    // links usan `text-muted-foreground`, pensado para fondo claro. Un fondo
+    // casi opaco le da superficie propia y lo hace independiente de lo que
+    // scrollee detrás, hoy y cuando se agreguen más secciones oscuras.
+    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/95 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="premium-transition flex items-center gap-2.5 hover:opacity-80 focus-ring rounded-md">
           <Image src="/logo.png" alt="DigitalDent" width={32} height={32} className="rounded-lg" />

@@ -19,7 +19,7 @@ const plans = [
     features: [
       "Pedidos ilimitados",
       "Hasta 5 usuarios",
-      "Tablero Kanban completo",
+      "Historia clínica",
       "Facturación automática",
       "Reportes avanzados",
       "Soporte prioritario",
