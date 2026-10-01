@@ -32,8 +32,12 @@ export function DesignCatalogList({ items, prices }: DesignCatalogListProps) {
 
   return (
     <nav aria-label={DESIGN_LIST.title} className="mt-12 border-t border-[rgba(219,245,246,.14)] pt-8 lg:mt-14 lg:pt-10">
-      <div className="hidden flex-col gap-1 lg:flex lg:flex-row lg:items-baseline lg:justify-between lg:gap-6">
-        <h4 className="m-0 text-[17px] font-medium text-white lg:text-[20px]">{DESIGN_LIST.title}</h4>
+      {/* Sin título en escritorio por pedido del owner: la lista ya viene
+          debajo del encabezado del bloque y el h4 repetía el mismo mensaje.
+          El nombre accesible del <nav> lo sigue dando el aria-label, y en
+          móvil el título se queda porque es la ÚNICA etiqueta del botón que
+          despliega la lista. */}
+      <div className="hidden lg:block">
         <p className="m-0 text-[12.5px] text-[#a9c6cf]">{DESIGN_LIST.hint}</p>
       </div>
       <button

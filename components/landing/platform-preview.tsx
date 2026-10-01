@@ -18,9 +18,9 @@ import { cn } from "@/lib/utils";
 const COLUMN_DOT = ["bg-[#4b8899]", "bg-[#09919b]", "bg-[#044c64]", "bg-emerald-600"];
 
 export function PlatformPreview() {
-  const { columns, cards, invoice, caption } = PLATFORM.preview;
+  const { columns, cards, invoice, ariaLabel } = PLATFORM.preview;
   return (
-    <figure className="relative min-w-0">
+    <figure className="relative min-w-0" aria-label={ariaLabel}>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -91,7 +91,6 @@ export function PlatformPreview() {
         </span>
       </motion.div>
 
-      <figcaption className="mt-4 text-center text-xs text-muted-foreground/80 sm:mt-9 lg:text-left">{caption}</figcaption>
     </figure>
   );
 }

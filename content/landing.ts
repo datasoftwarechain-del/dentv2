@@ -23,11 +23,11 @@ export const NAV = [
 ] as const;
 
 export const HERO = {
-  kicker: "Plataforma de odontología digital · Montevideo",
-  title: ["Del escaneo a la pieza terminada,", "sin vueltas."],
+  kicker: "Research & Innovation in digital Dentistry.",
+  title: ["Del escaneo a la restauración,", "de la restauración a la sonrisa."],
   subtitle:
-    "Subís el escaneo intraoral y recibís el diseño STL en 24–72 h, desde cualquier país. Fresado e impresión en Uruguay y software para gestionar tu clínica o laboratorio, en el mismo lugar.",
-  primary: { label: "Pedir un diseño", href: "/disenos/solicitar" },
+    "Subís tu escaneo, nos encargamos del resto. En 24–72 h recibís tu STL listo para producir, 100 % ONLINE.",
+  primary: { label: "Solicitar un diseño", href: "/disenos/solicitar" },
   secondary: { label: "Conocer la plataforma", href: "#plataforma" },
   tertiary: { label: "¿Estás en Uruguay? Cotizá fresado e impresión", href: "/fresado/solicitar" },
   trust: ["Sin cuenta previa para pedir", "Pagás antes de que diseñemos, sin sorpresas", "Sin datos del paciente: solo un código"],
@@ -42,6 +42,7 @@ export const PILLARS = [
     text: "Coronas, puentes, implantes, férulas, prótesis y All-on-X. Subís el escaneo, recibís el STL.",
     cta: "Ver los 12 servicios",
     href: "#servicios",
+    placeholder: "Render · diseño CAD",
   },
   {
     key: "produccion",
@@ -50,21 +51,23 @@ export const PILLARS = [
     text: "Zirconio, disilicato, PMMA, modelos y provisorios, producidos en nuestro laboratorio con envío gratis en el país.",
     cta: "Cotizar un trabajo",
     href: "/fresado/solicitar",
+    placeholder: "Foto · fresado e impresión",
   },
   {
     key: "plataforma",
     scope: "online",
     title: "Plataforma para clínicas y laboratorios",
-    text: "Órdenes con archivos, Kanban de producción, facturación automática y permisos por colaborador.",
+    text: "Sumate a nuestra plataforma de gestión para tu clínica o laboratorio con nuestro software a medida.",
     cta: "Ver la plataforma",
     href: "#plataforma",
+    placeholder: "Captura · tablero de producción",
   },
 ] as const;
 
 export const HOW_IT_WORKS = {
   eyebrow: "Cómo funciona",
   title: "Tres pasos, sea diseño, fresado o gestión.",
-  subtitle: "Sin instalaciones ni capacitaciones. El mismo flujo para un caso suelto o para toda la clínica.",
+  subtitle: "Un flujo directo entre consultorio y laboratorio, para un caso suelto o para toda la clínica.",
   steps: [
     {
       number: "01",
@@ -74,7 +77,7 @@ export const HOW_IT_WORKS = {
     {
       number: "02",
       title: "Hacemos",
-      text: "Diseñamos en CAD y te mandamos una previsualización. Si es fresado o impresión, producimos en Montevideo.",
+      text: "Diseñamos en CAD y te mandamos una previsualización. Si es fresado o impresión, producimos en Uruguay.",
     },
     {
       number: "03",
@@ -85,10 +88,16 @@ export const HOW_IT_WORKS = {
 } as const;
 
 export const PLATFORM = {
-  eyebrow: "La plataforma",
+  eyebrow: "Nuestra plataforma",
   /** Etiquetas de la vista previa del producto (columnas reales del Kanban). */
   preview: {
-    caption: "Tablero de producción y facturación, tal como se ven en la plataforma.",
+    /**
+     * Sin epígrafe visible por pedido del owner. El texto sobrevive solo
+     * como nombre accesible del <figure>: la ilustración lleva dentro
+     * nombres de piezas y clientes de muestra, y sin una etiqueta que
+     * diga qué es, un lector de pantalla los lee sueltos y sin contexto.
+     */
+    ariaLabel: "Ilustración del tablero de producción y facturación, con datos de muestra.",
     columns: ["Recibido", "En curso", "Listo", "Entregado"],
     cards: [
       // Datos de muestra: piezas y clientes genéricos, no casos reales.
@@ -103,7 +112,7 @@ export const PLATFORM = {
   cta: { label: "Ver planes", href: "#precios" },
   title: "Todo lo que pasa con un caso, en un solo lugar.",
   subtitle:
-    "Es el mismo sistema con el que operamos nuestro laboratorio. Para clínicas, consultorios y laboratorios que quieren dejar de perseguir trabajos por WhatsApp.",
+    "Es el mismo sistema con el que operamos nuestro laboratorio. Para clínicas, consultorios y laboratorios.",
   benefits: [
     {
       icon: "ClipboardCheck",
@@ -136,7 +145,7 @@ export const STATS_LABELS = {
 
 export const PRICING_INTRO = {
   eyebrow: "Precios",
-  title: "Pagás por caso o por plataforma. Nunca por los dos sin querer.",
+  title: "Solicitá un diseño o fresado, y unite a nuestra plataforma.",
   services: "Diseño CAD desde US$ 6 por unidad · Fresado e impresión en Uruguay, a cotizar por solicitud.",
   servicesCta: { label: "Ver servicios y precios", href: "#servicios" },
   badge: "Recomendado",
@@ -148,7 +157,7 @@ export const FAQ = {
   items: [
     {
       q: "¿Qué archivos aceptan?",
-      a: "Para diseño: STL, PLY, OBJ, DCM y el .zip o export nativo de tu escáner (3OXZ, DXD, XORDER). Para fresado de un STL propio: STL, PLY, OBJ, 3MF o un ZIP. Hasta 500 MB por archivo en diseño y 200 MB en fresado.",
+      a: "Para diseño: STL, PLY, OBJ, DCM y el .zip o export nativo de tu escáner (3OXZ, DXD, XORDER). Para fresado de un STL propio: STL, PLY, OBJ, 3MF o un ZIP.",
     },
     {
       q: "¿Cuánto tarda un diseño?",
@@ -160,7 +169,7 @@ export const FAQ = {
     },
     {
       q: "¿Diseñan para fuera de Uruguay?",
-      a: "Sí: el diseño es 100 % online y el archivo llega a cualquier país. Fresado e impresión, en cambio, solo en Uruguay, con envío gratis; si estás en otro país, te diseñamos el caso para que lo produzca tu laboratorio de confianza.",
+      a: "Sí: el diseño es 100 % online y el archivo llega a cualquier país. Fresado e impresión, en cambio, solo en Uruguay, con envío gratis.",
     },
     {
       q: "¿Tengo que crear una cuenta para pedir?",
@@ -171,16 +180,8 @@ export const FAQ = {
       a: "Cada servicio incluye una cantidad de revisiones (entre una y tres, según el servicio). Si necesitás más, se cobra una revisión adicional y se te avisa antes de hacerla.",
     },
     {
-      q: "¿Qué pasa con los datos del paciente?",
-      a: "No pedimos nombre ni documento: solo un código de referencia interno tuyo. Los escaneos se guardan en almacenamiento privado, se sirven por enlaces firmados de corta duración y solo los ve el equipo que trabaja tu caso.",
-    },
-    {
       q: "¿La plataforma tiene contrato o permanencia?",
-      a: "No. El plan Profesional se paga mes a mes en US$ y se puede cambiar o cancelar cuando quieras. Pedir un diseño o cotizar fresado no requiere ningún plan: se paga por caso.",
-    },
-    {
-      q: "¿Cuántas personas pueden usar la plataforma?",
-      a: "El plan Profesional incluye hasta 5 usuarios con permisos por colaborador: recepción sin precios, técnicos sin facturación, lo que definas. Para equipos más grandes está el plan Empresa, con usuarios ilimitados.",
+      a: "No. El plan Profesional se paga mes a mes en US$ y se puede cambiar o cancelar cuando quieras. Solicitar un diseño o cotizar fresado no requiere ningún plan: se paga por caso.",
     },
     {
       q: "¿Puedo pedir varios servicios en la misma orden?",
@@ -190,9 +191,9 @@ export const FAQ = {
 } as const;
 
 export const FINAL_CTA = {
-  title: "¿Tenés un escaneo a mano? Pedí el diseño ahora.",
-  subtitle: "Cinco minutos para cargar el caso. El resto lo hacemos nosotros.",
-  primary: { label: "Pedir un diseño", href: "/disenos/solicitar" },
+  title: "¿Tenés un escaneo? Solicitá el diseño ahora.",
+  subtitle: "Contactanos para tener un flujo de trabajo directo consultorio – laboratorio.",
+  primary: { label: "Solicitar un diseño", href: "/disenos/solicitar" },
   secondary: { label: "Cotizar fresado en Uruguay", href: "/fresado/solicitar" },
   note: "Sin cuenta previa · Previsualización antes de entregar · Soporte por email",
 } as const;

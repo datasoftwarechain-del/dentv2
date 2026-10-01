@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | DigitalDent",
   },
   description: "Diseño CAD online desde US$ 6, fresado e impresión 3D en Uruguay y software para clínicas y laboratorios. Del escaneo a la pieza terminada.",
-  keywords: ["odontología digital", "diseño dental CAD", "diseño STL corona", "laboratorio dental Uruguay", "fresado zirconio Montevideo", "impresión 3D dental", "software dental"],
+  keywords: ["odontología digital", "diseño dental CAD", "diseño STL corona", "laboratorio dental Uruguay", "fresado zirconio Uruguay", "impresión 3D dental", "software dental"],
   authors: [{ name: "DigitalDent" }],
   openGraph: {
     type: "website",
