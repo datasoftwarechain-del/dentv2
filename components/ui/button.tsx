@@ -5,7 +5,12 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  // `active:scale-[0.97]` es feedback de PRESIÓN, no de hover: se dispara en
+  // pointer-down y es lo único que acusa recibo en un táctil, donde el hover
+  // no existe. Antes la landing solo cancelaba el levantamiento del hover
+  // (`active:translate-y-0`), que en un teléfono no se ve. 100 ms porque por
+  // encima de eso la respuesta deja de leerse como instantánea.
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-[colors,transform] duration-100 active:scale-[0.97] motion-reduce:active:scale-100 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {

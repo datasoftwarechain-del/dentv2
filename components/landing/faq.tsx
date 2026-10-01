@@ -15,7 +15,7 @@ export function Faq() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">{FAQ.eyebrow}</p>
-          <h2 className="text-[#044c64] text-balance text-3xl font-bold tracking-tight sm:text-4xl">{FAQ.title}</h2>
+          <h2 className="text-[#044c64] text-balance text-3xl font-bold tracking-[-.018em] sm:text-4xl sm:tracking-[-.022em]">{FAQ.title}</h2>
         </div>
         <Accordion type="single" collapsible className="mx-auto mt-12 max-w-3xl">
           {FAQ.items.map((item, i) => (

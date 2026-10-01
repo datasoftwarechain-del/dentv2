@@ -9,7 +9,7 @@ export function Cta() {
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-primary/5 to-accent/10" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-[#044c64] text-balance text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+          <h2 className="text-[#044c64] text-balance text-3xl font-bold leading-tight tracking-[-.018em] sm:text-4xl sm:tracking-[-.022em]">
             {FINAL_CTA.title}
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">{FINAL_CTA.subtitle}</p>

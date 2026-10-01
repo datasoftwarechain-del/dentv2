@@ -17,7 +17,7 @@ export function HowItWorks() {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:gap-12">
           <div className="max-w-md">
             <p className="section-label mb-3">{HOW_IT_WORKS.eyebrow}</p>
-            <h2 className="text-[#044c64] text-balance text-2xl font-bold tracking-tight sm:text-3xl">
+            <h2 className="text-[#044c64] text-balance text-2xl font-bold tracking-[-.015em] sm:text-3xl sm:tracking-[-.018em]">
               {HOW_IT_WORKS.title}
             </h2>
             <p className="mt-3 text-pretty text-base leading-relaxed text-muted-foreground">

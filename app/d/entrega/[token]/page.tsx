@@ -28,7 +28,7 @@ function Marco({ children }: { children: React.ReactNode }) {
     <main className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto max-w-4xl px-6 py-4">
-          <span className="text-lg font-bold tracking-tight">
+          <span className="text-lg font-bold tracking-[-.005em]">
             <span className="text-[#044c64]">Digital</span>
             <span className="text-[#09919b]">Dent</span>
           </span>

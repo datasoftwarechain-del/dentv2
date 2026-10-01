@@ -21,6 +21,7 @@ import {
 import { ScopeChip } from "./scope-chip";
 import { ServiceCard } from "./service-card";
 import { Archivo } from "next/font/google";
+import { useEffect, useRef, useState } from "react";
 import { Coverflow } from "./coverflow";
 import { DesignArc } from "./design-arc";
 import { DesignCatalogList } from "./design-catalog-list";
@@ -65,8 +66,25 @@ const reveal = {
 const archivo = Archivo({ subsets: ["latin"], weight: ["300", "400", "500", "600", "700"], display: "swap" });
 
 export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
-  // Rails móviles de 02/03: card 331 + gap 12. El mismo hook sirve para los dos.
-  const dragScroll = useDragScroll(331 + 12);
+  // Rails móviles de 02/03. El mismo hook sirve para los dos.
+  // El paso del arrastre con mouse tiene que coincidir con el ancho REAL de
+  // la card, que ahora es responsivo. Con 331 fijo, al soltar en una pantalla
+  // angosta el carril aterrizaba entre dos cards.
+  const railRef = useRef<HTMLUListElement | null>(null);
+  const [step, setStep] = useState(331 + 12);
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const medir = () => {
+      const primera = rail.firstElementChild as HTMLElement | null;
+      if (primera) setStep(primera.offsetWidth + 12);
+    };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(rail);
+    return () => ro.disconnect();
+  }, []);
+  const dragScroll = useDragScroll(step);
   const catalog = designCards();
   // La primera card que se ve tiene que tener imagen real, no un placeholder.
   // Se rota el catálogo (no se reordena la lista por categoría) para que
@@ -197,13 +215,17 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
               ))}
             </ul>
             <ul
+              ref={railRef}
               className={cn("flex gap-3 overflow-x-auto px-5 pb-5 pt-1 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", dragScroll.className)}
               style={{ scrollSnapType: "x mandatory", scrollPaddingLeft: 20 }}
               aria-label={blk.title}
               {...dragScroll.handlers}
             >
+              {/* Mismo criterio que el carril de Diseño: 331 px es el TOPE, no
+                  el ancho. Fijo no entraba en un teléfono de 360 y la card se
+                  veía cortada contra el borde. */}
               {blk.items.map((item) => (
-                <li key={item.key} className="flex-none" style={{ width: 331, scrollSnapAlign: "start" }}>
+                <li key={item.key} className="flex-none" style={{ width: "min(331px, calc(100vw - 68px))", scrollSnapAlign: "start" }}>
                   <ServiceCard item={item} size="compact" showScope={false} className="h-[380px]" />
                 </li>
               ))}

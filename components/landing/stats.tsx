@@ -48,7 +48,7 @@ function AnimatedStat({ value, label }: { value: string; label: string }) {
 
   return (
     <div ref={ref} className="flex flex-col items-center gap-1 px-4 sm:flex-row sm:gap-3">
-      <p className="text-2xl font-bold tabular-nums tracking-tight text-primary sm:text-3xl" aria-label={value}>
+      <p className="text-2xl font-bold tabular-nums tracking-[-.015em] text-primary sm:text-3xl sm:tracking-[-.018em]" aria-label={value}>
         {num > 0 ? `${prefix}${display}${suffix}` : value}
       </p>
       <p className="text-center text-sm leading-snug text-muted-foreground sm:text-left">{label}</p>

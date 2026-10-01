@@ -17,11 +17,23 @@
  * posición de scroll. Es lo que hace el mockup en 390px, y es lo que
  * funciona con un pulgar.
  *
- * MOVIMIENTO: autoplay cada 4,5 s mientras la sección se ve y nadie la
- * toca (se frena con hover, foco, gesto, pestaña oculta y
- * prefers-reduced-motion); arrastre/swipe horizontal sobre el escenario
- * y gesto de trackpad; la activa respira. Nada de esto es necesario para
- * usarlo: flechas, puntos y teclado siguen siendo la vía principal.
+ * MOVIMIENTO: la pila vive en una POSICIÓN CONTINUA (`pos`, un
+ * MotionValue en unidades de card, no un índice entero). De ahí salen
+ * todos los transforms, y eso es lo que permite tres cosas que antes no
+ * pasaban:
+ *   1. El arrastre es 1:1 — la pila sigue al dedo durante todo el gesto.
+ *      Antes no se movía nada hasta soltar.
+ *   2. Al soltar se PROYECTA el punto de reposo con la curva de deceleración
+ *      (`v/1000 · d/(1−d)`, d=0.998) y se elige la card más cercana a esa
+ *      proyección, así un envión fuerte viaja más que un arrastre corto.
+ *      Antes cualquier gesto avanzaba exactamente una card.
+ *   3. El movimiento es un spring que ARRANCA con la velocidad del dedo,
+ *      no una transición CSS de 360 ms: no hay costura entre arrastrar y
+ *      animar, y se puede agarrar en pleno vuelo y revertir.
+ * Autoplay cada 4,5 s mientras la sección se ve y nadie la toca (se frena
+ * con hover, foco, gesto, pestaña oculta y prefers-reduced-motion). Nada de
+ * esto es necesario para usarlo: flechas, puntos y teclado siguen siendo la
+ * vía principal.
  *
  * ACCESIBILIDAD: región etiquetada, contador en aria-live para que el
  * lector anuncie "3 de 12" al navegar, y las cards laterales sin foco
@@ -29,7 +41,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion, useInView, useReducedMotion, type PanInfo } from "framer-motion";
+import { motion, animate, useInView, useMotionValue, useReducedMotion, useTransform, type MotionValue, type PanInfo } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ServiceCard } from "./service-card";
 import { useDragScroll } from "./use-drag-scroll";
@@ -44,8 +56,16 @@ interface CoverflowProps {
   initialIndex?: number;
 }
 
+/**
+ * Tope del ancho de la card en el carril móvil. El ancho REAL es
+ * `min(MOBILE_CARD, 100vw - MOBILE_GUTTER)`: con 331 px fijos la card no
+ * entraba en un teléfono de 360 px (331 + 40 de padding = 371) y se veía
+ * cortada contra el borde. El resto del hueco deja asomar la card
+ * siguiente, que es lo que avisa de que hay más para el costado.
+ */
 const MOBILE_CARD = 331;
-const EASE = "cubic-bezier(.4,0,.2,1)";
+/** Canaleta izquierda + hueco + asomo de la card siguiente. */
+const MOBILE_GUTTER = 68;
 const CARD_W = 340;
 const CARD_STEP = 320;
 const CARD_DEPTH = 180;
@@ -53,17 +73,106 @@ const CARD_TILT = -24;
 const AUTOPLAY_MS = 4500;
 /** Tras una interacción, el autoplay espera esto antes de retomar. */
 const IDLE_AFTER_INTERACTION_MS = 9000;
-const PAN_THRESHOLD_PX = 40;
-const PAN_VELOCITY = 350;
 const WHEEL_COOLDOWN_MS = 550;
+/** Deceleración del scroll de iOS. 0.998 = inercia normal. */
+const DECELERATION = 0.998;
+/** Tope de cards que puede viajar un solo envión. Sin esto un flick fuerte cruza el catálogo. */
+const MAX_FLICK_CARDS = 4;
+/** Spring por defecto: crítico, sin rebote. No hubo gesto, no hay overshoot. */
+const SPRING_UI = { type: "spring", bounce: 0, duration: 0.45 } as const;
+/** Spring de gesto: algo de rebote, porque SÍ hubo momento físico. */
+const SPRING_FLICK = { type: "spring", bounce: 0.18, duration: 0.5 } as const;
+
+/** Punto de reposo proyectado a partir de la velocidad de salida (px o unidades/s). */
+function project(velocity: number, deceleration = DECELERATION): number {
+  return (velocity / 1000) * deceleration / (1 - deceleration);
+}
+
+/** Distancia circular con signo entre una card y la posición continua. */
+function circularOffset(i: number, pos: number, n: number): number {
+  let d = (((i - pos) % n) + n) % n;
+  if (d > n / 2) d -= n;
+  return d;
+}
 const MOBILE_GAP = 12;
+
+/**
+ * Una card del escenario 3D. Deriva TODO su transform de la posición
+ * continua de la pila con `useTransform`, así que durante un arrastre se
+ * mueve en el hilo del compositor sin re-renderizar React. Antes el
+ * transform se recalculaba en cada render y la transición la hacía CSS.
+ */
+function CoverCard({
+  i, n, pos, item, price, isActive, reduceMotion, onSelect,
+}: {
+  i: number;
+  n: number;
+  pos: MotionValue<number>;
+  item: ServiceCardContent;
+  price: string | null;
+  isActive: boolean;
+  reduceMotion: boolean;
+  onSelect: () => void;
+}) {
+  const off = useTransform(pos, (p) => circularOffset(i, p, n));
+  const transform = useTransform(off, (o) => {
+    const abs = Math.abs(o);
+    return `perspective(1600px) translateX(${o * CARD_STEP}px) translateZ(${-abs * CARD_DEPTH}px) rotateY(${o * CARD_TILT}deg)`;
+  });
+  // 2.6 y no 2: con posición continua hay fotogramas a mitad de camino y un
+  // corte en 2 hacía parpadear la card que entra.
+  const opacity = useTransform(off, (o) => (Math.abs(o) > 2.6 ? 0 : Math.max(0, 1 - Math.abs(o) * 0.22)));
+  const zIndex = useTransform(off, (o) => Math.round(10 - Math.abs(o)));
+  const pointerEvents = useTransform(off, (o) => (Math.abs(o) > 2.6 ? "none" : "auto"));
+
+  return (
+    <motion.div
+      onClick={onSelect}
+      aria-hidden={!isActive}
+      style={{
+        position: "absolute",
+        left: "50%",
+        top: 20,
+        width: CARD_W,
+        marginLeft: -CARD_W / 2,
+        transform,
+        transformOrigin: "50% 50%",
+        zIndex,
+        opacity,
+        pointerEvents,
+        cursor: isActive ? "default" : "pointer",
+        willChange: "transform, opacity",
+      }}
+    >
+      {/* La activa respira. 3,2 s y ±3 px: a 5 s el ciclo caía en la banda de
+          ~0,2 Hz que molesta a quien es sensible al movimiento, y el gateo por
+          reduceMotion no alcanza para quien no declara la preferencia. */}
+      <motion.div
+        animate={isActive && !reduceMotion ? { y: [0, -3, 0] } : { y: 0 }}
+        transition={isActive && !reduceMotion
+          ? { duration: 3.2, repeat: Infinity, ease: "easeInOut" }
+          : { type: "spring", bounce: 0, duration: 0.3 }}
+      >
+        <ServiceCard item={item} size="hero" theme="dark" active={isActive} inert={!isActive} showScope={false} price={price} className="h-[500px]" />
+      </motion.div>
+    </motion.div>
+  );
+}
 
 export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: CoverflowProps) {
   const n = items.length;
   const [active, setActive] = useState(Math.min(Math.max(initialIndex, 0), Math.max(n - 1, 0)));
   const [mobileIndex, setMobileIndex] = useState(0);
   const railRef = useRef<HTMLDivElement>(null);
-  const dragScroll = useDragScroll(MOBILE_CARD + MOBILE_GAP);
+  const [mobileStep, setMobileStep] = useState(MOBILE_CARD + MOBILE_GAP);
+  const dragScroll = useDragScroll(mobileStep);
+
+  // Posición CONTINUA de la pila, en unidades de card. Es la única fuente de
+  // verdad del movimiento; `active` se deriva de ella para los puntos, el
+  // contador y la accesibilidad, y solo re-renderiza cuando cambia de card.
+  const pos = useMotionValue(Math.min(Math.max(initialIndex, 0), Math.max(n - 1, 0)));
+  const posAlEmpezar = useRef(0);
+  const arrastrando = useRef(false);
 
   const go = useCallback((i: number) => setActive(((i % n) + n) % n), [n]);
 
@@ -79,23 +188,68 @@ export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: Cover
   useEffect(() => {
     if (reduceMotion || !inView || paused) return;
     const id = window.setInterval(() => {
-      if (document.hidden || Date.now() < idleUntil.current) return;
-      setActive((a) => (a + 1) % n);
+      if (document.hidden || Date.now() < idleUntil.current || arrastrando.current) return;
+      // Sin rebote: el autoplay no es un gesto, nadie le dio impulso.
+      animate(pos, pos.get() + 1, SPRING_UI);
     }, AUTOPLAY_MS);
     return () => window.clearInterval(id);
-  }, [reduceMotion, inView, paused, n]);
+  }, [reduceMotion, inView, paused, pos]);
+
+  // `active` se deriva de la posición continua, y SOLO cuando cambia de card:
+  // suscribirse sin este guard re-renderizaría en cada frame del spring.
+  useEffect(() => {
+    let ultimo = -1;
+    const unsub = pos.on("change", (v) => {
+      const i = ((Math.round(v) % n) + n) % n;
+      if (i !== ultimo) { ultimo = i; setActive(i); }
+    });
+    return () => unsub();
+  }, [pos, n]);
+
+  /** Lleva la pila a la card `i` por el camino más corto del círculo. */
+  const irA = useCallback((i: number, opts: { flick?: boolean; velocity?: number } = {}) => {
+    const destino = pos.get() + circularOffset(i, pos.get(), n);
+    if (reduceMotion) { pos.set(destino); return; }
+    animate(pos, destino, {
+      ...(opts.flick ? SPRING_FLICK : SPRING_UI),
+      ...(opts.velocity !== undefined ? { velocity: opts.velocity } : {}),
+    });
+  }, [pos, n, reduceMotion]);
 
   /** Navegación hecha por la persona: cuenta como interacción y posterga el autoplay. */
   const goUser = useCallback((i: number) => {
     idleUntil.current = Date.now() + IDLE_AFTER_INTERACTION_MS;
-    go(i);
-  }, [go]);
+    irA(i);
+  }, [irA]);
 
-  const onPanStart = () => { panned.current = true; };
+  // ─── Gesto: 1:1 mientras se arrastra, proyección al soltar ───
+  const onPanStart = () => {
+    panned.current = true;
+    arrastrando.current = true;
+    idleUntil.current = Date.now() + IDLE_AFTER_INTERACTION_MS;
+    // Arranca desde el valor que hay EN PANTALLA, no desde el índice lógico:
+    // si la pila venía animando, agarrarla no produce un salto.
+    posAlEmpezar.current = pos.get();
+  };
+
+  const onPan = (_e: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
+    // Arrastrar a la derecha trae la card anterior: la posición baja.
+    pos.set(posAlEmpezar.current - info.offset.x / CARD_STEP);
+  };
+
   const onPanEnd = (_e: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
-    const dx = info.offset.x, vx = info.velocity.x;
-    if (dx < -PAN_THRESHOLD_PX || vx < -PAN_VELOCITY) goUser(active + 1);
-    else if (dx > PAN_THRESHOLD_PX || vx > PAN_VELOCITY) goUser(active - 1);
+    arrastrando.current = false;
+    // Velocidad del dedo convertida a unidades de card por segundo.
+    const vCards = -info.velocity.x / CARD_STEP;
+    const proyectado = pos.get() + project(vCards);
+    const limite = MAX_FLICK_CARDS;
+    const destino = Math.round(
+      Math.max(posAlEmpezar.current - limite, Math.min(posAlEmpezar.current + limite, proyectado)),
+    );
+    if (reduceMotion) pos.set(destino);
+    // La velocidad de salida se entrega al spring: sin costura entre el dedo
+    // y la animación.
+    else animate(pos, destino, { ...SPRING_FLICK, velocity: vCards });
     // El click que cierra el gesto no debe elegir una card.
     window.setTimeout(() => { panned.current = false; }, 0);
   };
@@ -114,17 +268,33 @@ export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: Cover
     if (e.key === "ArrowRight") { e.preventDefault(); goUser(active + 1); }
   };
 
+  // El paso del carril se MIDE del DOM: el ancho de la card es responsivo,
+  // así que una constante desincronizaba los puntos indicadores en cuanto
+  // la pantalla era más angosta que 331 + 68.
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const medir = () => {
+      const primera = rail.firstElementChild as HTMLElement | null;
+      if (primera) setMobileStep(primera.offsetWidth + MOBILE_GAP);
+    };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(rail);
+    return () => ro.disconnect();
+  }, []);
+
   // Los puntos de mobile siguen el scroll real, no un estado propio.
   useEffect(() => {
     const rail = railRef.current;
     if (!rail) return;
     const onScroll = () => {
-      const i = Math.min(n - 1, Math.round(rail.scrollLeft / (MOBILE_CARD + MOBILE_GAP)));
+      const i = Math.min(n - 1, Math.round(rail.scrollLeft / mobileStep));
       setMobileIndex(i);
     };
     rail.addEventListener("scroll", onScroll, { passive: true });
     return () => rail.removeEventListener("scroll", onScroll);
-  }, [n]);
+  }, [n, mobileStep]);
 
   const pad = (v: number) => String(v).padStart(2, "0");
 
@@ -139,6 +309,7 @@ export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: Cover
         tabIndex={0}
         onKeyDown={onKey}
         onPanStart={onPanStart}
+        onPan={onPan}
         onPanEnd={onPanEnd}
         onWheel={onWheel}
         onMouseEnter={() => setPaused(true)}
@@ -149,46 +320,21 @@ export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: Cover
         style={{ touchAction: "pan-y" }}
       >
         <div className="absolute inset-0">
-          {items.map((item, i) => {
-            // Distancia circular al activo, en [-3, 2] para n cards.
-            const off = ((i - active + n + 3) % n) - 3;
-            const abs = Math.abs(off);
-            const isActive = off === 0;
-            const hidden = abs > 2;
-            // Key estable (id del servicio): React conserva el nodo y la
-            // transición CSS se ve; con el índice las volvería a crear.
-            return (
-              <div
-                key={item.key}
-                onClick={() => { if (panned.current) return; if (!isActive) goUser(i); }}
-                aria-hidden={!isActive}
-                className="motion-reduce:transition-none"
-                style={{
-                  position: "absolute",
-                  left: "50%",
-                  top: 20,
-                  width: CARD_W,
-                  marginLeft: -CARD_W / 2,
-                  transform: `perspective(1600px) translateX(${off * CARD_STEP}px) translateZ(${-abs * CARD_DEPTH}px) rotateY(${off * CARD_TILT}deg)`,
-                  transformOrigin: "50% 50%",
-                  zIndex: 10 - abs,
-                  opacity: hidden ? 0 : 1 - abs * 0.22,
-                  pointerEvents: hidden ? "none" : "auto",
-                  cursor: off ? "pointer" : "default",
-                  transition: `transform 360ms ${EASE}, opacity 360ms ${EASE}`,
-                  willChange: "transform, opacity",
-                }}
-              >
-                {/* La activa respira: un vaivén lento de 5px que la mantiene viva sin distraer. */}
-                <motion.div
-                  animate={isActive && !reduceMotion ? { y: [0, -5, 0] } : { y: 0 }}
-                  transition={isActive && !reduceMotion ? { duration: 5, repeat: Infinity, ease: "easeInOut" } : { duration: 0.3 }}
-                >
-                  <ServiceCard item={item} size="hero" theme="dark" active={isActive} inert={!isActive} showScope={false} price={prices[item.key] ?? null} className="h-[500px]" />
-                </motion.div>
-              </div>
-            );
-          })}
+          {items.map((item, i) => (
+            // Key estable (id del servicio): React conserva el nodo entre
+            // renders y el MotionValue no se reinicia.
+            <CoverCard
+              key={item.key}
+              i={i}
+              n={n}
+              pos={pos}
+              item={item}
+              price={prices[item.key] ?? null}
+              isActive={i === active}
+              reduceMotion={Boolean(reduceMotion)}
+              onSelect={() => { if (panned.current) return; if (i !== active) goUser(i); }}
+            />
+          ))}
         </div>
 
         <ArrowButton side="left" onClick={() => goUser(active - 1)} />
@@ -196,7 +342,12 @@ export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: Cover
       </motion.div>
 
       <div className="hidden lg:flex items-center justify-center gap-5 mt-2">
-        <div className="flex items-center gap-2.5" role="tablist" aria-label="Ir a un servicio">
+        {/* El punto que se VE mide 8 px; el que se puede CLICKEAR mide 44 px
+            de alto por el ancho del punto más medio hueco de cada lado. Antes
+            el objetivo era de 8x8 y había que apuntarle. No llega a 44x44
+            porque once objetivos de 44 de ancho harían una fila de 528 px:
+            se gana todo el alto y el ancho que el espaciado permite. */}
+        <div className="flex items-center" role="tablist" aria-label="Ir a un servicio">
           {items.map((item, i) => (
             <button
               key={item.key}
@@ -204,9 +355,14 @@ export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: Cover
               aria-selected={i === active}
               aria-label={item.title}
               onClick={() => goUser(i)}
-              className="h-2 rounded-full transition-all duration-200 motion-reduce:transition-none"
-              style={{ width: i === active ? 22 : 8, background: i === active ? "#90ecdc" : "rgba(126,166,186,.45)" }}
-            />
+              className="focus-ring group flex h-11 items-center justify-center rounded-md px-[5px]"
+            >
+              <span
+                aria-hidden="true"
+                className="h-2 rounded-full transition-all duration-200 motion-reduce:transition-none"
+                style={{ width: i === active ? 22 : 8, background: i === active ? "#90ecdc" : "rgba(126,166,186,.45)" }}
+              />
+            </button>
           ))}
         </div>
         <span className="text-[13px] font-medium tabular-nums text-[#7ea6ba]" aria-live="polite">
@@ -224,7 +380,7 @@ export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: Cover
         {...dragScroll.handlers}
       >
         {items.map((item) => (
-          <div key={item.key} className="flex-none" style={{ width: MOBILE_CARD, scrollSnapAlign: "start" }}>
+          <div key={item.key} className="flex-none" style={{ width: `min(${MOBILE_CARD}px, calc(100vw - ${MOBILE_GUTTER}px))`, scrollSnapAlign: "start" }}>
             <ServiceCard item={item} size="hero" theme="dark" showScope={false} price={prices[item.key] ?? null} className="h-[480px]" />
           </div>
         ))}

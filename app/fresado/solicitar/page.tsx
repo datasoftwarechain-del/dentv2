@@ -21,7 +21,7 @@ export default function SolicitarFresadoPage() {
     <main className="min-h-screen bg-white">
       <header className="border-b border-slate-100">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/" className="text-lg font-bold tracking-tight">
+          <Link href="/" className="text-lg font-bold tracking-[-.005em]">
             <span className="text-[#044c64]">Digital</span>
             <span className="text-[#09919b]">Dent</span>
           </Link>
@@ -36,7 +36,7 @@ export default function SolicitarFresadoPage() {
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#09919b]">
             Fresado CAM · Impresión 3D · Solo Uruguay
           </p>
-          <h1 className="text-3xl font-bold tracking-tight text-[#044c64] sm:text-4xl">
+          <h1 className="text-3xl font-bold tracking-[-.018em] text-[#044c64] sm:text-4xl sm:tracking-[-.022em]">
             Cotizar un trabajo
           </h1>
           <p className="mt-3 text-slate-600">

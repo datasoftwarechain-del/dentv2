@@ -14,7 +14,7 @@ export default function DisenadoresPage() {
     <main className="min-h-screen bg-white">
       <header className="border-b border-slate-100">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/" className="text-lg font-bold tracking-tight">
+          <Link href="/" className="text-lg font-bold tracking-[-.005em]">
             <span className="text-[#044c64]">Digital</span>
             <span className="text-[#09919b]">Dent</span>
           </Link>
@@ -26,7 +26,7 @@ export default function DisenadoresPage() {
 
       <div className="mx-auto max-w-3xl px-6 py-10">
         <div className="mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-[#044c64] sm:text-4xl">
+          <h1 className="text-3xl font-bold tracking-[-.018em] text-[#044c64] sm:text-4xl sm:tracking-[-.022em]">
             Sumate al equipo de diseño
           </h1>
           <p className="mt-3 text-slate-600">

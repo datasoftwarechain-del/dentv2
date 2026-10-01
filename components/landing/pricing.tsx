@@ -52,7 +52,7 @@ export function Pricing() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="section-label mb-3">{PRICING_INTRO.eyebrow}</p>
-          <h2 className="text-[#044c64] text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="text-[#044c64] text-balance text-3xl font-bold tracking-[-.018em] sm:text-4xl sm:tracking-[-.022em]">
             {PRICING_INTRO.title}
           </h2>
         </div>
@@ -87,7 +87,7 @@ export function Pricing() {
                   <CardTitle className="text-xl font-bold">{plan.name}</CardTitle>
                   <CardDescription className="text-sm leading-snug">{plan.description}</CardDescription>
                   <div className="mt-4 flex items-baseline gap-1">
-                    <span className="text-4xl font-bold tracking-tight">{plan.price}</span>
+                    <span className="text-4xl font-bold tracking-[-.022em]">{plan.price}</span>
                     {plan.period && (
                       <span className="text-base text-muted-foreground">{plan.period}</span>
                     )}
