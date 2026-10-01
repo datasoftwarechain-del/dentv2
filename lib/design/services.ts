@@ -256,7 +256,7 @@ export function includedRevisionsForOrder(serviceCodes: string[]): number {
 export const DEFAULT_INCLUDED_REVISIONS = 2;
 
 export const DESIGN_SERVICE_CATEGORY_LABELS: Record<DesignService["category"], string> = {
-  restaurador: "Restaurador",
+  restaurador: "Restauraciones",
   implantes: "Implantes",
   removible: "Removible",
   otros: "Otros",

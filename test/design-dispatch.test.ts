@@ -8,6 +8,7 @@ import {
   vencimientoParaAceptar,
   vencimientoTrasAceptar,
 } from "@/lib/design/dispatch/policy";
+import { DESIGN_SERVICE_CATEGORY_LABELS } from "@/lib/design/services";
 import { quiereRevisionAutomatica } from "@/lib/design/dispatch/publish";
 import {
   elegirDisenador,
@@ -282,7 +283,10 @@ describe("[045] selector de diseñador", () => {
 
   it("la razón queda guardada y nombra la especialidad", () => {
     const r = elegirDisenador([D({ id: "a", specialties: ["restaurador"] })], "restaurador");
-    expect(r.razon).toContain("Restaurador");
+    // Contra el mapa de etiquetas, no contra el texto: el rótulo visible
+    // cambió una vez ("Restaurador" → "Restauraciones") y rompió este test
+    // sin que el selector tuviera nada malo.
+    expect(r.razon).toContain(DESIGN_SERVICE_CATEGORY_LABELS.restaurador);
     expect(r.razon.length).toBeGreaterThan(10);
   });
 

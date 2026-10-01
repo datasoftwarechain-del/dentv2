@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     default: "DigitalDent — Plataforma de odontología digital",
     template: "%s | DigitalDent",
   },
-  description: "Diseño CAD online desde US$ 6, fresado e impresión 3D en Uruguay y software para clínicas y laboratorios. Del escaneo a la pieza terminada.",
+  description: "Diseño CAD online desde US$ 6, fresado e impresión 3D en Uruguay y software para clínicas y laboratorios. Del escaneo al trabajo final.",
   keywords: ["odontología digital", "diseño dental CAD", "diseño STL corona", "laboratorio dental Uruguay", "fresado zirconio Uruguay", "impresión 3D dental", "software dental"],
   authors: [{ name: "DigitalDent" }],
   openGraph: {

@@ -57,14 +57,6 @@ export function Pricing() {
           </h2>
         </div>
 
-        {/* Servicios: precio por caso. Los planes de abajo son la plataforma. */}
-        <p className="mx-auto mt-6 flex max-w-3xl flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-4 text-center text-sm text-muted-foreground sm:flex-row sm:gap-4">
-          <span>{PRICING_INTRO.services}</span>
-          <Link href={PRICING_INTRO.servicesCta.href} className="focus-ring whitespace-nowrap rounded-sm font-medium text-primary underline-offset-4 hover:underline">
-            {PRICING_INTRO.servicesCta.label} →
-          </Link>
-        </p>
-
         <p className="mt-8 text-center text-sm text-muted-foreground/70">
           Planes de la plataforma · Sin contratos · Cambiá o cancelá cuando quieras
         </p>

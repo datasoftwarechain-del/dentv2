@@ -24,13 +24,12 @@ export const NAV = [
 
 export const HERO = {
   kicker: "Research & Innovation in digital Dentistry.",
-  title: ["Del escaneo a la restauración,", "de la restauración a la sonrisa."],
+  title: ["Del escaneo", "al trabajo final."],
   subtitle:
     "Subís tu escaneo, nos encargamos del resto. En 24–72 h recibís tu STL listo para producir, 100 % ONLINE.",
   primary: { label: "Solicitar un diseño", href: "/disenos/solicitar" },
   secondary: { label: "Conocer la plataforma", href: "#plataforma" },
   tertiary: { label: "¿Estás en Uruguay? Cotizá fresado e impresión", href: "/fresado/solicitar" },
-  trust: ["Sin cuenta previa para pedir", "Pagás antes de que diseñemos, sin sorpresas", "Sin datos del paciente: solo un código"],
 } as const;
 
 /** Los tres caminos, en el orden en que generan ingresos hoy. */
@@ -129,11 +128,6 @@ export const PLATFORM = {
       title: "Cobrás lo que trabajaste",
       text: "Cada orden cerrada genera su factura con el detalle de ítems. Cuenta corriente por cliente y pendientes de cobro a la vista.",
     },
-    {
-      icon: "Users",
-      title: "Tu equipo, con permisos",
-      text: "Colaboradores que ven solo lo que les toca: recepción sin precios, técnicos sin facturación. Vos decidís.",
-    },
   ],
 } as const;
 
@@ -146,8 +140,6 @@ export const STATS_LABELS = {
 export const PRICING_INTRO = {
   eyebrow: "Precios",
   title: "Solicitá un diseño o fresado, y unite a nuestra plataforma.",
-  services: "Diseño CAD desde US$ 6 por unidad · Fresado e impresión en Uruguay, a cotizar por solicitud.",
-  servicesCta: { label: "Ver servicios y precios", href: "#servicios" },
   badge: "Recomendado",
 } as const;
 

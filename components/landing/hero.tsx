@@ -8,7 +8,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { HERO } from "@/content/landing";
 
@@ -62,14 +62,6 @@ export function Hero() {
             </Link>
           </motion.p>
 
-          <motion.ul {...fadeUp(0.48)} className="mx-auto mt-8 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground/80">
-            {HERO.trust.map((t) => (
-              <li key={t} className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-                {t}
-              </li>
-            ))}
-          </motion.ul>
         </div>
       </div>
     </section>
