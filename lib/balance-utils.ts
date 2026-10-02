@@ -20,10 +20,15 @@ export interface AccountBalance {
 }
 
 export function computeAccountBalance(
-  invoices: ReadonlyArray<{ total: unknown }>,
+  invoices: ReadonlyArray<{ total: unknown; invoice_voided_at?: unknown }>,
   movements: ReadonlyArray<{ type: string; amount: unknown }>,
 ): AccountBalance {
-  const totalInvoiced = invoices.reduce((s, inv) => s + Number(inv.total ?? 0), 0);
+  // Las anuladas no suman. Las tres pantallas que llaman a esto ya filtran
+  // `invoice_voided_at IS NULL` en su query, pero era un invariante sostenido
+  // por convención en tres lugares: alcanzaba con que una cuarta se olvidara
+  // para que el cliente viera una deuda que no existe. Se filtra también acá.
+  const vigentes = invoices.filter((inv) => inv.invoice_voided_at == null);
+  const totalInvoiced = vigentes.reduce((s, inv) => s + Number(inv.total ?? 0), 0);
   let totalPaid = 0, totalCharges = 0, otherCredits = 0;
   for (const m of movements) {
     const amount = Number(m.amount ?? 0);
