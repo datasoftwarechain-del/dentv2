@@ -185,7 +185,7 @@ const SelectContent = React.forwardRef<
         "[@media(prefers-reduced-transparency:reduce)]:bg-popover [@media(prefers-reduced-transparency:reduce)]:backdrop-filter-none",
         // Crece DESDE el disparador (está justo arriba), no desde su centro:
         // la relación entre el campo y su panel queda explícita.
-        "origin-top animate-in fade-in-0 zoom-in-[0.96] duration-150 motion-reduce:animate-none",
+        "origin-top animate-in fade-in-0 zoom-in-[0.98] slide-in-from-top-1 duration-150 motion-reduce:animate-none",
         className
       )}
       style={{

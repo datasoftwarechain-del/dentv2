@@ -47,7 +47,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.SubContent
     ref={ref}
     className={cn(
-      "z-50 min-w-[8rem] overflow-hidden rounded-xl border border-border/70 p-1 bg-popover/85 backdrop-blur-xl backdrop-saturate-150 text-popover-foreground shadow-[0_16px_48px_-12px_rgba(18,45,60,.28),0_2px_8px_rgba(18,45,60,.10)] [@media(prefers-reduced-transparency:reduce)]:bg-popover [@media(prefers-reduced-transparency:reduce)]:backdrop-filter-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.96] data-[state=open]:zoom-in-[0.96] duration-150 motion-reduce:animate-none",
+      "z-50 min-w-[8rem] overflow-hidden rounded-xl border border-border/70 p-1 bg-popover/85 backdrop-blur-xl backdrop-saturate-150 text-popover-foreground shadow-[0_16px_48px_-12px_rgba(18,45,60,.28),0_2px_8px_rgba(18,45,60,.10)] [@media(prefers-reduced-transparency:reduce)]:bg-popover [@media(prefers-reduced-transparency:reduce)]:backdrop-filter-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-[0.98] data-[state=open]:zoom-in-[0.98] data-[side=bottom]:slide-in-from-top-1 data-[side=top]:slide-in-from-bottom-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 duration-150 motion-reduce:animate-none",
       className,
     )}
     {...props}
