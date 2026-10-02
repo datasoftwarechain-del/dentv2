@@ -216,8 +216,14 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
             </ul>
             <ul
               ref={railRef}
-              className={cn("flex gap-3 overflow-x-auto px-5 pb-5 pt-1 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", dragScroll.className)}
-              style={{ scrollSnapType: "x mandatory", scrollPaddingLeft: 20 }}
+              className={cn("flex gap-3 overflow-x-auto pb-5 pt-1 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", dragScroll.className)}
+              style={{
+                scrollSnapType: "x mandatory",
+                // Mismo criterio que el carril de Diseño: el padding lateral
+                // es el hueco justo para que la primera y la última card
+                // también puedan centrarse.
+                paddingInline: "max(12px, calc((100% - min(331px, 100vw - 104px)) / 2))",
+              }}
               aria-label={blk.title}
               {...dragScroll.handlers}
             >
@@ -225,11 +231,18 @@ export function ServiciosSection({ designPrices }: ServiciosSectionProps) {
                   el ancho. Fijo no entraba en un teléfono de 360 y la card se
                   veía cortada contra el borde. */}
               {blk.items.map((item) => (
-                <li key={item.key} className="flex-none" style={{ width: "min(331px, calc(100vw - 68px))", scrollSnapAlign: "start" }}>
+                <li
+                  key={item.key}
+                  className="flex-none"
+                  style={{
+                    width: "min(331px, calc(100vw - 104px))",
+                    scrollSnapAlign: "center",
+                    scrollSnapStop: "always",
+                  }}
+                >
                   <ServiceCard item={item} size="compact" showScope={false} className="h-[380px]" />
                 </li>
               ))}
-              <li className="w-2 flex-none" aria-hidden="true" />
             </ul>
 
             {blk.banner && <BringYourFileBanner item={blk.banner} />}

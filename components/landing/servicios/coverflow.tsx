@@ -58,14 +58,21 @@ interface CoverflowProps {
 
 /**
  * Tope del ancho de la card en el carril móvil. El ancho REAL es
- * `min(MOBILE_CARD, 100vw - MOBILE_GUTTER)`: con 331 px fijos la card no
- * entraba en un teléfono de 360 px (331 + 40 de padding = 371) y se veía
- * cortada contra el borde. El resto del hueco deja asomar la card
- * siguiente, que es lo que avisa de que hay más para el costado.
+ * `min(MOBILE_CARD, 100vw - MOBILE_GUTTER)`.
+ *
+ * MOBILE_GUTTER era 68 y estaba MAL CALCULADO: el carril vive dentro de un
+ * contenedor con px-5, así que el ancho disponible no es 100vw sino
+ * 100vw − 40. Con 68 quedaban solo 8 px de asomo, que no se leen como "hay
+ * más al costado" sino como una card cortada contra el borde.
+ *
+ * Con 104 el asomo es de ~32 px a CADA lado, porque las cards ahora se
+ * alinean CENTRADAS: en reposo la card siempre queda entera y centrada,
+ * con un pedacito simétrico de sus vecinas — que es como se ve en
+ * escritorio. Con `start` cualquier posición intermedia dejaba la card
+ * partida contra el borde izquierdo.
  */
 const MOBILE_CARD = 331;
-/** Canaleta izquierda + hueco + asomo de la card siguiente. */
-const MOBILE_GUTTER = 68;
+const MOBILE_GUTTER = 104;
 const CARD_W = 340;
 const CARD_STEP = 320;
 const CARD_DEPTH = 180;
@@ -375,16 +382,33 @@ export function Coverflow({ items, prices = {}, label, initialIndex = 0 }: Cover
         ref={railRef}
         role="region"
         aria-label={label}
-        className={cn("lg:hidden flex gap-3 overflow-x-auto px-5 pb-5 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", dragScroll.className)}
-        style={{ scrollSnapType: "x mandatory", scrollPaddingLeft: 20 }}
+        className={cn("lg:hidden flex gap-3 overflow-x-auto pb-5 pt-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", dragScroll.className)}
+        style={{
+          scrollSnapType: "x mandatory",
+          // El padding lateral es exactamente el hueco que hace falta para
+          // que la PRIMERA y la ÚLTIMA card también puedan centrarse. Sin
+          // esto, el navegador topa el scroll en 0 y la primera queda
+          // pegada al borde. El % resuelve contra el ancho del contenedor,
+          // así que vale sin importar el padding del padre.
+          paddingInline: `max(12px, calc((100% - min(${MOBILE_CARD}px, 100vw - ${MOBILE_GUTTER}px)) / 2))`,
+        }}
         {...dragScroll.handlers}
       >
         {items.map((item) => (
-          <div key={item.key} className="flex-none" style={{ width: `min(${MOBILE_CARD}px, calc(100vw - ${MOBILE_GUTTER}px))`, scrollSnapAlign: "start" }}>
+          <div
+            key={item.key}
+            className="flex-none"
+            style={{
+              width: `min(${MOBILE_CARD}px, calc(100vw - ${MOBILE_GUTTER}px))`,
+              // Centrada, no `start`: en reposo la card queda entera.
+              scrollSnapAlign: "center",
+              // Un envión rápido no se saltea cards.
+              scrollSnapStop: "always",
+            }}
+          >
             <ServiceCard item={item} size="hero" theme="dark" showScope={false} price={prices[item.key] ?? null} className="h-[480px]" />
           </div>
         ))}
-        <div className="flex-none w-2" aria-hidden="true" />
       </div>
       <div className="lg:hidden flex justify-center gap-2 pb-2" aria-hidden="true">
         {items.map((item, i) => (
