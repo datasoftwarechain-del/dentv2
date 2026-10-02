@@ -236,11 +236,13 @@ export async function POST(
           fileWarning = "La orden se creó pero el archivo no se pudo copiar al caso. Descargalo desde la solicitud.";
           logger.error("[lab-requests] copy:", upError.message);
         } else {
-          const { data: { publicUrl } } = admin.storage.from("case-files").getPublicUrl(casePath);
+          // El bucket es PRIVADO desde la 046: se guarda la ruta y la URL se
+          // firma al leer. getPublicUrl() acá devolvía un enlace que abría
+          // cualquiera sin sesión, sobre dato clínico.
           const { error: cfError } = await admin.from("case_files").insert({
             order_id: order.id,
             file_name: request.file_name,
-            file_url: publicUrl,
+            storage_path: casePath,
             file_size: request.file_size,
             file_type: "application/octet-stream",
             uploaded_by: userId,

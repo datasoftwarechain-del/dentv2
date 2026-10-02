@@ -9,7 +9,7 @@ import { toast } from "sonner";
 interface CaseFile {
   id: string;
   file_name: string;
-  file_url: string;
+  storage_path: string;
   file_size: number;
   file_type: string;
   created_at: string;
@@ -125,7 +125,10 @@ export function CaseFilesSection({ orderId, orderNumber }: CaseFilesSectionProps
               </div>
             </div>
             <a
-              href={file.file_url}
+              // El bucket es privado: la ruta se firma en el servidor, que
+              // además comprueba por RLS que el archivo sea de una orden del
+              // usuario. Antes esto era una URL pública permanente.
+              href={`/api/cases/files/${file.id}`}
               download={file.file_name}
               target="_blank"
               rel="noopener noreferrer"

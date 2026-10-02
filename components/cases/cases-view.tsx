@@ -289,12 +289,6 @@ export function CasesView({ organizationId, isDentist }: CasesViewProps) {
                 continue; // Continuar con el siguiente archivo
               }
 
-              // Obtener URL pública del archivo
-              const { data: { publicUrl } } = supabase.storage
-                .from('case-files')
-                .getPublicUrl(fileName);
-
-              console.log("Archivo subido, URL:", publicUrl);
 
               // Guardar referencia en la base de datos
               const { data: fileRecord, error: fileRecordError } = await supabase
@@ -302,7 +296,8 @@ export function CasesView({ organizationId, isDentist }: CasesViewProps) {
                 .insert({
                   order_id: orderData.id,
                   file_name: uploadedFile.file.name,
-                  file_url: publicUrl,
+                  // Ruta dentro del bucket privado; la URL se firma al leer.
+                  storage_path: fileName,
                   file_size: uploadedFile.file.size,
                   file_type: uploadedFile.file.type || 'application/octet-stream',
                   uploaded_by: (await supabase.auth.getUser()).data.user?.id
