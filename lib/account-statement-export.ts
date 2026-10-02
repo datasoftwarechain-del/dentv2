@@ -11,6 +11,14 @@ export interface StatementTransaction {
   debit: number;
   credit: number;
   balance: number;
+  /**
+   * Detalle de lo que incluye la factura: todos los ítems con su cantidad y
+   * sus adicionales, en una línea (lib/invoice-summary.ts). La pantalla ya lo
+   * mostraba debajo de cada factura; el PDF que se le manda al cliente no, y
+   * era justamente donde más hacía falta — el cliente no tiene la pantalla
+   * delante para saber qué está pagando.
+   */
+  items_summary?: string | null;
 }
 
 function sanitize(text: string | null | undefined): string {
@@ -55,7 +63,12 @@ function buildHTML(params: {
       (t, i) => `
       <tr style="border-bottom:1px solid #f1f5f9;background:${i % 2 === 0 ? "#ffffff" : "#fafafa"}">
         <td style="padding:9px 14px;color:#475569;white-space:nowrap;font-size:11px">${fmtDate(t.date)}</td>
-        <td style="padding:9px 14px;color:#1e293b;font-weight:500;font-size:11px;max-width:260px">${sanitize(t.description)}</td>
+        <td style="padding:9px 14px;max-width:300px">
+          <div style="color:#1e293b;font-weight:500;font-size:11px;line-height:1.35">${sanitize(t.description)}</div>
+          ${t.items_summary
+            ? `<div style="color:#64748b;font-size:10px;line-height:1.35;margin-top:3px">${sanitize(t.items_summary)}</div>`
+            : ""}
+        </td>
         <td style="padding:9px 14px;color:#475569;font-size:11px">${sanitize(t.patient_name || "—")}</td>
         <td style="padding:9px 14px;text-align:right;font-weight:600;color:${t.debit > 0 ? "#1e293b" : "#cbd5e1"};font-size:11px">
           ${t.debit > 0 ? `+$${fmtNum(t.debit)}` : "—"}
