@@ -1,5 +1,6 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { FIELD_SURFACE, FIELD_HEIGHT } from "./field-surface"
 import { ChevronDown, Check } from "lucide-react"
 import { createPortal } from "react-dom"
 
@@ -116,7 +117,12 @@ const SelectTrigger = React.forwardRef<
       ref={mergedRef}
       type="button"
       className={cn(
-        "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        FIELD_SURFACE,
+        FIELD_HEIGHT,
+        "items-center justify-between text-left",
+        // El panel abierto es la continuación del disparador: mismo
+        // tratamiento que tiene enfocado, para que se lean como una pieza.
+        "data-[state=open]:bg-background data-[state=open]:border-accent data-[state=open]:shadow-[0_0_0_3px_hsl(var(--accent)/.18)]",
         className
       )}
       onClick={(event) => {
@@ -139,16 +145,29 @@ const SelectContent = React.forwardRef<
   const context = React.useContext(SelectContext)
   const [position, setPosition] = React.useState({ top: 0, left: 0, width: 0 })
 
+  // El panel vive anclado a su disparador. Antes la posición se calculaba
+  // UNA vez al abrir: bastaba scrollear con el select abierto para que el
+  // panel se quedara flotando lejos del campo que lo abrió. Se recalcula
+  // mientras esté abierto, escuchando scroll (en captura, para que valga
+  // también dentro de contenedores con scroll propio) y resize.
+  const open = context?.open
+  const triggerRef = context?.triggerRef
   React.useEffect(() => {
-    if (context?.open && context.triggerRef.current) {
-      const rect = context.triggerRef.current.getBoundingClientRect()
-      setPosition({
-        top: rect.bottom + 8,
-        left: rect.left,
-        width: rect.width,
-      })
+    if (!open || !triggerRef?.current) return
+    const ubicar = () => {
+      const el = triggerRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      setPosition({ top: rect.bottom + 8, left: rect.left, width: rect.width })
     }
-  }, [context?.open, context?.triggerRef])
+    ubicar()
+    window.addEventListener("scroll", ubicar, true)
+    window.addEventListener("resize", ubicar)
+    return () => {
+      window.removeEventListener("scroll", ubicar, true)
+      window.removeEventListener("resize", ubicar)
+    }
+  }, [open, triggerRef])
 
   if (!context || !context.open) return null
   if (typeof window === 'undefined') return null
@@ -158,7 +177,15 @@ const SelectContent = React.forwardRef<
       ref={ref}
       data-select-content=""
       className={cn(
-        "fixed z-[9999] min-w-[8rem] overflow-auto rounded-md border border-border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 max-h-[300px]",
+        // Capa flotante, no un rectángulo opaco: material translúcido con blur,
+        // y una sombra proporcional al tamaño de la superficie.
+        "fixed z-[9999] max-h-[300px] min-w-[8rem] overflow-auto rounded-xl border border-border/70 p-1",
+        "bg-popover/85 backdrop-blur-xl backdrop-saturate-150 text-popover-foreground",
+        "shadow-[0_16px_48px_-12px_rgba(18,45,60,.28),0_2px_8px_rgba(18,45,60,.10)]",
+        "[@media(prefers-reduced-transparency:reduce)]:bg-popover [@media(prefers-reduced-transparency:reduce)]:backdrop-filter-none",
+        // Crece DESDE el disparador (está justo arriba), no desde su centro:
+        // la relación entre el campo y su panel queda explícita.
+        "origin-top animate-in fade-in-0 zoom-in-[0.96] duration-150 motion-reduce:animate-none",
         className
       )}
       style={{
@@ -199,7 +226,18 @@ const SelectItem = React.forwardRef<HTMLButtonElement, SelectItemProps>(
         ref={ref}
         type="button"
         className={cn(
-          "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 hover:bg-accent hover:text-accent-foreground",
+          // 36 px de alto y esquinas que acompañan al panel: antes eran 30 px con
+          // rounded-sm (2 px) dentro de un contenedor redondeado, y el resaltado
+          // salía como una barra cian a sangre.
+          "relative flex w-full cursor-pointer select-none items-center rounded-lg py-2 pl-2.5 pr-8 text-left text-sm outline-none",
+          "transition-colors duration-100 motion-reduce:transition-none",
+          // El resaltado señala dónde estás, no grita. Antes era bg-accent a
+          // opacidad plena, que tapaba el texto con su propio color.
+          "hover:bg-accent/15 focus:bg-accent/20",
+          "active:bg-accent/30",
+          // Lo ELEGIDO es lo que merece énfasis, no lo que está bajo el mouse.
+          isSelected && "font-medium text-accent-foreground bg-accent/10",
+          "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
           className
         )}
         onClick={(event) => {
@@ -210,7 +248,7 @@ const SelectItem = React.forwardRef<HTMLButtonElement, SelectItemProps>(
         {...props}
       >
         <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
-          {isSelected && <Check className="h-4 w-4" />}
+          {isSelected && <Check className="h-4 w-4 text-accent" />}
         </span>
         <span className="truncate">{children}</span>
       </button>
@@ -249,7 +287,14 @@ const SelectGroup = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={className} {...props} />
+  <div
+    ref={ref}
+    // El separador va acá y no en la etiqueta: SelectLabel siempre es el
+    // primer hijo de su grupo, así que :not(:first-child) nunca aplicaría.
+    // Los grupos sí son hermanos entre sí.
+    className={cn("[&:not(:first-child)]:mt-1 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-border/60 [&:not(:first-child)]:pt-1", className)}
+    {...props}
+  />
 ))
 SelectGroup.displayName = "SelectGroup"
 
@@ -257,7 +302,18 @@ const SelectLabel = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("px-2 py-1.5 text-sm font-semibold", className)} {...props} />
+  <div
+    ref={ref}
+    className={cn(
+      // Antes era text-sm font-semibold: el MISMO tamaño que los ítems, solo
+      // que en negrita, así que "Restauraciones" parecía algo que se podía
+      // elegir. Un encabezado de grupo tiene que leerse subordinado: más
+      // chico, en versales y con tracking, como una etiqueta.
+      "px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-[.07em] text-muted-foreground",
+      className,
+    )}
+    {...props}
+  />
 ))
 SelectLabel.displayName = "SelectLabel"
 

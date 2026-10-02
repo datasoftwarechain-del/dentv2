@@ -82,13 +82,22 @@ const DialogContent = React.forwardRef<
   return createPortal(
     <div className="fixed inset-0 z-50">
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+        className=// Atenuar para enfocar: el velo empuja el fondo hacia atrás en vez de
+      // taparlo, así no se pierde el contexto de dónde está uno.
+      "fixed inset-0 bg-black/55 backdrop-blur-md transition-opacity duration-200 motion-reduce:transition-none [@media(prefers-reduced-transparency:reduce)]:backdrop-filter-none [@media(prefers-reduced-transparency:reduce)]:bg-black/75"
         onClick={() => onOpenChange(false)}
       />
       <div
         ref={ref}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200 sm:rounded-lg",
+          // Un modal es una tarea que BLOQUEA: superficie opaca (nada de
+        // translúcido acá, el velo ya separa del fondo) y sombra profunda,
+        // porque una superficie grande tiene que leerse más gruesa que un chip.
+        "fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 grid w-full max-w-lg gap-4 border border-border/70 bg-background p-6 sm:rounded-2xl",
+        "shadow-[0_32px_80px_-20px_rgba(18,45,60,.40),0_4px_16px_rgba(18,45,60,.14)]",
+        // Materializa: escala y opacidad juntas, desde el centro porque un
+        // modal no sale de ningún disparador — ocupa el centro de la atención.
+        "duration-200 motion-reduce:animate-none",
           "max-h-[90vh] overflow-y-auto",
           className
         )}
