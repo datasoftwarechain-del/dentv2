@@ -26,6 +26,9 @@ export const metadata: Metadata = {
   description: "Diseño CAD online desde US$ 6, fresado e impresión 3D en Uruguay y software para clínicas y laboratorios. Del escaneo al trabajo final.",
   keywords: ["odontología digital", "diseño dental CAD", "diseño STL corona", "laboratorio dental Uruguay", "fresado zirconio Uruguay", "impresión 3D dental", "software dental"],
   authors: [{ name: "DigitalDent" }],
+  // Sin `images` a mano: las genera app/opengraph-image.tsx, que Next
+  // resuelve solo para cada dominio. El PNG que se declaraba acá no existía
+  // y daba 404 en todos lados.
   openGraph: {
     type: "website",
     locale: "es_AR",
@@ -33,13 +36,11 @@ export const metadata: Metadata = {
     title: "DigitalDent — Plataforma de odontología digital",
     description: "Diseño CAD online, fresado e impresión 3D en Uruguay y software para clínicas y laboratorios.",
     siteName: "DigitalDent",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "DigitalDent — Plataforma de odontología digital" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "DigitalDent — Plataforma de odontología digital",
     description: "Diseño CAD online, fresado e impresión en Uruguay y software dental.",
-    images: ["/og-image.png"],
   },
   robots: { index: true, follow: true },
   alternates: { canonical: "https://digitaldent.app" },
