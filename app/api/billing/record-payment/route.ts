@@ -6,6 +6,7 @@ import { logger } from "@/lib/logger";
 import { z } from "zod";
 import { validateBody } from "@/lib/api-validation";
 import { validateCSRF } from "@/lib/csrf";
+import { recalculateBalances } from "@/lib/balance-utils";
 import { localDateInputToISO } from "@/lib/date-utils";
 
 const RecordPaymentSchema = z.object({
@@ -80,6 +81,22 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Rehacer el running balance de TODO el libro de ese cliente.
+    //
+    // De las ocho rutas de facturación, siete llamaban a esto y ésta no: era
+    // la única que se fiaba del `balance` del último movimiento para sembrar
+    // el del nuevo. Ese campo se queda viejo en cuanto se emite una factura,
+    // porque las facturas las crea el trigger auto_generate_invoice al
+    // despachar una orden y ese trigger no toca el libro mayor. Resultado
+    // medido en prod: 95 de 203 movimientos con el balance guardado
+    // desfasado, hasta $34.320. El error además se propagaba, porque cada
+    // cobro nuevo heredaba el desvío del anterior.
+    //
+    // El estado de cuenta unificado recalcula el saldo en el componente, así
+    // que la pantalla no mentía — pero el dato guardado sí, y lo leen la
+    // vista de preview y este mismo cálculo.
+    await recalculateBalances(supabase, organizationId, clientId, isDentist);
 
     // Revalidar la página del estado de cuenta
     revalidatePath(`/dashboard/billing/accounts/${clientId}`);
