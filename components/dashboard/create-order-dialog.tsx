@@ -726,27 +726,24 @@ export function CreateOrderDialog({
             const supabase = createClient();
             let finalTargetOrgId = formData.targetOrgId;
 
-            // Crear clínica manual (lab mode)
+            // Crear clínica manual (lab mode).
+            // Vía RPC y no con .insert().select(): Postgres aplica las policies de
+            // SELECT al RETURNING, y la ficha de cliente recién creada todavía no
+            // es visible (no tiene miembros ni relación con el lab) → 42501.
+            // La RPC crea la org y la relación en la misma transacción. Ver
+            // scripts/046_crear_clinica_rpc.paste.sql.
             if (mode === "lab" && useManualClinic && manualClinicName && !finalTargetOrgId) {
-                const { data: newOrg, error: orgError } = await supabase
-                    .from("organizations")
-                    .insert({
-                        name: manualClinicName.trim(),
-                        type: "dentist",
-                        is_system_account: false,
-                    })
-                    .select("id")
-                    .single();
+                const { data: newOrgId, error: orgError } = await supabase.rpc(
+                    "create_lab_client_org",
+                    {
+                        p_lab_org_id: organizationId,
+                        p_name: manualClinicName.trim(),
+                    },
+                );
 
                 if (orgError) throw new Error(`Error al crear clínica: ${orgError.message}`);
-                if (!newOrg) throw new Error("No se pudo crear la clínica");
-                finalTargetOrgId = newOrg.id;
-
-                await supabase.from("lab_dentist_relations").insert({
-                    lab_org_id: organizationId,
-                    dentist_org_id: finalTargetOrgId,
-                    status: "active",
-                });
+                if (!newOrgId) throw new Error("No se pudo crear la clínica");
+                finalTargetOrgId = newOrgId as string;
             }
 
             const dentistOrgId = mode === "dentist" ? organizationId : finalTargetOrgId;

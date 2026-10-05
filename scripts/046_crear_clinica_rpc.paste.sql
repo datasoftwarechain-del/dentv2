@@ -1,0 +1,48 @@
+-- [046] Arreglar el alta de clinica manual desde el diálogo de nueva orden.
+--
+-- SINTOMA (2026-10-05, reportado por el owner):
+--   "Error al crear clínica: new row violates row-level security policy for
+--    table organizations" al crear una orden con clínica nueva en modo lab.
+--
+-- CAUSA MEDIDA CONTRA PRODUCCION, no deducida del codigo:
+--   create-order-dialog.tsx hacia .insert({...}).select("id").single() sobre
+--   organizations. Postgres aplica las policies de SELECT al RETURNING de un
+--   INSERT. La policy organizations_insert (auth.uid() IS NOT NULL) SI pasa;
+--   la que corta es organizations_select, que exige is_org_member(id) o una
+--   relacion en lab_dentist_relations / design_studio_clients / lab_orders.
+--   La fila recien creada no tiene ninguna de las dos: el trigger
+--   on_org_created solo agrega org_members cuando is_system_account = true, y
+--   la ficha de cliente se crea con false; la relacion lab-dentista se
+--   insertaba DESPUES. Resultado: el INSERT entra y el RETURNING lo rechaza.
+--
+--   Probado con sesion simulada (set role authenticated + request.jwt.claims
+--   del owner de Digital Dent), todo dentro de una transaccion abortada:
+--     INSERT ... RETURNING id  -> 42501 new row violates RLS policy
+--     INSERT ... sin RETURNING -> OK
+--   Esa es la unica diferencia. Por eso /onboarding, que inserta sin .select(),
+--   nunca fallo.
+--
+-- CUANDO SE ROMPIO: con la migracion rls_real_en_seis_tablas (2026-10-02), que
+--   cambio organizations de USING(true) a policies reales. Antes el RETURNING
+--   pasaba porque el SELECT lo permitia todo. La ultima clinica creada por esta
+--   via es GABRIELA OLMOS, del 2026-09-23. No hay que aflojar esa policy.
+--
+-- ARREGLO: una RPC SECURITY DEFINER que hace las dos escrituras en la misma
+--   transaccion y devuelve el id sin pasar por el RETURNING del cliente.
+--   Ademas cierra tres agujeros que tenia el insert directo:
+--     1) atomicidad: antes, si fallaba la relacion quedaba una org huerfana
+--        invisible para todos (sin miembros y sin relacion).
+--     2) el codigo ignoraba el error de la relacion (await sin chequear error).
+--     3) permiso: organizations_insert deja crear organizaciones a CUALQUIER
+--        usuario autenticado. La RPC exige ser miembro del lab que pide el alta
+--        (mismo criterio que la policy ldr_insert).
+--   Y es idempotente: si el lab ya tiene una ficha de cliente con ese nombre
+--   devuelve la existente en vez de duplicarla (el owner reintento varias
+--   veces al ver el error).
+--
+-- Una sentencia por linea a proposito: el editor SQL de Supabase rompe el
+-- paste multilinea. CREATE OR REPLACE y los GRANT son idempotentes.
+
+CREATE OR REPLACE FUNCTION public.create_lab_client_org(p_lab_org_id uuid, p_name text) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public', 'pg_temp' AS $fn$ DECLARE v_name text; v_id uuid; BEGIN IF auth.uid() IS NULL THEN RAISE EXCEPTION 'No autenticado' USING ERRCODE = '42501'; END IF; v_name := btrim(coalesce(p_name, '')); IF v_name = '' OR length(v_name) > 120 THEN RAISE EXCEPTION 'El nombre de la clinica debe tener entre 1 y 120 caracteres' USING ERRCODE = '22023'; END IF; IF NOT public.is_org_member(p_lab_org_id) THEN RAISE EXCEPTION 'Sin permiso para crear clientes en esa organizacion' USING ERRCODE = '42501'; END IF; SELECT o.id INTO v_id FROM public.organizations o JOIN public.lab_dentist_relations r ON r.dentist_org_id = o.id WHERE r.lab_org_id = p_lab_org_id AND lower(o.name) = lower(v_name) LIMIT 1; IF v_id IS NOT NULL THEN RETURN v_id; END IF; INSERT INTO public.organizations (name, type, is_system_account) VALUES (v_name, 'dentist', false) RETURNING id INTO v_id; INSERT INTO public.lab_dentist_relations (lab_org_id, dentist_org_id, status) VALUES (p_lab_org_id, v_id, 'active') ON CONFLICT (lab_org_id, dentist_org_id) DO NOTHING; RETURN v_id; END; $fn$;
+REVOKE EXECUTE ON FUNCTION public.create_lab_client_org(uuid, text) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.create_lab_client_org(uuid, text) TO authenticated;
