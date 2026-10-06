@@ -1,21 +1,22 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site-url";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: "https://digitaldent.app",
+      url: SITE_URL,
       lastModified: new Date(),
       changeFrequency: "monthly",
       priority: 1,
     },
     {
-      url: "https://digitaldent.app/auth/login",
+      url: `${SITE_URL}/auth/login`,
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.5,
     },
     {
-      url: "https://digitaldent.app/auth/sign-up",
+      url: `${SITE_URL}/auth/sign-up`,
       lastModified: new Date(),
       changeFrequency: "yearly",
       priority: 0.8,

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { SITE_URL } from "@/lib/site-url";
 import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -18,7 +19,7 @@ const jsonLd = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://digitaldent.app"),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "DigitalDent — Plataforma de odontología digital",
     template: "%s | DigitalDent",
@@ -32,7 +33,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "es_AR",
-    url: "https://digitaldent.app",
+    url: SITE_URL,
     title: "DigitalDent — Plataforma de odontología digital",
     description: "Diseño CAD online, fresado e impresión 3D en Uruguay y software para clínicas y laboratorios.",
     siteName: "DigitalDent",
@@ -43,7 +44,7 @@ export const metadata: Metadata = {
     description: "Diseño CAD online, fresado e impresión en Uruguay y software dental.",
   },
   robots: { index: true, follow: true },
-  alternates: { canonical: "https://digitaldent.app" },
+  alternates: { canonical: SITE_URL },
 };
 
 export const viewport = {
